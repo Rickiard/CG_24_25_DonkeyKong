@@ -38,19 +38,6 @@ var relogio = new THREE.Clock();
 var importer = new FBXLoader(); // Alterado em comparação com o tutorial original
 
 importer.load('./Objetos/Samba Dancing.fbx', function (object) {
-    // O mixerAnimacao é inicializado tendo em conta o objeto importado
-    mixerAnimacao = new THREE.AnimationMixer(object);
-
-    // object.animations é um array com todas as animações que o objeto trás quando é importado.
-    // O que nós fazemos, é criar uma ação de animação tendo em conta a animação que é pretendida
-    // De seguida é iniciada a reprodução da animação.
-    var action = mixerAnimacao.clipAction(object.animations[0]);
-    action.play();
-
-    // object.traverse é uma função que percorre todos os filhos desse mesmo objeto.
-    // O primeiro e único parâmetro da função é uma nova função que deve ser chamada para cada
-    // filho. Neste caso, o que nós fazemos é ver se o filho tem uma mesh e, no caso de ter,
-    // é indicado a esse objeto que deve permitir projetar e receber sombras, respetivamente.
     object.traverse(function (child) {
         if (child.isMesh) {
             child.castShadow = true;
@@ -61,83 +48,23 @@ importer.load('./Objetos/Samba Dancing.fbx', function (object) {
     // Adiciona o objeto importado à cena
     cena.add(object);
 
-    // Quando o objeto é importado, este tem uma escala de 1 nos três eixos (XYZ). Uma vez que
-    // este é demasiado grande, mudamos a escala deste objeto para 0.01 em todos os eixos.
-    object.scale.x = 0.01;
-    object.scale.z = 0.01;
-    object.scale.y = 0.01;
+    // Ajusta escala e posição do objeto
+    object.scale.set(0.01, 0.01, 0.01);
+    object.position.set(1.5, -0.5, -6.0);
+    object.rotation.y = Math.PI / 2;
 
-    // Mudamos a posição do objeto importado para que este não fique na mesma posição que o cubo.
-    object.position.x = 1.5;
-    object.position.y = -0.5;
-    object.position.z = -6.0;
+    // Inicializa o mixer de animação
+    mixerAnimacao = new THREE.AnimationMixer(object);
 
-    // Guardamos o objeto importado na variável objetoImportado.
+    // Obtém a primeira animação do modelo e a ativa
+    if (object.animations.length > 0) {
+        var action = mixerAnimacao.clipAction(object.animations[0]);
+        action.play();
+    }
+
+    // Guarda o objeto importado
     objetoImportado = object;
 });
-
-// Definição da câmera e do renderizador a serem associados ao PointerLockControls
-const controls = new PointerLockControls(camaraPerspectiva, renderer.domElement);
-
-controls.addEventListener('lock', function () {
-    // Possibilidade de programar comportamentos (ThreeJS ou mesmo HTML) quando
-    // o PointerLockControls é ativado
-});
-
-controls.addEventListener('unlock', function () {
-    // Possibilidade de programar comportamentos (ThreeJS ou mesmo HTML) quando
-    // o PointerLockControls é desativado
-});
-
-// Ativação do PointerLockControls através do clique na cena
-// Para desativar o PointerLockControls, basta pressionar a tecla Enter
-document.addEventListener(
-    'click',
-    function () {
-        controls.lock();
-    },
-    false
-);
-
-// Adiciona o listener que permite detectar quando uma tecla é premida
-document.addEventListener("keydown", onDocumentKeyDown, false);
-
-// Função que permite processar o evento de premir teclas e definir
-// o seu respectivo comportamento
-function onDocumentKeyDown(event) {
-    var keyCode = event.which;
-
-    // Comportamento para a tecla W
-    if (keyCode === 87) {
-        controls.moveForward(0.25);
-    }
-
-    // Comportamento para a tecla S
-    else if (keyCode === 83) {
-        controls.moveForward(-0.25);
-    }
-
-    // Comportamento para a tecla A
-    else if (keyCode === 65) {
-        controls.moveRight(-0.25);
-    }
-
-    // Comportamento para a tecla D
-    else if (keyCode === 68) {
-        controls.moveRight(0.25);
-    }
-
-    // Comportamento para a tecla Barra de Espaço
-    else if (keyCode === 32) {
-        // Verificar se o cubo está presente na cena.
-        // Caso esteja, removemos. Caso contrário, adicionamos.
-        if (meshCubo.parent === cena) {
-            cena.remove(meshCubo);
-        } else {
-            cena.add(meshCubo);
-        }
-    }
-}
 
 // Carregamento das texturas para variáveis
 var texture_dir = new THREE.TextureLoader().load('./Skybox/posx.jpg'); // Imagem da direita
@@ -172,9 +99,58 @@ var skybox = new THREE.Mesh(skyboxGeo, materialArray);
 // Adicionar a Skybox à cena
 cena.add(skybox);
 
-function Start() {
-    cena.add(meshCubo);
+var andando = false;
 
+document.addEventListener("keydown", function (event) {
+    var keyCode = event.which;
+
+    if (objetoImportado) {
+        if (keyCode === 87) { // W
+            objetoImportado.position.z -= 0.1;
+            iniciarAnimacao();
+        } else if (keyCode === 83) { // S
+            objetoImportado.position.z += 0.1;
+            iniciarAnimacao();
+        } else if (keyCode === 65) { // A
+            objetoImportado.position.x -= 0.1;
+            iniciarAnimacao();
+        } else if (keyCode === 68) { // D
+            objetoImportado.position.x += 0.1;
+            iniciarAnimacao();
+        }
+    }
+
+    if (keyCode === 32) {
+        objetoImportado.position.y += 1;
+        for (var i = 0; i < 10; i++) 
+        {
+            objetoImportado.position.y = -0.1;
+            sleep(1000); // Espera 1 segundo antes de continuar
+        }
+    }
+});
+
+document.addEventListener("keyup", function (event) {
+    pararAnimacao();
+});
+
+function iniciarAnimacao() {
+    if (!andando && mixerAnimacao) {
+        var action = mixerAnimacao.clipAction(objetoImportado.animations[0]);
+        action.play();
+        andando = true;
+    }
+}
+
+function pararAnimacao() {
+    if (andando && mixerAnimacao) {
+        var action = mixerAnimacao.clipAction(objetoImportado.animations[0]);
+        action.stop();
+        andando = false;
+    }
+}
+
+function Start() {
     // Criação de luz ambiente com tom branco
     var luzAmbiente = new THREE.AmbientLight(0xffffff);
     cena.add(luzAmbiente);
@@ -187,6 +163,8 @@ function Start() {
     cena.add(luzDirecional);
 
     renderer.render(cena, camaraPerspectiva);
+
+    camaraPerspectiva.lookAt(camaraPerspectiva.position);
 
     requestAnimationFrame(loop);
 }
