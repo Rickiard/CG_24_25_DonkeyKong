@@ -59,7 +59,6 @@ importer.load('./Objetos/Samba Dancing.fbx', function (object) {
     // Obtém a primeira animação do modelo e a ativa
     if (object.animations.length > 0) {
         var action = mixerAnimacao.clipAction(object.animations[0]);
-        action.play();
     }
 
     // Guarda o objeto importado
@@ -101,36 +100,33 @@ cena.add(skybox);
 
 var andando = false;
 
+var pulando = false;
+var velocidadeY = 0; // Velocidade vertical
+var gravidade = -0.01; // Gravidade aplicada ao objeto
+var direcaoPuloX = 0; // Direção no eixo X
+var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
+
 document.addEventListener("keydown", function (event) {
-    var keyCode = event.which;
+    teclasPressionadas[event.which] = true; // Marca a tecla como pressionada
 
-    if (objetoImportado) {
-        if (keyCode === 87) { // W
-            objetoImportado.position.z -= 0.1;
-            iniciarAnimacao();
-        } else if (keyCode === 83) { // S
-            objetoImportado.position.z += 0.1;
-            iniciarAnimacao();
-        } else if (keyCode === 65) { // A
-            objetoImportado.position.x -= 0.1;
-            iniciarAnimacao();
-        } else if (keyCode === 68) { // D
-            objetoImportado.position.x += 0.1;
-            iniciarAnimacao();
-        }
-    }
+    // Inicia o pulo ao pressionar a barra de espaço
+    if (teclasPressionadas[32] && !pulando) {
+        pulando = true;
+        velocidadeY = 0.2; // Define a velocidade inicial do pulo
 
-    if (keyCode === 32) {
-        objetoImportado.position.y += 1;
-        for (var i = 0; i < 10; i++) 
-        {
-            objetoImportado.position.y = -0.1;
-            sleep(1000); // Espera 1 segundo antes de continuar
+        // Define a direção do pulo com base na posição atual
+        if (teclasPressionadas[65]) { // Se estiver virado para a esquerda
+            direcaoPuloX = -0.02; // Pulo para a esquerda
+        } else if (teclasPressionadas[68]) { // Se estiver virado para a direita
+            direcaoPuloX = 0.02; // Pulo para a direita
+        } else {
+            direcaoPuloX = 0; // Pulo vertical
         }
     }
 });
 
 document.addEventListener("keyup", function (event) {
+    delete teclasPressionadas[event.which]; // Remove a tecla do rastreamento
     pararAnimacao();
 });
 
@@ -173,9 +169,39 @@ function loop() {
     meshCubo.rotateY(Math.PI / 180 * 1);
 
     // Necessário atualizar o mixerAnimacao tendo em conta o tempo que passou desde o último update.
-    // relogio.getDelta() indica quanto tempo passou desde o último frame renderizado.
     if (mixerAnimacao) {
         mixerAnimacao.update(relogio.getDelta());
+    }
+
+    // Aplica a gravidade e atualiza a posição vertical e horizontal durante o pulo
+    if (pulando) {
+        velocidadeY += gravidade; // Aplica a gravidade
+        objetoImportado.position.y += velocidadeY; // Atualiza a posição vertical
+        objetoImportado.position.x += direcaoPuloX; // Atualiza a posição no eixo X
+
+        // Verifica se o objeto atingiu o chão
+        if (objetoImportado.position.y <= -0.5) {
+            objetoImportado.position.y = -0.5; // Garante que o objeto não passe do chão
+            pulando = false; // Reseta o estado de pulo
+            velocidadeY = 0; // Reseta a velocidade vertical
+            direcaoPuloX = 0; // Reseta a direção no eixo X
+        }
+    }
+
+    // Permite que o personagem ande enquanto as teclas de direção estão pressionadas
+    if (teclasPressionadas[65]) { // A (esquerda)
+        objetoImportado.rotation.y = -Math.PI / 2; // Gira para a esquerda
+        objetoImportado.position.x -= 0.01;
+        iniciarAnimacao();
+    }
+    else if (teclasPressionadas[68]) { // D (direita)
+        objetoImportado.rotation.y = Math.PI / 2; // Gira para a direita
+        objetoImportado.position.x += 0.01;
+        iniciarAnimacao();
+    }
+    else if (teclasPressionadas[87]) { // W (cima)
+        objetoImportado.rotation.y = Math.PI; // Olhando para trás
+        iniciarAnimacao();
     }
 
     renderer.render(cena, camaraPerspectiva);
