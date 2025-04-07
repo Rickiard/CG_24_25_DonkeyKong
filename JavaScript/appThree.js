@@ -159,12 +159,31 @@ function Start() {
     requestAnimationFrame(loop);
 }
 
+function cameraLookAtPersonagem(camera, alvo, offset = new THREE.Vector3(0, 2, 4)) {
+    if (!alvo) return;
+
+    // Posição desejada da câmera com base no offset
+    const posAlvo = alvo.position.clone();
+    const posCamera = posAlvo.clone().add(offset);
+
+    // Posiciona a câmera (pode suavizar com .lerp se quiser)
+    camera.position.copy(posCamera);
+
+    // Faz a câmera olhar para o personagem
+    camera.lookAt(posAlvo);
+}
+
+
 function loop() {
     meshCubo.rotateY(Math.PI / 180 * 1);
 
     if (mixerAnimacao) {
         mixerAnimacao.update(relogio.getDelta());
     }
+
+    if (cameraAtual === camaraPerspectiva && objetoImportado) {
+        cameraLookAtPersonagem(camaraPerspectiva, objetoImportado);
+    }    
 
     renderer.render(cena, cameraAtual);
 
