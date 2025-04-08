@@ -140,12 +140,12 @@ function onDocumentKeyDown(event) {
 }
 
 // Carregamento das texturas para variáveis
-var texture_dir = new THREE.TextureLoader().load('./Skybox/posx.jpg'); // Imagem da direita
-var texture_esq = new THREE.TextureLoader().load('./Skybox/negx.jpg'); // Imagem da esquerda
+var texture_dir = new THREE.TextureLoader().load('./Skybox/posx.png'); // Imagem da direita
+var texture_esq = new THREE.TextureLoader().load('./Skybox/negx.png'); // Imagem da esquerda
 var texture_up = new THREE.TextureLoader().load('./Skybox/posy.jpg');  // Imagem de cima
 var texture_dn = new THREE.TextureLoader().load('./Skybox/negy.jpg');  // Imagem de baixo
 var texture_bk = new THREE.TextureLoader().load('./Skybox/posz.jpg');  // Imagem da trás
-var texture_ft = new THREE.TextureLoader().load('./Skybox/negz.jpg');  // Imagem de frente
+var texture_ft = new THREE.TextureLoader().load('./Skybox/negz.png');  // Imagem de frente
 
 // Array que vai armazenar as texturas
 var materialArray = [];
