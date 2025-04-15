@@ -7,6 +7,16 @@ document.addEventListener('DOMContentLoaded', Start);
 var cena = new THREE.Scene();
 var renderer = new THREE.WebGLRenderer();
 var camaraPerspectiva = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+var camaraOrto = new THREE.OrthographicCamera(
+    window.innerWidth / -100, // left
+    window.innerWidth / 100,  // right
+    window.innerHeight / 100, // top
+    window.innerHeight / -100, // bottom
+    0.1,                      // near
+    100                       // far
+);
+
+var cameraAtual = camaraPerspectiva; // Define a câmera inicial como a perspectiva
 
 renderer.setSize(window.innerWidth - 15, window.innerHeight - 80);
 renderer.setClearColor(0xaaaaaa);
@@ -74,18 +84,29 @@ function criarSkybox(caminhoTexturas, tamanho) {
 }
 
 const skybox = criarSkybox({
-    posx: './Skybox/posx.jpg',
-    negx: './Skybox/negx.jpg',
+    posx: './Skybox/posx.png',
+    negx: './Skybox/negx.png',
     posy: './Skybox/posy.jpg',
     negy: './Skybox/negy.jpg',
     posz: './Skybox/posz.jpg',
-    negz: './Skybox/negz.jpg',
+    negz: './Skybox/negz.png',
 }, 100);
 cena.add(skybox);
 
 // Eventos de teclado
 document.addEventListener("keydown", function (event) {
     teclasPressionadas[event.which] = true;
+
+    // Alternar entre câmeras ao pressionar "C"
+    if (event.key === 'c' || event.key === 'C') {
+        if (cameraAtual === camaraPerspectiva) {
+            cameraAtual = camaraOrto;
+            console.log("Câmera alterada para ortográfica.");
+        } else {
+            cameraAtual = camaraPerspectiva;
+            console.log("Câmera alterada para perspectiva.");
+        }
+    }
 
     if (teclasPressionadas[32] && !pulando) { // Barra de espaço
         pulando = true;
@@ -125,9 +146,13 @@ function pararAnimacao() {
 
 // Função principal
 function Start() {
-    // Configuração da câmera
+    // Configuração da câmera perspectiva
     camaraPerspectiva.position.set(0, 1, 5);
     camaraPerspectiva.lookAt(0, 0, 0);
+
+    // Configuração da câmera ortográfica
+    camaraOrto.position.set(0, 1, 5);
+    camaraOrto.lookAt(0, 0, 0);
 
     // Luzes
     var luzAmbiente = new THREE.AmbientLight(0xffffff);
@@ -172,6 +197,6 @@ function loop() {
         iniciarAnimacao();
     }
 
-    renderer.render(cena, camaraPerspectiva);
+    renderer.render(cena, cameraAtual); // Renderiza com a câmera atual
     requestAnimationFrame(loop);
 }
