@@ -32,6 +32,8 @@ var velocidadeY = 0; // Velocidade vertical
 var gravidade = -0.01; // Gravidade aplicada ao objeto
 var direcaoPuloX = 0; // Direção no eixo X
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
+var raycaster = new THREE.Raycaster();
+var objetosColisao = []; // Lista de objetos com os quais o personagem pode colidir
 
 // Carregador FBX
 var importer = new FBXLoader();
@@ -54,16 +56,16 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao) {
         if (object.animations.length > 0) {
             mixerAnimacao = new THREE.AnimationMixer(object);
             var action = mixerAnimacao.clipAction(object.animations[0]);
-            action.play();
         }
 
+        objetosColisao.push(object)
         objetoImportado = object;
     });
 }
 
 // Carregar objetos
 carregarObjetoFBX('./Objetos/tentativa1.fbx', { x: 0.03, y: 0.03, z: 0.03 }, { x: 1.5, y: -0.5, z: -6.0 }, { x: -Math.PI / 2, y: 0, z: 0 });
-carregarObjetoFBX('./Objetos/Samba Dancing.fbx', { x: 0.01, y: 0.01, z: 0.01 }, { x: -10, y: -10, z: -1.7 }, { x: 0, y: Math.PI / 2, z: 0 });
+carregarObjetoFBX('./Objetos/Samba Dancing.fbx', { x: 0.01, y: 0.01, z: 0.01 }, { x: -10, y: -10, z: -3.0 }, { x: 0, y: Math.PI / 2, z: 0 });
 
 // Skybox
 function criarSkybox(caminhoTexturas, tamanho) {
@@ -171,18 +173,25 @@ function loop() {
         mixerAnimacao.update(relogio.getDelta());
     }
 
-    if (pulando) {
-        velocidadeY += gravidade;
-        objetoImportado.position.y += velocidadeY;
-        objetoImportado.position.x += direcaoPuloX;
-
-        if (objetoImportado.position.y <= -0.5) {
-            objetoImportado.position.y = -0.5;
-            pulando = false;
-            velocidadeY = 0;
-            direcaoPuloX = 0;
+    if (objetoImportado) {
+        // Raycasting para verificar o chão
+        raycaster.set(objetoImportado.position, new THREE.Vector3(0, -1, 0));
+        const intersects = raycaster.intersectObjects(objetosColisao, true);
+        const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
+    
+        if (!noChao) {
+            velocidadeY += gravidade;
+            objetoImportado.position.y += velocidadeY;
+            objetoImportado.position.x += direcaoPuloX;
+        } else {
+            if (pulando) {
+                objetoImportado.position.y = objetoImportado.position.y;
+                pulando = false;
+                velocidadeY = 0;
+                direcaoPuloX = 0;
+            }
         }
-    }
+    }    
 
     if (teclasPressionadas[65]) { // A (esquerda)
         objetoImportado.rotation.y = -Math.PI / 2;
