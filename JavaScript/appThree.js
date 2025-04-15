@@ -63,7 +63,7 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao) {
 
 // Carregar objetos
 carregarObjetoFBX('./Objetos/tentativa1.fbx', { x: 0.03, y: 0.03, z: 0.03 }, { x: 1.5, y: -0.5, z: -6.0 }, { x: -Math.PI / 2, y: 0, z: 0 });
-carregarObjetoFBX('./Objetos/Samba Dancing.fbx', { x: 0.01, y: 0.01, z: 0.01 }, { x: 1.5, y: -0.5, z: -6.0 }, { x: 0, y: Math.PI / 2, z: 0 });
+carregarObjetoFBX('./Objetos/Samba Dancing.fbx', { x: 0.01, y: 0.01, z: 0.01 }, { x: -10, y: -10, z: -1.7 }, { x: 0, y: Math.PI / 2, z: 0 });
 
 // Skybox
 function criarSkybox(caminhoTexturas, tamanho) {
@@ -197,6 +197,20 @@ function loop() {
         iniciarAnimacao();
     }
 
+    if (cameraAtual === camaraPerspectiva && objetoImportado) {
+        atualizarCameraParaSeguirPersonagem(camaraPerspectiva, objetoImportado, offsetCameraPerspectiva);
+    }
+
     renderer.render(cena, cameraAtual); // Renderiza com a câmera atual
     requestAnimationFrame(loop);
+}
+
+const offsetCameraPerspectiva = new THREE.Vector3(0, 1, 5); // 1 unidade acima, 5 unidades atrás
+
+function atualizarCameraParaSeguirPersonagem(camera, personagem, offset) {
+    // Atualiza a posição da câmera com base na posição do personagem e no offset
+    camera.position.copy(personagem.position).add(offset);
+
+    // Garante que a câmera esteja olhando para o personagem
+    camera.lookAt(personagem.position);
 }
