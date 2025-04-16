@@ -8,10 +8,10 @@ var cena = new THREE.Scene();
 var renderer = new THREE.WebGLRenderer();
 var camaraPerspectiva = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
 var camaraOrto = new THREE.OrthographicCamera(
-    window.innerWidth / -65, // left
-    window.innerWidth / 65,  // right
-    window.innerHeight / 65, // top
-    window.innerHeight / -65, // bottom
+    window.innerWidth / -100, // left
+    window.innerWidth / 100,  // right
+    window.innerHeight / 100, // top
+    window.innerHeight / -100, // bottom
     0.1,                      // near
     100                       // far
 );
@@ -178,7 +178,7 @@ function loop() {
         raycaster.set(objetoImportado.position, new THREE.Vector3(0, -1, 0));
         const intersects = raycaster.intersectObjects(objetosColisao, true);
         const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
-
+    
         if (!noChao) {
             velocidadeY += gravidade;
             objetoImportado.position.y += velocidadeY;
@@ -191,7 +191,7 @@ function loop() {
                 direcaoPuloX = 0;
             }
         }
-    }
+    }    
 
     if (teclasPressionadas[65]) { // A (esquerda)
         objetoImportado.rotation.y = -Math.PI / 2;
@@ -206,11 +206,9 @@ function loop() {
         iniciarAnimacao();
     }
 
-    if (cameraAtual === camaraPerspectiva && objetoImportado && objetosColisao.length > 0) {
-        const barril = objetosColisao[0]; // assumindo que o primeiro é o barril (ajuste se necessário)
-        atualizarCameraParaSeguirPersonagem(camaraPerspectiva, objetoImportado, barril);
+    if (cameraAtual === camaraPerspectiva && objetoImportado) {
+        atualizarCameraParaSeguirPersonagem(camaraPerspectiva, objetoImportado, offsetCameraPerspectiva);
     }
-
 
     renderer.render(cena, cameraAtual); // Renderiza com a câmera atual
     requestAnimationFrame(loop);
@@ -218,29 +216,10 @@ function loop() {
 
 const offsetCameraPerspectiva = new THREE.Vector3(0, 1, 5); // 1 unidade acima, 5 unidades atrás
 
-function atualizarCameraParaSeguirPersonagem(camera, personagem) {
-    const alturaOmbro = 1.6; // altura do ombro
-    const distanciaAtras = 3.0; // distância atrás do personagem
-    const deslocamentoLateral = 1.5; // ombro esquerdo
+function atualizarCameraParaSeguirPersonagem(camera, personagem, offset) {
+    // Atualiza a posição da câmera com base na posição do personagem e no offset
+    camera.position.copy(personagem.position).add(offset);
 
-    // Direção "para trás" na rotação do personagem
-    const direcaoAtras = new THREE.Vector3(0, 0, -1).applyQuaternion(personagem.quaternion).normalize();
-    const lateralEsquerda = new THREE.Vector3(-1, 0, 0).applyQuaternion(personagem.quaternion).normalize();
-
-    // Posição da câmera: atrás + para o lado (esquerda) + na altura do ombro
-    const posicaoDesejada = personagem.position.clone()
-        .add(direcaoAtras.multiplyScalar(distanciaAtras))
-        .add(lateralEsquerda.multiplyScalar(deslocamentoLateral))
-        .add(new THREE.Vector3(0, alturaOmbro, 0));
-
-    // Define a posição da câmera diretamente
-    camera.position.copy(posicaoDesejada);
-
-    // Ponto para onde a câmera deve olhar (à frente do personagem)
-    const direcaoFrente = new THREE.Vector3(0, 0, 1).applyQuaternion(personagem.quaternion).normalize();
-    const pontoFoco = personagem.position.clone()
-        .add(direcaoFrente.multiplyScalar(10))
-        .add(new THREE.Vector3(0, alturaOmbro, 0));
-
-    camera.lookAt(pontoFoco);
+    // Garante que a câmera esteja olhando para o personagem
+    camera.lookAt(personagem.position);
 }
