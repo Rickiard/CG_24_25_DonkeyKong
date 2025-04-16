@@ -175,7 +175,7 @@ function cameraLookAtPersonagem(camera, alvo, offset = new THREE.Vector3(0, 2, 4
 
 
 function loop() {
-    meshCubo.rotateY(Math.PI / 180 * 1);
+    meshCubo.rotateY(Math.PI / 180 * 1);        
 
     if (mixerAnimacao) {
         mixerAnimacao.update(relogio.getDelta());
