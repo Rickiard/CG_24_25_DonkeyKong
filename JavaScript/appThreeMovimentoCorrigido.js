@@ -57,7 +57,6 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao) {
             var action = mixerAnimacao.clipAction(object.animations[0]);
         }
 
-        objetosColisao.push(object);
         objetoImportado = object;
     });
 }
@@ -141,6 +140,15 @@ function pararAnimacao() {
 
 // Função principal
 function Start() {
+
+    for (let i = 0; i < 7; i++) {
+      const y = -10 + i * 3;
+      const plano = criarChaoInvisivel(7, y, -3);
+    
+        cena.add(plano);
+        objetosColisao.push(plano);
+    }              
+
     // Configuração da câmera perspectiva
     camaraPerspectiva.position.set(0, 1, 5);
     camaraPerspectiva.lookAt(0, 0, 0);
@@ -170,7 +178,9 @@ function loop() {
         // Raycasting para verificar o chão
         raycaster.set(objetoImportado.position, new THREE.Vector3(0, -1, 0));
         const intersects = raycaster.intersectObjects(objetosColisao, true);
-        const noChao = intersects.length > 0 && intersects[0].distance < 0.09;
+        const noChao = intersects.length > 0 && intersects[0].distance < 0.1;
+
+        console.log(objetoImportado.position.x);
 
         if (!noChao) {
             velocidadeY += gravidade; // Aplica gravidade
@@ -183,7 +193,7 @@ function loop() {
 
         if (teclasPressionadas[32] && !pulando && noChao) { // Barra de espaço (pulo)
             pulando = true;
-            velocidadeY = 0.15; // Define a força inicial do pulo
+            velocidadeY = 0.17; // Define a força inicial do pulo
         }
 
         // Atualiza a posição vertical do personagem
@@ -194,16 +204,59 @@ function loop() {
             // Movimentação na câmera perspectiva: W (frente) e S (trás)
             if(objetoImportado.rotation.y === -Math.PI/2)
             {
-                if(teclasPressionadas[68]) { // A (esquerda)
+                if(teclasPressionadas[68]) { // D (esquerda)
                     objetoImportado.rotation.y = Math.PI;
+                    if((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10)||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
+                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
+                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
+                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5))
+                    {
+                        objetoImportado.position.y += 3.1;
+                        objetoImportado.position.z -= 1;
+                    }
                     iniciarAnimacao();
                 }
             } else if(objetoImportado.rotation.y === Math.PI/2){
                 if(teclasPressionadas[65]) { // A (esquerda)
                     objetoImportado.rotation.y = Math.PI;
+                    if((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10)||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
+                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
+                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
+                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5))
+                    {
+                        objetoImportado.position.y += 3.1;
+                        objetoImportado.position.z -= 1;
+                    }
                     iniciarAnimacao();
                 }
-            } 
+            }
+            
+            if (teclasPressionadas[17]){ // tecla CTRL
+                if((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
+                (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
+                (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
+                (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
+                (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
+                (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
+                (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
+                (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)||
+                (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8))
+                {
+                    objetoImportado.position.y -= 3;
+                    objetoImportado.position.z += 1;
+                }
+                iniciarAnimacao();
+            }
             
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.position.x += 0.10; // Move para a direita
@@ -215,11 +268,40 @@ function loop() {
                 iniciarAnimacao();
             }
         } else if (cameraAtual === camaraOrto) {
-            // Movimentação na câmera ortográfica: A (esquerda) e D (direita)
+            // Movimentação na câmara ortográfica: A (esquerda) e D (direita)
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.rotation.y = Math.PI;
+                if((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10)||
+                (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
+                (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
+                (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
+                (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
+                (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
+                (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
+                (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
+                (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5))
+                {
+                    objetoImportado.position.y += 3.1;
+                    objetoImportado.position.z -= 1;
+                }
                 iniciarAnimacao();
-            } else if (teclasPressionadas[65]) { // A (esquerda)
+            } else if (teclasPressionadas[83]){
+                objetoImportado.rotation.y = Math.PI;
+                if((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
+                (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
+                (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
+                (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
+                (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
+                (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
+                (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
+                (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)||
+                (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8))
+                {
+                    objetoImportado.position.y -= 3;
+                    objetoImportado.position.z += 1;
+                }
+                iniciarAnimacao();
+            }else if (teclasPressionadas[65]) { // A (esquerda)
                 objetoImportado.position.x -= 0.10; // Move para a esquerda
                 objetoImportado.rotation.y = -Math.PI/2;
                 iniciarAnimacao();
@@ -243,8 +325,8 @@ const offsetCameraPerspectiva = new THREE.Vector3(0, 1, 5); // 1 unidade acima, 
 
 function atualizarCameraParaSeguirPersonagem(camera, personagem) {
     const alturaOmbro = 1.6; // altura do ombro
-    const distanciaAtras = 5.0; // distância atrás do personagem
-    const deslocamentoLateral = 1.5; // ombro esquerdo
+    const distanciaAtras = 10.0; // distância atrás do personagem
+    const deslocamentoLateral = 5; // ombro esquerdo
 
     // Direção "para trás" na rotação do personagem
     const direcaoAtras = new THREE.Vector3(0, 0, -1).applyQuaternion(personagem.quaternion).normalize();
@@ -267,3 +349,34 @@ function atualizarCameraParaSeguirPersonagem(camera, personagem) {
 
     camera.lookAt(pontoFoco);
 }
+
+function criarChaoInvisivel(x, y, z) {
+    // Usamos uma geometria MUITO grande simulando plano infinito
+    const geometry = new THREE.PlaneGeometry(10000, 10000);
+  
+    // Material invisível
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x0000000,
+      transparent: true,
+      opacity: 0,
+      side: THREE.DoubleSide,
+      depthWrite: false
+    });
+  
+    const chao = new THREE.Mesh(geometry, material);
+  
+    // Posição e rotação como "chão"
+    chao.position.set(x, y, z);
+    chao.rotation.x = -Math.PI / 2;
+  
+    // Visível = true só pra garantir que o raycasting funcione
+    chao.visible = true;
+  
+    // Extra: metadata útil
+    chao.name = 'chaoInvisivel';
+    chao.userData.isChao = true;
+    chao.userData.interativo = true;
+  
+    return chao;
+  }
+  
