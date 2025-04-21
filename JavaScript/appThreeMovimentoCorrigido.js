@@ -33,6 +33,10 @@ var gravidade = -0.01; // Gravidade aplicada ao objeto
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
 var raycaster = new THREE.Raycaster();
 var objetosColisao = []; // Lista de objetos com os quais o personagem pode colidir
+// Variáveis globais para o barril
+var barrilImportado;
+var velocidadeBarrilY = 0; // Velocidade vertical do barril
+var pulandoBarril = false;
 
 // Carregador FBX
 var importer = new FBXLoader();
@@ -57,13 +61,47 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao) {
             var action = mixerAnimacao.clipAction(object.animations[0]);
         }
 
+        // Certifique-se de que o objeto não seja adicionado à lista de colisão
+        if (caminho !== './Objetos/donkey/Donkey Kong.fbx') {
+            objetosColisao.push(object);
+        }
+
         objetoImportado = object;
+    });
+}
+
+
+function carregarBarril(caminho, escala, posicao, rotacao) {
+    importer.load(caminho, function (object) {
+        console.log('Barril carregado:', object); // Adicione este log
+        object.traverse(function (child) {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+
+        //cena.add(object);
+        object.scale.set(escala.x, escala.y, escala.z);
+        object.position.set(posicao.x, posicao.y, posicao.z);
+        object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
+
+        objetosColisao.push(object);
+        barrilImportado = object;
+    }, undefined, function (error) {
+        console.error('Erro ao carregar o barril:', error); // Adicione este log
     });
 }
 
 // Carregar objetos
 carregarObjetoFBX('./Objetos/tentativa1.fbx', { x: 0.03, y: 0.03, z: 0.03 }, { x: 1.5, y: -0.5, z: -6.0 }, { x: -Math.PI / 2, y: 0, z: 0 });
-carregarObjetoFBX('./Objetos/Samba Dancing.fbx', { x: 0.01, y: 0.01, z: 0.01 }, { x: -10, y: -10, z: -3.0 }, { x: 0, y: Math.PI / 2, z: 0 });
+//carregarObjetoFBX('./Objetos/Samba Dancing.fbx', { x: 0.01, y: 0.01, z: 0.01 }, { x: -10, y: -10, z: -3.0 }, { x: 0, y: Math.PI / 2, z: 0 });
+carregarObjetoFBX('./Objetos/donkey/Donkey Kong.fbx', { x: 0.01, y: 0.01, z: 0.01 }, { x: -7, y: 6, z: -6.0 }, { x: 0, y: 0, z: 0 });
+carregarObjetoFBX('./Objetos/peach/peach.fbx', { x: 0.0005, y: 0.0005, z: 0.0005 }, { x: 0, y: 8, z: -6.0 }, { x: 0, y: Math.PI / 2, z: 0 });
+carregarObjetoFBX('./Objetos/mario/Mario.fbx', { x: 0.01, y: 0.01, z: 0.01 }, { x: -10, y: -10, z: -3.0 }, { x: 0, y: Math.PI / 2, z: 0 });
+
+// Carregar o barril
+carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 0, y: 0, z: -5.0 }, { x: 0, y: 0, z: 0 });
 
 // Skybox
 function criarSkybox(caminhoTexturas, tamanho) {
@@ -117,8 +155,8 @@ document.addEventListener("keydown", function (event) {
 document.addEventListener("keyup", function (event) {
     delete teclasPressionadas[event.which];
     pararAnimacao();
-    if(objetoImportado.rotation.y === Math.PI)
-        objetoImportado.rotation.y = Math.PI/2;
+    if (objetoImportado.rotation.y === Math.PI)
+        objetoImportado.rotation.y = Math.PI / 2;
 });
 
 // Funções de animação
@@ -128,6 +166,12 @@ function iniciarAnimacao() {
         action.play();
         andando = true;
     }
+
+    // Adicionar o barril à cena quando a animação do personagem começar
+    if (barrilImportado && !cena.children.includes(barrilImportado)) {
+        console.log("Barril adicionado à cena.");
+        cena.add(barrilImportado);
+    }
 }
 
 function pararAnimacao() {
@@ -136,18 +180,45 @@ function pararAnimacao() {
         action.stop();
         andando = false;
     }
+
+    // Remover o barril da cena quando a animação do personagem parar
+    if (barrilImportado && cena.children.includes(barrilImportado)) {
+        console.log("Barril removido da cena.");
+        cena.remove(barrilImportado);
+    }
+}
+
+// Atualizar posição do barril no loop
+function atualizarBarril() {
+    if (barrilImportado) {
+        // Raycasting para verificar o chão
+        raycaster.set(barrilImportado.position, new THREE.Vector3(0, -1, 0));
+        const intersects = raycaster.intersectObjects(objetosColisao, true);
+        const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
+
+        if (!noChao) {
+            velocidadeBarrilY += gravidade;
+            barrilImportado.position.y += velocidadeBarrilY;
+        } else {
+            if (pulandoBarril) {
+                barrilImportado.position.y = barrilImportado.position.y;
+                pulandoBarril = false;
+                velocidadeBarrilY = 0;
+            }
+        }
+    }
 }
 
 // Função principal
 function Start() {
 
     for (let i = 0; i < 7; i++) {
-      const y = -10 + i * 3;
-      const plano = criarChaoInvisivel(7, y, -3);
-    
+        const y = -10 + i * 3;
+        const plano = criarChaoInvisivel(7, y, -3);
+
         cena.add(plano);
         objetosColisao.push(plano);
-    }              
+    }
 
     // Configuração da câmera perspectiva
     camaraPerspectiva.position.set(0, 1, 5);
@@ -202,115 +273,113 @@ function loop() {
         // Movimentação baseada na câmera atual
         if (cameraAtual === camaraPerspectiva) {
             // Movimentação na câmera perspectiva: W (frente) e S (trás)
-            if(objetoImportado.rotation.y === -Math.PI/2)
-            {
-                if(teclasPressionadas[68]) { // D (esquerda)
+            if (objetoImportado.rotation.y === -Math.PI / 2) {
+                if (teclasPressionadas[68]) { // D (esquerda)
                     objetoImportado.rotation.y = Math.PI;
-                    if((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10)||
-                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
-                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
-                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
-                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
-                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
-                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
-                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5))
-                    {
+                    if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                        (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                        (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                        (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                        (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                        (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                        (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                        (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) {
                         objetoImportado.position.y += 3.1;
                         objetoImportado.position.z -= 1;
                     }
                     iniciarAnimacao();
                 }
-            } else if(objetoImportado.rotation.y === Math.PI/2){
-                if(teclasPressionadas[65]) { // A (esquerda)
+            } else if (objetoImportado.rotation.y === Math.PI / 2) {
+                if (teclasPressionadas[65]) { // A (esquerda)
                     objetoImportado.rotation.y = Math.PI;
-                    if((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10)||
-                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
-                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
-                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
-                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
-                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
-                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
-                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5))
-                    {
+                    if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                        (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                        (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                        (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                        (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                        (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                        (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                        (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) {
                         objetoImportado.position.y += 3.1;
                         objetoImportado.position.z -= 1;
                     }
                     iniciarAnimacao();
                 }
             }
-            
-            if (teclasPressionadas[17]){ // tecla CTRL
-                if((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
-                (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
-                (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
-                (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
-                (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
-                (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
-                (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
-                (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)||
-                (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8))
-                {
+
+            if (teclasPressionadas[17]) { // tecla CTRL
+                if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5) ||
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) {
                     objetoImportado.position.y -= 3;
                     objetoImportado.position.z += 1;
                 }
                 iniciarAnimacao();
             }
-            
+
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.position.x += 0.10; // Move para a direita
-                objetoImportado.rotation.y = Math.PI/2;
+                objetoImportado.rotation.y = Math.PI / 2;
                 iniciarAnimacao();
             } else if (teclasPressionadas[83]) { // S (trás)
                 objetoImportado.position.x -= 0.10; // Move para a esquerda
-                objetoImportado.rotation.y = -Math.PI/2;
+                objetoImportado.rotation.y = -Math.PI / 2;
                 iniciarAnimacao();
             }
         } else if (cameraAtual === camaraOrto) {
             // Movimentação na câmara ortográfica: A (esquerda) e D (direita)
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.rotation.y = Math.PI;
-                if((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10)||
-                (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
-                (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
-                (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
-                (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
-                (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
-                (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
-                (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
-                (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5))
-                {
+                if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) {
                     objetoImportado.position.y += 3.1;
                     objetoImportado.position.z -= 1;
                 }
                 iniciarAnimacao();
-            } else if (teclasPressionadas[83]){
+            } else if (teclasPressionadas[83]) {
                 objetoImportado.rotation.y = Math.PI;
-                if((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7)||
-                (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
-                (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4)||
-                (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
-                (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1)||
-                (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
-                (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2)||
-                (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)||
-                (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8))
-                {
+                if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5) ||
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) {
                     objetoImportado.position.y -= 3;
                     objetoImportado.position.z += 1;
                 }
                 iniciarAnimacao();
-            }else if (teclasPressionadas[65]) { // A (esquerda)
+            } else if (teclasPressionadas[65]) { // A (esquerda)
                 objetoImportado.position.x -= 0.10; // Move para a esquerda
-                objetoImportado.rotation.y = -Math.PI/2;
+                objetoImportado.rotation.y = -Math.PI / 2;
                 iniciarAnimacao();
             } else if (teclasPressionadas[68]) { // D (direita)
                 objetoImportado.position.x += 0.10; // Move para a direita
-                objetoImportado.rotation.y = Math.PI/2;
+                objetoImportado.rotation.y = Math.PI / 2;
                 iniciarAnimacao();
             }
         }
+
+
+        // Atualizar posição do barril
+        atualizarBarril();
 
         if (cameraAtual === camaraPerspectiva && objetoImportado && objetosColisao.length > 0) {
             atualizarCameraParaSeguirPersonagem(camaraPerspectiva, objetoImportado);
@@ -353,30 +422,29 @@ function atualizarCameraParaSeguirPersonagem(camera, personagem) {
 function criarChaoInvisivel(x, y, z) {
     // Usamos uma geometria MUITO grande simulando plano infinito
     const geometry = new THREE.PlaneGeometry(10000, 10000);
-  
+
     // Material invisível
     const material = new THREE.MeshBasicMaterial({
-      color: 0x0000000,
-      transparent: true,
-      opacity: 0,
-      side: THREE.DoubleSide,
-      depthWrite: false
+        color: 0x0000000,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        depthWrite: false
     });
-  
+
     const chao = new THREE.Mesh(geometry, material);
-  
+
     // Posição e rotação como "chão"
     chao.position.set(x, y, z);
     chao.rotation.x = -Math.PI / 2;
-  
+
     // Visível = true só pra garantir que o raycasting funcione
     chao.visible = true;
-  
+
     // Extra: metadata útil
     chao.name = 'chaoInvisivel';
     chao.userData.isChao = true;
     chao.userData.interativo = true;
-  
+
     return chao;
-  }
-  
+}
