@@ -34,6 +34,10 @@ var direcaoPuloX = 0; // Direção no eixo X
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
 var raycaster = new THREE.Raycaster();
 var objetosColisao = []; // Lista de objetos com os quais o personagem pode colidir
+// Variáveis globais para o barril
+var barrilImportado;
+var velocidadeBarrilY = 0; // Velocidade vertical do barril
+var pulandoBarril = false;
 
 // Carregador FBX
 var importer = new FBXLoader();
@@ -63,9 +67,35 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao) {
     });
 }
 
+function carregarBarril(caminho, escala, posicao, rotacao) {
+    importer.load(caminho, function (object) {
+        console.log('Barril carregado:', object); // Adicione este log
+        object.traverse(function (child) {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+
+        //cena.add(object);
+        object.scale.set(escala.x, escala.y, escala.z);
+        object.position.set(posicao.x, posicao.y, posicao.z);
+        object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
+
+        objetosColisao.push(object);
+        barrilImportado = object;
+    }, undefined, function (error) {
+        console.error('Erro ao carregar o barril:', error); // Adicione este log
+    });
+}
+
+
 // Carregar objetos
 carregarObjetoFBX('./Objetos/tentativa1.fbx', { x: 0.03, y: 0.03, z: 0.03 }, { x: 1.5, y: -0.5, z: -6.0 }, { x: -Math.PI / 2, y: 0, z: 0 });
 carregarObjetoFBX('./Objetos/Samba Dancing.fbx', { x: 0.01, y: 0.01, z: 0.01 }, { x: -10, y: -10, z: -3.0 }, { x: 0, y: Math.PI / 2, z: 0 });
+
+// Carregar o barril
+carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 0, y: 0, z: -5.0 }, { x: 0, y: 0, z: 0 });
 
 // Skybox
 function criarSkybox(caminhoTexturas, tamanho) {
@@ -136,6 +166,12 @@ function iniciarAnimacao() {
         action.play();
         andando = true;
     }
+
+    // Adicionar o barril à cena quando a animação do personagem começar
+    if (barrilImportado && !cena.children.includes(barrilImportado)) {
+        console.log("Barril adicionado à cena.");
+        cena.add(barrilImportado);
+    }
 }
 
 function pararAnimacao() {
@@ -143,6 +179,12 @@ function pararAnimacao() {
         var action = mixerAnimacao.clipAction(objetoImportado.animations[0]);
         action.stop();
         andando = false;
+    }
+
+    // Remover o barril da cena quando a animação do personagem parar
+    if (barrilImportado && cena.children.includes(barrilImportado)) {
+        console.log("Barril removido da cena.");
+        cena.remove(barrilImportado);
     }
 }
 
@@ -165,6 +207,27 @@ function Start() {
     cena.add(luzDirecional);
 
     requestAnimationFrame(loop);
+}
+
+// Atualizar posição do barril no loop
+function atualizarBarril() {
+    if (barrilImportado) {
+        // Raycasting para verificar o chão
+        raycaster.set(barrilImportado.position, new THREE.Vector3(0, -1, 0));
+        const intersects = raycaster.intersectObjects(objetosColisao, true);
+        const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
+
+        if (!noChao) {
+            velocidadeBarrilY += gravidade;
+            barrilImportado.position.y += velocidadeBarrilY;
+        } else {
+            if (pulandoBarril) {
+                barrilImportado.position.y = barrilImportado.position.y;
+                pulandoBarril = false;
+                velocidadeBarrilY = 0;
+            }
+        }
+    }
 }
 
 // Loop de animação
@@ -205,6 +268,9 @@ function loop() {
         objetoImportado.rotation.y = Math.PI;
         iniciarAnimacao();
     }
+
+    // Atualizar posição do barril
+    atualizarBarril();
 
     if (cameraAtual === camaraPerspectiva && objetoImportado && objetosColisao.length > 0) {
         const barril = objetosColisao[0]; // assumindo que o primeiro é o barril (ajuste se necessário)
