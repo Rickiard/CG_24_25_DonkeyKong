@@ -42,7 +42,7 @@ var pulandoBarril = false;
 var importer = new FBXLoader();
 
 // Função para carregar objetos FBX
-function carregarObjetoFBX(caminho, escala, posicao, rotacao) {
+function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
     importer.load(caminho, function (object) {
         object.traverse(function (child) {
             if (child.isMesh) {
@@ -51,24 +51,37 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao) {
             }
         });
 
-        cena.add(object);
         object.scale.set(escala.x, escala.y, escala.z);
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
 
-        if (object.animations.length > 0) {
-            mixerAnimacao = new THREE.AnimationMixer(object);
-            var action = mixerAnimacao.clipAction(object.animations[0]);
-        }
+        cena.add(object);
 
-        // Certifique-se de que o objeto não seja adicionado à lista de colisão
-        if (caminho !== './Objetos/donkey/Donkey Kong.fbx') {
-            objetosColisao.push(object);
+        // ⚠️ Só associa ao objetoImportado se for chamado via callback (ex: Mario)
+        if (callback) {
+            callback(object);
         }
-
-        objetoImportado = object;
     });
 }
+
+
+carregarObjetoFBX(
+    './Objetos/mario/Mario.fbx',
+    { x: 0.01, y: 0.01, z: 0.01 },
+    { x: -10, y: -9.7, z: -3.0 },
+    { x: 0, y: Math.PI / 2, z: 0 },
+    function (object) {
+        objetoImportado = object;
+
+        // ⚠️ Aqui sim atribuímos o mixer se houver animação
+        if (object.animations.length > 0) {
+            mixerAnimacao = new THREE.AnimationMixer(object);
+        }
+
+        // ⚠️ Adiciona à lista de colisão (se for suposto)
+        objetosColisao.push(object);
+    }
+);
 
 
 function carregarBarril(caminho, escala, posicao, rotacao) {
@@ -94,11 +107,32 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
 }
 
 // Carregar objetos
-carregarObjetoFBX('./Objetos/tentativa1.fbx', { x: 0.03, y: 0.03, z: 0.03 }, { x: 1.5, y: -0.5, z: -6.0 }, { x: -Math.PI / 2, y: 0, z: 0 });
-//carregarObjetoFBX('./Objetos/Samba Dancing.fbx', { x: 0.01, y: 0.01, z: 0.01 }, { x: -10, y: -10, z: -3.0 }, { x: 0, y: Math.PI / 2, z: 0 });
-carregarObjetoFBX('./Objetos/donkey/Donkey Kong.fbx', { x: 0.01, y: 0.01, z: 0.01 }, { x: -7, y: 6, z: -6.0 }, { x: 0, y: 0, z: 0 });
-carregarObjetoFBX('./Objetos/peach/peach.fbx', { x: 0.0005, y: 0.0005, z: 0.0005 }, { x: 0, y: 8, z: -6.0 }, { x: 0, y: Math.PI / 2, z: 0 });
-carregarObjetoFBX('./Objetos/mario/Mario.fbx', { x: 0.01, y: 0.01, z: 0.01 }, { x: -10, y: -10, z: -3.0 }, { x: 0, y: Math.PI / 2, z: 0 });
+carregarObjetoFBX(
+    './Objetos/tentativa1.fbx',
+    { x: 0.03, y: 0.03, z: 0.03 },
+    { x: 1.5, y: -0.5, z: -6.0 },
+    { x: -Math.PI / 2, y: 0, z: 0 }
+);
+
+// Donkey Kong (sem alterar objetoImportado nem mixer)
+importer.load('./Objetos/donkey/Donkey Kong.fbx', function (object) {
+    object.traverse(child => {
+        if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+        }
+    });
+    object.scale.set(0.01, 0.01, 0.01);
+    object.position.set(-7, 6, -6.0);
+    cena.add(object);
+});
+
+// Peach (já correta)
+carregarObjetoFBX('./Objetos/peach/peach.fbx',
+    { x: 0.0005, y: 0.0005, z: 0.0005 },
+    { x: 0, y: 8, z: -6.0 },
+    { x: 0, y: Math.PI / 2, z: 0 }
+);
 
 // Carregar o barril
 carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 0, y: 0, z: -5.0 }, { x: 0, y: 0, z: 0 });
