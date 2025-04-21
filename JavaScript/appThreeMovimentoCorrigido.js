@@ -88,7 +88,7 @@ const skybox = criarSkybox({
     negx: './Skybox/negx.png',
     posy: './Skybox/posy.jpg',
     negy: './Skybox/negy.jpg',
-    posz: './Skybox/posz.jpg',
+    posz: './Skybox/posz.png',
     negz: './Skybox/negz.png',
 }, 100);
 cena.add(skybox);
