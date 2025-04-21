@@ -57,9 +57,18 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
 
         cena.add(object);
 
-        // ⚠️ Só associa ao objetoImportado se for chamado via callback (ex: Mario)
+        // Só associa ao objetoImportado se for chamado via callback (ex: Mario)
         if (callback) {
             callback(object);
+        }
+    });
+}
+
+function aplicarTexturaMario(objeto) {
+    const texturaMario = new THREE.TextureLoader().load('/mnt/data/MarioQ_D.png');
+    objeto.traverse((child) => {
+        if (child.isMesh) {
+            child.material = new THREE.MeshStandardMaterial({ map: texturaMario });
         }
     });
 }
@@ -73,15 +82,16 @@ carregarObjetoFBX(
     function (object) {
         objetoImportado = object;
 
-        // ⚠️ Aqui sim atribuímos o mixer se houver animação
+        aplicarTexturaMario(object); // ✅ Aplica a textura ao Mario
+
         if (object.animations.length > 0) {
             mixerAnimacao = new THREE.AnimationMixer(object);
         }
 
-        // ⚠️ Adiciona à lista de colisão (se for suposto)
         objetosColisao.push(object);
     }
 );
+
 
 
 function carregarBarril(caminho, escala, posicao, rotacao) {
@@ -127,12 +137,31 @@ importer.load('./Objetos/donkey/Donkey Kong.fbx', function (object) {
     cena.add(object);
 });
 
-// Peach (já correta)
+function aplicarTexturaPeach(objeto) {
+    const texturaCorpo = new THREE.TextureLoader().load('/mnt/data/peach_body.png');
+    const texturaOlhos = new THREE.TextureLoader().load('/mnt/data/peach_eye.0.png');
+
+    objeto.traverse((child) => {
+        if (child.isMesh) {
+            if (child.name.toLowerCase().includes('eye')) {
+                child.material = new THREE.MeshStandardMaterial({ map: texturaOlhos });
+            } else {
+                child.material = new THREE.MeshStandardMaterial({ map: texturaCorpo });
+            }
+        }
+    });
+}
+//peach
+
 carregarObjetoFBX('./Objetos/peach/peach.fbx',
     { x: 0.0005, y: 0.0005, z: 0.0005 },
-    { x: 0, y: 8, z: -6.0 },
-    { x: 0, y: Math.PI / 2, z: 0 }
+    { x: 0, y: 7, z: -9.0 },
+    { x: 0, y: Math.PI / 2, z: 0 },
+    function (object) {
+        aplicarTexturaPeach(object); // ✅ Aplica texturas à Peach
+    }
 );
+
 
 // Carregar o barril
 carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 0, y: 0, z: -5.0 }, { x: 0, y: 0, z: 0 });
