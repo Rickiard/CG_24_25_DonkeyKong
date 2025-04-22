@@ -64,34 +64,46 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
     });
 }
 
-function aplicarTexturaMario(objeto) {
-    const texturaMario = new THREE.TextureLoader().load('/mnt/data/MarioQ_D.png');
-    objeto.traverse((child) => {
-        if (child.isMesh) {
-            child.material = new THREE.MeshStandardMaterial({ map: texturaMario });
+
+function aplicarTexturaMario() {
+    const loaderTextura = new THREE.TextureLoader();
+
+    loaderTextura.load(
+        './objetos/mario/MarioQ_D.png',
+        function (texturaMario) {
+            carregarObjetoFBX(
+                './objetos/mario/Mario.fbx',
+                { x: 0.01, y: 0.01, z: 0.01 },
+                { x: 0, y: 0, z: 0 },
+                { x: 0, y: Math.PI / 2, z: 0 },
+                function (object) {
+                    object.traverse(function (child) {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                            child.material = new THREE.MeshStandardMaterial({
+                                map: texturaMario,
+                                side: THREE.DoubleSide
+                            });
+                        }
+                    });
+
+                    objetoImportado = object;
+
+                    if (object.animations.length > 0) {
+                        mixerAnimacao = new THREE.AnimationMixer(object);
+                    }
+
+                    objetosColisao.push(object);
+                }
+            );
+        },
+        undefined,
+        function (error) {
+            console.error('Erro ao carregar a textura do Mario:', error);
         }
-    });
+    );
 }
-
-
-carregarObjetoFBX(
-    './Objetos/mario/Mario.fbx',
-    { x: 0.01, y: 0.01, z: 0.01 },
-    { x: -10, y: -9.7, z: -3.0 },
-    { x: 0, y: Math.PI / 2, z: 0 },
-    function (object) {
-        objetoImportado = object;
-
-        aplicarTexturaMario(object); // ✅ Aplica a textura ao Mario
-
-        if (object.animations.length > 0) {
-            mixerAnimacao = new THREE.AnimationMixer(object);
-        }
-
-        objetosColisao.push(object);
-    }
-);
-
 
 
 function carregarBarril(caminho, escala, posicao, rotacao) {
@@ -274,11 +286,9 @@ function atualizarBarril() {
 
 // Função principal
 function Start() {
-
     for (let i = 0; i < 7; i++) {
         const y = -10 + i * 3;
         const plano = criarChaoInvisivel(7, y, -3);
-
         cena.add(plano);
         objetosColisao.push(plano);
     }
@@ -299,8 +309,12 @@ function Start() {
     luzDirecional.position.set(5, 10, 7).normalize();
     cena.add(luzDirecional);
 
+    // ✅ CHAMA AQUI PARA CARREGAR O MARIO COM TEXTURA
+    aplicarTexturaMario();
+
     requestAnimationFrame(loop);
 }
+
 
 // Loop de animação
 function loop() {
