@@ -40,8 +40,6 @@ var pulandoBarril = false;
 
 // Carregador FBX
 var importer = new FBXLoader();
-
-// Função para carregar objetos FBX
 function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
     importer.load(caminho, function (object) {
         object.traverse(function (child) {
@@ -54,16 +52,13 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
         object.scale.set(escala.x, escala.y, escala.z);
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
-
         cena.add(object);
 
-        // ⚠️ Só associa ao objetoImportado se for chamado via callback (ex: Mario)
         if (callback) {
             callback(object);
         }
     });
 }
-
 
 carregarObjetoFBX(
     './Objetos/mario/Mario.fbx',
@@ -71,22 +66,61 @@ carregarObjetoFBX(
     { x: -10, y: -9.7, z: -3.0 },
     { x: 0, y: Math.PI / 2, z: 0 },
     function (object) {
-        objetoImportado = object;
+        console.log("Callback do Mario executado!");
 
-        // ⚠️ Aqui sim atribuímos o mixer se houver animação
+        // Contagem de meshes para debug
+        let contadorMeshes = 0;
+
+        // Aplicar material roxo wireframe ao Mario
+        object.traverse(function (child) {
+            if (child.isMesh) {
+                contadorMeshes++;
+
+                // Criar um material roxo brilhante com wireframe
+                const materialRoxo = new THREE.MeshBasicMaterial({
+                    color: 0x8800FF,     // Roxo brilhante
+                    side: THREE.DoubleSide,
+                    wireframe: true       // Mostrar como wireframe igual à Peach
+                });
+
+                // Aplicar o material
+                child.material = materialRoxo;
+                console.log(`Material roxo wireframe aplicado à mesh ${contadorMeshes} do Mario`);
+            }
+        });
+
+        console.log(`Total de meshes encontradas no Mario: ${contadorMeshes}`);
+
+        // Adicionar uma esfera como marcador no centro do objeto
+        const geometria = new THREE.SphereGeometry(0.5, 32, 32); // Tamanho proporcional ao Mario
+        const material = new THREE.MeshBasicMaterial({
+            color: 0x00FF00  // Verde brilhante (diferente da Peach que é vermelha)
+        });
+        const esfera = new THREE.Mesh(geometria, material);
+        object.add(esfera);
+        console.log("Esfera verde adicionada ao centro do Mario");
+
+        // Adicionar luz pontual para destacar o Mario
+        const luzMario = new THREE.PointLight(0xFFFFFF, 3, 10);
+        luzMario.position.set(0, 2, 2);
+        object.add(luzMario);
+
+        objetoImportado = object;
         if (object.animations.length > 0) {
             mixerAnimacao = new THREE.AnimationMixer(object);
         }
-
-        // ⚠️ Adiciona à lista de colisão (se for suposto)
         objetosColisao.push(object);
+
+        // Adicionar uma caixa de bounding box
+        const bbox = new THREE.Box3().setFromObject(object);
+        const helper = new THREE.Box3Helper(bbox, 0x00FF00); // Verde para o Mario
+        cena.add(helper);
+        console.log("Mario visualizado com wireframe e bounding box");
     }
 );
 
-
 function carregarBarril(caminho, escala, posicao, rotacao) {
     importer.load(caminho, function (object) {
-        console.log('Barril carregado:', object); // Adicione este log
         object.traverse(function (child) {
             if (child.isMesh) {
                 child.castShadow = true;
@@ -94,27 +128,17 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
             }
         });
 
-        //cena.add(object);
         object.scale.set(escala.x, escala.y, escala.z);
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
 
         objetosColisao.push(object);
         barrilImportado = object;
-    }, undefined, function (error) {
-        console.error('Erro ao carregar o barril:', error); // Adicione este log
     });
 }
 
-// Carregar objetos
-carregarObjetoFBX(
-    './Objetos/tentativa1.fbx',
-    { x: 0.03, y: 0.03, z: 0.03 },
-    { x: 1.5, y: -0.5, z: -6.0 },
-    { x: -Math.PI / 2, y: 0, z: 0 }
-);
+carregarObjetoFBX('./Objetos/tentativa1.fbx', { x: 0.03, y: 0.03, z: 0.03 }, { x: 1.5, y: -0.5, z: -6.0 }, { x: -Math.PI / 2, y: 0, z: 0 });
 
-// Donkey Kong (sem alterar objetoImportado nem mixer)
 importer.load('./Objetos/donkey/Donkey Kong.fbx', function (object) {
     object.traverse(child => {
         if (child.isMesh) {
@@ -127,15 +151,64 @@ importer.load('./Objetos/donkey/Donkey Kong.fbx', function (object) {
     cena.add(object);
 });
 
-// Peach (já correta)
-carregarObjetoFBX('./Objetos/peach/peach.fbx',
-    { x: 0.0005, y: 0.0005, z: 0.0005 },
-    { x: 0, y: 8, z: -6.0 },
-    { x: 0, y: Math.PI / 2, z: 0 }
-);
+console.log("Iniciando carregamento da Peach...");
+carregarObjetoFBX(
+    './Objetos/peach/peach.fbx',
+    { x: 0.05, y: 0.05, z: 0.05 },
+    { x: 0, y: 7, z: -9.0 },
+    { x: 0, y: Math.PI / 2, z: 0 },   // Rotação de 90 graus para a direita (π/2 radianos no eixo Y)
+    function (object) {
+        console.log("Callback da Peach executado!");
 
-// Carregar o barril
+        // Contagem de meshes para debug
+        let contadorMeshes = 0;
+
+        // Aplicar material azul ainda mais visível à Peach
+        object.traverse(function (child) {
+            if (child.isMesh) {
+                contadorMeshes++;
+
+                // Criar um material azul super brilhante
+                const materialAzulBrilhante = new THREE.MeshBasicMaterial({
+                    color: 0x00FFFF,       // Ciano vivo
+                    side: THREE.DoubleSide,
+                    wireframe: true         // Mostrar como wireframe para visualizar a estrutura
+                });
+
+                // Aplicar o material
+                child.material = materialAzulBrilhante;
+                console.log(`Material azul wireframe aplicado à mesh ${contadorMeshes} da Peach`);
+            }
+        });
+
+        console.log(`Total de meshes encontradas na Peach: ${contadorMeshes}`);
+
+        // Adicionar uma esfera como marcador no centro do objeto - também 10x maior
+        const geometria = new THREE.SphereGeometry(5, 32, 32);
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xFF0000  // Vermelho brilhante
+        });
+        const esfera = new THREE.Mesh(geometria, material);
+        object.add(esfera);
+        console.log("Esfera vermelha grande adicionada ao centro da Peach");
+
+        // Adicionar luz pontual para destacar a Peach - range maior
+        const luzPeach = new THREE.PointLight(0xFFFFFF, 3, 50);
+        luzPeach.position.set(0, 20, 20);
+        object.add(luzPeach);
+
+        cena.add(object);
+        console.log("Peach rotacionada 90 graus para a direita");
+
+        // Adicionar uma caixa de bounding box
+        const bbox = new THREE.Box3().setFromObject(object);
+        const helper = new THREE.Box3Helper(bbox, 0xFF00FF);
+        cena.add(helper);
+        console.log("Bounding box adicionada para visualizar tamanho e posição");
+    }
+);
 carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 0, y: 0, z: -5.0 }, { x: 0, y: 0, z: 0 });
+
 
 // Skybox
 function criarSkybox(caminhoTexturas, tamanho) {
@@ -245,6 +318,9 @@ function atualizarBarril() {
 
 // Função principal
 function Start() {
+    // Retornar a câmera à posição original
+    camaraPerspectiva.position.set(0, 1, 5);
+    camaraPerspectiva.lookAt(0, 0, 0);
 
     for (let i = 0; i < 7; i++) {
         const y = -10 + i * 3;
