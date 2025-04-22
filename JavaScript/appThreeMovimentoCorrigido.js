@@ -57,7 +57,7 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
 
         cena.add(object);
 
-        // Só associa ao objetoImportado se for chamado via callback (ex: Mario)
+        // ⚠️ Só associa ao objetoImportado se for chamado via callback (ex: Mario)
         if (callback) {
             callback(object);
         }
@@ -65,45 +65,23 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
 }
 
 
-function aplicarTexturaMario() {
-    const loaderTextura = new THREE.TextureLoader();
+carregarObjetoFBX(
+    './Objetos/mario/Mario.fbx',
+    { x: 0.01, y: 0.01, z: 0.01 },
+    { x: -10, y: -9.7, z: -3.0 },
+    { x: 0, y: Math.PI / 2, z: 0 },
+    function (object) {
+        objetoImportado = object;
 
-    loaderTextura.load(
-        './objetos/mario/MarioQ_D.png',
-        function (texturaMario) {
-            carregarObjetoFBX(
-                './objetos/mario/Mario.fbx',
-                { x: 0.01, y: 0.01, z: 0.01 },
-                { x: 0, y: 0, z: 0 },
-                { x: 0, y: Math.PI / 2, z: 0 },
-                function (object) {
-                    object.traverse(function (child) {
-                        if (child.isMesh) {
-                            child.castShadow = true;
-                            child.receiveShadow = true;
-                            child.material = new THREE.MeshStandardMaterial({
-                                map: texturaMario,
-                                side: THREE.DoubleSide
-                            });
-                        }
-                    });
-
-                    objetoImportado = object;
-
-                    if (object.animations.length > 0) {
-                        mixerAnimacao = new THREE.AnimationMixer(object);
-                    }
-
-                    objetosColisao.push(object);
-                }
-            );
-        },
-        undefined,
-        function (error) {
-            console.error('Erro ao carregar a textura do Mario:', error);
+        // ⚠️ Aqui sim atribuímos o mixer se houver animação
+        if (object.animations.length > 0) {
+            mixerAnimacao = new THREE.AnimationMixer(object);
         }
-    );
-}
+
+        // ⚠️ Adiciona à lista de colisão (se for suposto)
+        objetosColisao.push(object);
+    }
+);
 
 
 function carregarBarril(caminho, escala, posicao, rotacao) {
@@ -149,31 +127,12 @@ importer.load('./Objetos/donkey/Donkey Kong.fbx', function (object) {
     cena.add(object);
 });
 
-function aplicarTexturaPeach(objeto) {
-    const texturaCorpo = new THREE.TextureLoader().load('/mnt/data/peach_body.png');
-    const texturaOlhos = new THREE.TextureLoader().load('/mnt/data/peach_eye.0.png');
-
-    objeto.traverse((child) => {
-        if (child.isMesh) {
-            if (child.name.toLowerCase().includes('eye')) {
-                child.material = new THREE.MeshStandardMaterial({ map: texturaOlhos });
-            } else {
-                child.material = new THREE.MeshStandardMaterial({ map: texturaCorpo });
-            }
-        }
-    });
-}
-//peach
-
+// Peach (já correta)
 carregarObjetoFBX('./Objetos/peach/peach.fbx',
     { x: 0.0005, y: 0.0005, z: 0.0005 },
-    { x: 0, y: 7, z: -9.0 },
-    { x: 0, y: Math.PI / 2, z: 0 },
-    function (object) {
-        aplicarTexturaPeach(object); // ✅ Aplica texturas à Peach
-    }
+    { x: 0, y: 8, z: -6.0 },
+    { x: 0, y: Math.PI / 2, z: 0 }
 );
-
 
 // Carregar o barril
 carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 0, y: 0, z: -5.0 }, { x: 0, y: 0, z: 0 });
@@ -286,9 +245,11 @@ function atualizarBarril() {
 
 // Função principal
 function Start() {
+
     for (let i = 0; i < 7; i++) {
         const y = -10 + i * 3;
         const plano = criarChaoInvisivel(7, y, -3);
+
         cena.add(plano);
         objetosColisao.push(plano);
     }
@@ -309,12 +270,8 @@ function Start() {
     luzDirecional.position.set(5, 10, 7).normalize();
     cena.add(luzDirecional);
 
-    // ✅ CHAMA AQUI PARA CARREGAR O MARIO COM TEXTURA
-    aplicarTexturaMario();
-
     requestAnimationFrame(loop);
 }
-
 
 // Loop de animação
 function loop() {
@@ -353,7 +310,7 @@ function loop() {
             if (objetoImportado.rotation.y === -Math.PI / 2) {
                 if (teclasPressionadas[68]) { // D (esquerda)
                     objetoImportado.rotation.y = Math.PI;
-                    if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                    if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                         (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                         (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
@@ -361,8 +318,7 @@ function loop() {
                         (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                         (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
-                        pulando === false) {
+                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) {
                         objetoImportado.position.y += 3.1;
                         objetoImportado.position.z -= 1;
                     }
@@ -371,7 +327,7 @@ function loop() {
             } else if (objetoImportado.rotation.y === Math.PI / 2) {
                 if (teclasPressionadas[65]) { // A (esquerda)
                     objetoImportado.rotation.y = Math.PI;
-                    if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                    if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                         (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                         (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
@@ -379,8 +335,7 @@ function loop() {
                         (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                         (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5))&&
-                        pulando === false) {
+                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) {
                         objetoImportado.position.y += 3.1;
                         objetoImportado.position.z -= 1;
                     }
@@ -389,7 +344,7 @@ function loop() {
             }
 
             if (teclasPressionadas[17]) { // tecla CTRL
-                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
                     (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
                     (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
@@ -397,8 +352,7 @@ function loop() {
                     (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5) ||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8))&&
-                    pulando === false) {
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) {
                     objetoImportado.position.y -= 3;
                     objetoImportado.position.z += 1;
                 }
@@ -418,7 +372,7 @@ function loop() {
             // Movimentação na câmara ortográfica: A (esquerda) e D (direita)
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.rotation.y = Math.PI;
-                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
@@ -426,15 +380,14 @@ function loop() {
                     (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
-                    pulando === false) {
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) {
                     objetoImportado.position.y += 3.1;
                     objetoImportado.position.z -= 1;
                 }
                 iniciarAnimacao();
             } else if (teclasPressionadas[83]) {
                 objetoImportado.rotation.y = Math.PI;
-                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
                     (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
                     (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
@@ -442,8 +395,7 @@ function loop() {
                     (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5) ||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) &&
-                    pulando === false) {
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) {
                     objetoImportado.position.y -= 3;
                     objetoImportado.position.z += 1;
                 }
