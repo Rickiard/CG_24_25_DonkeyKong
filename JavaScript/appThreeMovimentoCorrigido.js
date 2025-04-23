@@ -2,7 +2,21 @@ import * as THREE from 'three';
 import { FBXLoader } from 'FBXLoader';
 import { PointerLockControls } from 'PointerLockControls';
 
-document.addEventListener('DOMContentLoaded', Start);
+// Make startGame function available globally
+window.startGame = function() {
+    // Initialize game if not already initialized
+    if (!window.gameInitialized) {
+        Start();
+        window.gameInitialized = true;
+    }
+    // Start the game loop
+    loop();
+};
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Don't start the game automatically, wait for the start button
+    window.gameInitialized = false;
+});
 
 var cena = new THREE.Scene();
 var renderer = new THREE.WebGLRenderer();
@@ -240,6 +254,11 @@ cena.add(skybox);
 
 // Eventos de teclado
 document.addEventListener("keydown", function (event) {
+    // Don't process game controls if menu is visible
+    if (!document.getElementById('menuContainer').classList.contains('hidden')) {
+        return;
+    }
+
     teclasPressionadas[event.which] = true;
 
     // Alternar entre câmeras ao pressionar "C"
@@ -351,6 +370,13 @@ function Start() {
 
 // Loop de animação
 function loop() {
+    // Only update game if menu is not visible
+    if (!document.getElementById('menuContainer').classList.contains('hidden')) {
+        requestAnimationFrame(loop);
+        renderer.render(cena, cameraAtual);
+        return;
+    }
+
     if (mixerAnimacao) {
         mixerAnimacao.update(relogio.getDelta());
     }
@@ -501,7 +527,7 @@ function loop() {
         }
     }
 
-    renderer.render(cena, cameraAtual); // Renderiza com a câmera atual
+    renderer.render(cena, cameraAtual);
     requestAnimationFrame(loop);
 }
 
