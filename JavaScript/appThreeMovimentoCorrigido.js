@@ -2,20 +2,46 @@ import * as THREE from 'three';
 import { FBXLoader } from 'FBXLoader';
 import { PointerLockControls } from 'PointerLockControls';
 
-// Make startGame function available globally
+// Game state management
+window.gameState = {
+    isPaused: false,
+    isInitialized: false,
+    originalPosition: null
+};
+
+// Global functions for menu control
 window.startGame = function() {
-    // Initialize game if not already initialized
-    if (!window.gameInitialized) {
+    if (!window.gameState.isInitialized) {
         Start();
-        window.gameInitialized = true;
+        window.gameState.isInitialized = true;
     }
-    // Start the game loop
+    window.gameState.isPaused = false;
     loop();
+};
+
+window.pauseGame = function() {
+    window.gameState.isPaused = true;
+    if (objetoImportado) {
+        window.gameState.originalPosition = objetoImportado.position.clone();
+    }
+};
+
+window.resumeGame = function() {
+    window.gameState.isPaused = false;
+};
+
+window.restartGame = function() {
+    if (objetoImportado) {
+        objetoImportado.position.set(-10, -9.7, -3.0);
+        objetoImportado.rotation.set(0, Math.PI / 2, 0);
+    }
+    window.gameState.isPaused = false;
+    document.getElementById('pauseMenu').classList.add('hidden');
 };
 
 document.addEventListener('DOMContentLoaded', function() {
     // Don't start the game automatically, wait for the start button
-    window.gameInitialized = false;
+    window.gameState.isInitialized = false;
 });
 
 var cena = new THREE.Scene();
@@ -254,8 +280,9 @@ cena.add(skybox);
 
 // Eventos de teclado
 document.addEventListener("keydown", function (event) {
-    // Don't process game controls if menu is visible
-    if (!document.getElementById('menuContainer').classList.contains('hidden')) {
+    // Don't process game controls if any menu is visible
+    if (!document.getElementById('mainMenu').classList.contains('hidden') || 
+        !document.getElementById('pauseMenu').classList.contains('hidden')) {
         return;
     }
 
@@ -370,8 +397,8 @@ function Start() {
 
 // Loop de animação
 function loop() {
-    // Only update game if menu is not visible
-    if (!document.getElementById('menuContainer').classList.contains('hidden')) {
+    // Only update game if game is not paused
+    if (window.gameState.isPaused) {
         requestAnimationFrame(loop);
         renderer.render(cena, cameraAtual);
         return;
