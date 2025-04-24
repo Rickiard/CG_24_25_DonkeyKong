@@ -108,7 +108,7 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
 
 carregarObjetoFBX(
     './Objetos/Mario.fbx',
-    { x: 0.01, y: 0.01, z: 0.01 },
+    { x: 0.85, y: 0.85, z: 0.85 },
     { x: -10, y: -9.7, z: -3.0 },
     { x: 0, y: Math.PI / 2, z: 0 },
     function (object) {
@@ -181,7 +181,7 @@ importer.load('./Objetos/Donkey Kong.fbx', function (object) {
 console.log("Iniciando carregamento da Peach...");
 carregarObjetoFBX(
     './Objetos/peach.fbx',
-    { x: 0.0005, y: 0.0005, z: 0.0005 },
+    { x: 0.05, y: 0.05, z: 0.05 },
     { x: 0, y: 7.0, z: -9.5 },
     { x: 0, y: 0, z: 0 },
     function (object) {
