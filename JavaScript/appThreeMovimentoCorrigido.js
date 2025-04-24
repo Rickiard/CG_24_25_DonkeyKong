@@ -69,7 +69,9 @@ var relogio = new THREE.Clock();
 var andando = false;
 var pulando = false;
 var velocidadeY = 0; // Velocidade vertical
-var gravidade = -0.01; // Gravidade aplicada ao objeto
+var gravidade = -0.008; // Reduced gravity for slower fall
+var forcaPulo = 0.25; // Increased jump force
+var velocidadeMovimento = 0.06; // Reduced movement speed (was 0.10)
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
 var raycaster = new THREE.Raycaster();
 var objetosColisao = []; // Lista de objetos com os quais o personagem pode colidir
@@ -77,6 +79,10 @@ var objetosColisao = []; // Lista de objetos com os quais o personagem pode coli
 var barrilImportado;
 var velocidadeBarrilY = 0; // Velocidade vertical do barril
 var pulandoBarril = false;
+
+// Add TextureLoader
+const textureLoader = new THREE.TextureLoader();
+const marioTexture = textureLoader.load('./textures/mario_texture.png');  // Adjust path as needed
 
 // Carregador FBX
 var importer = new FBXLoader();
@@ -101,7 +107,7 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
 }
 
 carregarObjetoFBX(
-    './Objetos/mario/Mario.fbx',
+    './Objetos/Mario.fbx',
     { x: 0.01, y: 0.01, z: 0.01 },
     { x: -10, y: -9.7, z: -3.0 },
     { x: 0, y: Math.PI / 2, z: 0 },
@@ -111,51 +117,32 @@ carregarObjetoFBX(
         // Contagem de meshes para debug
         let contadorMeshes = 0;
 
-        // Aplicar material roxo wireframe ao Mario
+        // Aplicar textura ao Mario
         object.traverse(function (child) {
             if (child.isMesh) {
                 contadorMeshes++;
 
-                // Criar um material roxo brilhante com wireframe
-                const materialRoxo = new THREE.MeshBasicMaterial({
-                    color: 0x8800FF,     // Roxo brilhante
-                    side: THREE.DoubleSide,
-                    wireframe: true       // Mostrar como wireframe igual à Peach
+                // Criar material com a textura
+                const materialTexturizado = new THREE.MeshPhongMaterial({
+                    map: marioTexture,
+                    side: THREE.DoubleSide
                 });
 
                 // Aplicar o material
-                child.material = materialRoxo;
-                console.log(`Material roxo wireframe aplicado à mesh ${contadorMeshes} do Mario`);
+                child.material = materialTexturizado;
+                console.log(`Material texturizado aplicado à mesh ${contadorMeshes} do Mario`);
             }
         });
 
         console.log(`Total de meshes encontradas no Mario: ${contadorMeshes}`);
 
-        // Adicionar uma esfera como marcador no centro do objeto
-        const geometria = new THREE.SphereGeometry(0.5, 32, 32); // Tamanho proporcional ao Mario
-        const material = new THREE.MeshBasicMaterial({
-            color: 0x00FF00  // Verde brilhante (diferente da Peach que é vermelha)
-        });
-        const esfera = new THREE.Mesh(geometria, material);
-        object.add(esfera);
-        console.log("Esfera verde adicionada ao centro do Mario");
-
-        // Adicionar luz pontual para destacar o Mario
-        const luzMario = new THREE.PointLight(0xFFFFFF, 3, 10);
-        luzMario.position.set(0, 2, 2);
-        object.add(luzMario);
-
+        // Remover a esfera verde já que agora temos textura
         objetoImportado = object;
         if (object.animations.length > 0) {
             mixerAnimacao = new THREE.AnimationMixer(object);
+            mixerAnimacao.clipAction(object.animations[0]).play();
         }
         objetosColisao.push(object);
-
-        // Adicionar uma caixa de bounding box
-        const bbox = new THREE.Box3().setFromObject(object);
-        const helper = new THREE.Box3Helper(bbox, 0x00FF00); // Verde para o Mario
-        cena.add(helper);
-        console.log("Mario visualizado com wireframe e bounding box");
     }
 );
 
@@ -179,72 +166,77 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
 
 carregarObjetoFBX('./Objetos/tentativa1.fbx', { x: 0.03, y: 0.03, z: 0.03 }, { x: 1.5, y: -0.5, z: -6.0 }, { x: -Math.PI / 2, y: 0, z: 0 });
 
-importer.load('./Objetos/donkey/Donkey Kong.fbx', function (object) {
+importer.load('./Objetos/Donkey Kong.fbx', function (object) {
     object.traverse(child => {
         if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
         }
     });
-    object.scale.set(0.01, 0.01, 0.01);
-    object.position.set(-7, 6, -6.0);
+    object.scale.set(0.015, 0.015, 0.015);
+    object.position.set(-6.5, 5.7, -9);
     cena.add(object);
 });
 
 console.log("Iniciando carregamento da Peach...");
 carregarObjetoFBX(
-    './Objetos/peach/peach.fbx',
-    { x: 0.05, y: 0.05, z: 0.05 },
-    { x: 0, y: 7, z: -9.0 },
-    { x: 0, y: Math.PI / 2, z: 0 },   // Rotação de 90 graus para a direita (π/2 radianos no eixo Y)
+    './Objetos/peach.fbx',
+    { x: 0.0005, y: 0.0005, z: 0.0005 },
+    { x: 0, y: 7.0, z: -9.5 },
+    { x: 0, y: 0, z: 0 },
     function (object) {
         console.log("Callback da Peach executado!");
+
+        // Load textures
+        const textureLoader = new THREE.TextureLoader();
+        const bodyTexture = textureLoader.load('./textures/peach_body.png');
+        const eyeTexture = textureLoader.load('./textures/peach_eye.0.png');
 
         // Contagem de meshes para debug
         let contadorMeshes = 0;
 
-        // Aplicar material azul ainda mais visível à Peach
+        // Apply appropriate textures based on mesh names
         object.traverse(function (child) {
             if (child.isMesh) {
                 contadorMeshes++;
+                console.log(`Mesh ${contadorMeshes} name:`, child.name);
 
-                // Criar um material azul super brilhante
-                const materialAzulBrilhante = new THREE.MeshBasicMaterial({
-                    color: 0x00FFFF,       // Ciano vivo
-                    side: THREE.DoubleSide,
-                    wireframe: true         // Mostrar como wireframe para visualizar a estrutura
-                });
-
-                // Aplicar o material
-                child.material = materialAzulBrilhante;
-                console.log(`Material azul wireframe aplicado à mesh ${contadorMeshes} da Peach`);
+                // Create materials with textures
+                if (child.name.toLowerCase().includes('eye')) {
+                    // Eye material
+                    child.material = new THREE.MeshPhongMaterial({
+                        map: eyeTexture,
+                        shininess: 50,
+                        side: THREE.DoubleSide
+                    });
+                    console.log(`Eye texture applied to mesh ${contadorMeshes}`);
+                } else {
+                    // Body material
+                    child.material = new THREE.MeshPhongMaterial({
+                        map: bodyTexture,
+                        shininess: 30,
+                        side: THREE.DoubleSide
+                    });
+                    console.log(`Body texture applied to mesh ${contadorMeshes}`);
+                }
             }
         });
 
         console.log(`Total de meshes encontradas na Peach: ${contadorMeshes}`);
 
-        // Adicionar uma esfera como marcador no centro do objeto - também 10x maior
-        const geometria = new THREE.SphereGeometry(5, 32, 32);
-        const material = new THREE.MeshBasicMaterial({
-            color: 0xFF0000  // Vermelho brilhante
-        });
-        const esfera = new THREE.Mesh(geometria, material);
-        object.add(esfera);
-        console.log("Esfera vermelha grande adicionada ao centro da Peach");
-
-        // Adicionar luz pontual para destacar a Peach - range maior
-        const luzPeach = new THREE.PointLight(0xFFFFFF, 3, 50);
-        luzPeach.position.set(0, 20, 20);
+        // Adicionar uma luz pontual mais forte para destacar a Peach
+        const luzPeach = new THREE.PointLight(0xFFFFFF, 5, 50);
+        luzPeach.position.set(0, 10, 0);
         object.add(luzPeach);
 
-        cena.add(object);
-        console.log("Peach rotacionada 90 graus para a direita");
-
-        // Adicionar uma caixa de bounding box
+        // Adicionar uma caixa de bounding box mais visível
         const bbox = new THREE.Box3().setFromObject(object);
         const helper = new THREE.Box3Helper(bbox, 0xFF00FF);
         cena.add(helper);
-        console.log("Bounding box adicionada para visualizar tamanho e posição");
+        
+        // Adicionar o objeto à cena explicitamente
+        cena.add(object);
+        console.log("Peach adicionada à cena com posição:", object.position);
     }
 );
 carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 0, y: 0, z: -5.0 }, { x: 0, y: 0, z: 0 });
@@ -385,12 +377,21 @@ function Start() {
     camaraOrto.lookAt(0, 0, 0);
 
     // Luzes
-    var luzAmbiente = new THREE.AmbientLight(0xffffff);
+    var luzAmbiente = new THREE.AmbientLight(0xffffff, 0.6); // Adjusted ambient light intensity
     cena.add(luzAmbiente);
 
-    var luzDirecional = new THREE.DirectionalLight(0xffffff, 1);
-    luzDirecional.position.set(5, 10, 7).normalize();
-    cena.add(luzDirecional);
+    // Add multiple directional lights for better scene illumination
+    var luzDirecional1 = new THREE.DirectionalLight(0xffffff, 0.8);
+    luzDirecional1.position.set(5, 10, 7).normalize();
+    cena.add(luzDirecional1);
+
+    var luzDirecional2 = new THREE.DirectionalLight(0xffffff, 0.4);
+    luzDirecional2.position.set(-5, 8, -7).normalize();
+    cena.add(luzDirecional2);
+
+    // Add a soft hemisphere light for better ambient illumination
+    var luzHemisferica = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.5);
+    cena.add(luzHemisferica);
 
     requestAnimationFrame(loop);
 }
@@ -427,7 +428,7 @@ function loop() {
 
         if (teclasPressionadas[32] && !pulando && noChao) { // Barra de espaço (pulo)
             pulando = true;
-            velocidadeY = 0.17; // Define a força inicial do pulo
+            velocidadeY = forcaPulo; // Use the new jump force
         }
 
         // Atualiza a posição vertical do personagem
@@ -492,11 +493,11 @@ function loop() {
             }
 
             if (teclasPressionadas[87]) { // W (frente)
-                objetoImportado.position.x += 0.10; // Move para a direita
+                objetoImportado.position.x += velocidadeMovimento; // Use new movement speed
                 objetoImportado.rotation.y = Math.PI / 2;
                 iniciarAnimacao();
             } else if (teclasPressionadas[83]) { // S (trás)
-                objetoImportado.position.x -= 0.10; // Move para a esquerda
+                objetoImportado.position.x -= velocidadeMovimento; // Use new movement speed
                 objetoImportado.rotation.y = -Math.PI / 2;
                 iniciarAnimacao();
             }
@@ -535,11 +536,11 @@ function loop() {
                 }
                 iniciarAnimacao();
             } else if (teclasPressionadas[65]) { // A (esquerda)
-                objetoImportado.position.x -= 0.10; // Move para a esquerda
+                objetoImportado.position.x -= velocidadeMovimento; // Use new movement speed
                 objetoImportado.rotation.y = -Math.PI / 2;
                 iniciarAnimacao();
             } else if (teclasPressionadas[68]) { // D (direita)
-                objetoImportado.position.x += 0.10; // Move para a direita
+                objetoImportado.position.x += velocidadeMovimento; // Use new movement speed
                 objetoImportado.rotation.y = Math.PI / 2;
                 iniciarAnimacao();
             }
