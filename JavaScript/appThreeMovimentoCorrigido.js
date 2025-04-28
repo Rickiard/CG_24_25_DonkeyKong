@@ -1,378 +1,642 @@
-< !DOCTYPE html >
-    <html>
-        <head>
-            <title>
-                WebGL - Three.js
-            </title>
-            <style>
-    /* Base Styles */
-                body {
-                    margin: 0;
-                padding: 0;
-                font-family: 'Arial', sans-serif;
-                background: #000;
-                overflow: hidden;
+import * as THREE from 'three';
+import { FBXLoader } from 'FBXLoader';
+import { PointerLockControls } from 'PointerLockControls';
+
+// Game state management
+window.gameState = {
+    isPaused: false,
+    isInitialized: false,
+    originalPosition: null,
+    isGameOver: false
+};
+
+// Global functions for menu control
+window.startGame = function () {
+    if (!window.gameState.isInitialized) {
+        Start();
+        window.gameState.isInitialized = true;
+    }
+    window.gameState.isPaused = false;
+    window.gameState.isGameOver = false;
+    document.getElementById('gameOverMenu').classList.add('hidden');
+    loop();
+};
+
+window.pauseGame = function () {
+    window.gameState.isPaused = true;
+    if (objetoImportado) {
+        window.gameState.originalPosition = objetoImportado.position.clone();
+    }
+};
+
+window.resumeGame = function () {
+    window.gameState.isPaused = false;
+};
+
+window.restartGame = function () {
+    if (objetoImportado) {
+        objetoImportado.position.set(-10, -9.7, -3.0);
+        objetoImportado.rotation.set(0, Math.PI / 2, 0);
+    }
+    window.gameState.isPaused = false;
+    window.gameState.isGameOver = false;
+    barrilColisao = false; // Reset the collision flag
+    document.getElementById('pauseMenu').classList.add('hidden');
+    document.getElementById('gameOverMenu').classList.add('hidden');
+};
+
+window.gameOver = function () {
+    window.gameState.isGameOver = true;
+    document.getElementById('gameOverMenu').classList.remove('hidden');
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Don't start the game automatically, wait for the start button
+    window.gameState.isInitialized = false;
+});
+
+var cena = new THREE.Scene();
+var renderer = new THREE.WebGLRenderer();
+var camaraPerspectiva = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+var camaraOrto = new THREE.OrthographicCamera(
+    window.innerWidth / -65, // left
+    window.innerWidth / 65,  // right
+    window.innerHeight / 65, // top
+    window.innerHeight / -65, // bottom
+    0.1,                      // near
+    100                       // far
+);
+
+var cameraAtual = camaraPerspectiva; // Define a câmera inicial como a perspectiva
+
+renderer.setSize(window.innerWidth - 15, window.innerHeight - 80);
+renderer.setClearColor(0xaaaaaa);
+document.body.appendChild(renderer.domElement);
+
+// Variáveis globais
+var objetoImportado;
+var mixerAnimacao;
+var relogio = new THREE.Clock();
+var andando = false;
+var pulando = false;
+var velocidadeY = 0; // Velocidade vertical
+var gravidade = -0.008; // Reduced gravity for slower fall
+var forcaPulo = 0.25; // Increased jump force
+var velocidadeMovimento = 0.06; // Reduced movement speed (was 0.10)
+var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
+var raycaster = new THREE.Raycaster();
+var objetosColisao = []; // Lista de objetos com os quais o personagem pode colidir
+// Variáveis globais para o barril
+var barrilImportado;
+var velocidadeBarrilY = 0; // Velocidade vertical do barril
+var pulandoBarril = false;
+var barrilColisao = false; // Flag para verificar se houve colisão com o barril
+
+// Add TextureLoader
+const textureLoader = new THREE.TextureLoader();
+const marioTexture = textureLoader.load('./textures/mario_texture.png');  // Adjust path as needed
+
+// Carregador FBX
+var importer = new FBXLoader();
+function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
+    importer.load(caminho, function (object) {
+        object.traverse(function (child) {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+
+        object.scale.set(escala.x, escala.y, escala.z);
+        object.position.set(posicao.x, posicao.y, posicao.z);
+        object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
+        cena.add(object);
+
+        if (callback) {
+            callback(object);
+        }
+    });
+}
+
+carregarObjetoFBX(
+    './Objetos/Mario.fbx',
+    { x: 0.85, y: 0.85, z: 0.85 },
+    { x: -10, y: -9.7, z: -3.0 },
+    { x: 0, y: Math.PI / 2, z: 0 },
+    function (object) {
+        console.log("Callback do Mario executado!");
+
+        // Contagem de meshes para debug
+        let contadorMeshes = 0;
+
+        // Aplicar textura ao Mario
+        object.traverse(function (child) {
+            if (child.isMesh) {
+                contadorMeshes++;
+
+                // Criar material com a textura
+                const materialTexturizado = new THREE.MeshPhongMaterial({
+                    map: marioTexture,
+                    side: THREE.DoubleSide
+                });
+
+                // Aplicar o material
+                child.material = materialTexturizado;
+                console.log(`Material texturizado aplicado à mesh ${contadorMeshes} do Mario`);
+            }
+        });
+
+        console.log(`Total de meshes encontradas no Mario: ${contadorMeshes}`);
+
+        // Remover a esfera verde já que agora temos textura
+        objetoImportado = object;
+        if (object.animations.length > 0) {
+            mixerAnimacao = new THREE.AnimationMixer(object);
+            mixerAnimacao.clipAction(object.animations[0]).play();
+        }
+        objetosColisao.push(object);
+    }
+);
+
+function carregarBarril(caminho, escala, posicao, rotacao) {
+    importer.load(caminho, function (object) {
+        object.traverse(function (child) {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+
+        object.scale.set(escala.x, escala.y, escala.z);
+        object.position.set(posicao.x, posicao.y, posicao.z);
+        object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
+
+        objetosColisao.push(object);
+        barrilImportado = object;
+        cena.add(object); // Adicionar o barril à cena imediatamente
+    });
+}
+
+carregarObjetoFBX('./Objetos/tentativa1.fbx', { x: 0.03, y: 0.03, z: 0.03 }, { x: 1.5, y: -0.5, z: -6.0 }, { x: -Math.PI / 2, y: 0, z: 0 });
+
+importer.load('./Objetos/Donkey Kong.fbx', function (object) {
+    object.traverse(child => {
+        if (child.isMesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+        }
+    });
+    object.scale.set(0.015, 0.015, 0.015);
+    object.position.set(-6.5, 5.7, -9);
+    cena.add(object);
+});
+
+console.log("Iniciando carregamento da Peach...");
+carregarObjetoFBX(
+    './Objetos/peach.fbx',
+    { x: 0.05, y: 0.05, z: 0.05 },
+    { x: 0, y: 7.0, z: -9.5 },
+    { x: 0, y: 0, z: 0 },
+    function (object) {
+        console.log("Callback da Peach executado!");
+
+        // Load textures
+        const textureLoader = new THREE.TextureLoader();
+        const bodyTexture = textureLoader.load('./textures/peach_body.png');
+        const eyeTexture = textureLoader.load('./textures/peach_eye.0.png');
+
+        // Contagem de meshes para debug
+        let contadorMeshes = 0;
+
+        // Apply appropriate textures based on mesh names
+        object.traverse(function (child) {
+            if (child.isMesh) {
+                contadorMeshes++;
+                console.log(`Mesh ${contadorMeshes} name:`, child.name);
+
+                // Create materials with textures
+                if (child.name.toLowerCase().includes('eye')) {
+                    // Eye material
+                    child.material = new THREE.MeshPhongMaterial({
+                        map: eyeTexture,
+                        shininess: 50,
+                        side: THREE.DoubleSide
+                    });
+                    console.log(`Eye texture applied to mesh ${contadorMeshes}`);
+                } else {
+                    // Body material
+                    child.material = new THREE.MeshPhongMaterial({
+                        map: bodyTexture,
+                        shininess: 30,
+                        side: THREE.DoubleSide
+                    });
+                    console.log(`Body texture applied to mesh ${contadorMeshes}`);
+                }
+            }
+        });
+
+        console.log(`Total de meshes encontradas na Peach: ${contadorMeshes}`);
+
+        // Adicionar uma luz pontual mais forte para destacar a Peach
+        const luzPeach = new THREE.PointLight(0xFFFFFF, 5, 50);
+        luzPeach.position.set(0, 10, 0);
+        object.add(luzPeach);
+
+        // Adicionar uma caixa de bounding box mais visível
+        const bbox = new THREE.Box3().setFromObject(object);
+        const helper = new THREE.Box3Helper(bbox, 0xFF00FF);
+        cena.add(helper);
+
+        // Adicionar o objeto à cena explicitamente
+        cena.add(object);
+        console.log("Peach adicionada à cena com posição:", object.position);
+    }
+);
+
+// Skybox
+function criarSkybox(caminhoTexturas, tamanho) {
+    const loader = new THREE.TextureLoader();
+    const materialArray = [
+        new THREE.MeshBasicMaterial({ map: loader.load(caminhoTexturas.posx) }),
+        new THREE.MeshBasicMaterial({ map: loader.load(caminhoTexturas.negx) }),
+        new THREE.MeshBasicMaterial({ map: loader.load(caminhoTexturas.posy) }),
+        new THREE.MeshBasicMaterial({ map: loader.load(caminhoTexturas.negy) }),
+        new THREE.MeshBasicMaterial({ map: loader.load(caminhoTexturas.posz) }),
+        new THREE.MeshBasicMaterial({ map: loader.load(caminhoTexturas.negz) }),
+    ];
+
+    materialArray.forEach(material => material.side = THREE.BackSide);
+
+    const skyboxGeo = new THREE.BoxGeometry(tamanho, tamanho, tamanho);
+    return new THREE.Mesh(skyboxGeo, materialArray);
+}
+
+const skybox = criarSkybox({
+    posx: './Skybox/posx.png',
+    negx: './Skybox/negx.png',
+    posy: './Skybox/posy.jpg',
+    negy: './Skybox/negy.jpg',
+    posz: './Skybox/posz.png',
+    negz: './Skybox/negz.png',
+}, 100);
+cena.add(skybox);
+
+// Eventos de teclado
+document.addEventListener("keydown", function (event) {
+    // Don't process game controls if any menu is visible
+    if (!document.getElementById('mainMenu').classList.contains('hidden') ||
+        !document.getElementById('pauseMenu').classList.contains('hidden') ||
+        !document.getElementById('gameOverMenu').classList.contains('hidden')) {
+        return;
     }
 
-                /* Menu Container Styles */
-                .menu-container {
-                    position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.85);
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                color: white;
-                z-index: 1000;
-                backdrop-filter: blur(5px);
-                transition: all 0.3s ease;
-    }
+    teclasPressionadas[event.which] = true;
 
-                /* Menu Title Styles */
-                .menu-title {
-                    font - size: 4.5em;
-                margin-bottom: 1.5em;
-                text-shadow: 0 0 10px rgba(255, 0, 0, 0.7),
-                0 0 20px rgba(255, 0, 0, 0.5),
-                0 0 30px rgba(255, 0, 0, 0.3);
-                letter-spacing: 3px;
-                animation: glow 2s ease-in-out infinite alternate;
-    }
-
-                @keyframes glow {
-                    from {
-                    text - shadow: 0 0 10px rgba(255, 0, 0, 0.7),
-                0 0 20px rgba(255, 0, 0, 0.5),
-                0 0 30px rgba(255, 0, 0, 0.3);
-      }
-                to {
-                    text - shadow: 0 0 15px rgba(255, 0, 0, 0.8),
-                0 0 25px rgba(255, 0, 0, 0.6),
-                0 0 35px rgba(255, 0, 0, 0.4);
-      }
-    }
-
-                /* Button Styles */
-                .menu-button {
-                    padding: 15px 40px;
-                margin: 15px;
-                font-size: 1.5em;
-                background: linear-gradient(45deg, #4CAF50, #45a049);
-                color: white;
-                border: none;
-                border-radius: 50px;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-                position: relative;
-                overflow: hidden;
-                min-width: 200px;
-                text-align: center;
-    }
-
-                .menu-button:hover {
-                    transform: translateY(-3px);
-                box-shadow: 0 7px 20px rgba(0, 0, 0, 0.3);
-                background: linear-gradient(45deg, #45a049, #4CAF50);
-    }
-
-                .menu-button:active {
-                    transform: translateY(1px);
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    }
-
-                .menu-button::before {
-                    content: '';
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-                transition: 0.5s;
-    }
-
-                .menu-button:hover::before {
-                    transform: translateX(100%);
-    }
-
-                /* Modal Styles */
-                .modal {
-                    position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                background: rgba(0, 0, 0, 0.9);
-                padding: 30px;
-                border-radius: 15px;
-                text-align: center;
-                z-index: 1001;
-                color: white;
-                box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
-                border: 1px solid rgba(255, 0, 0, 0.3);
-                backdrop-filter: blur(10px);
-    }
-
-                .modal h2 {
-                    color: #FF0000;
-                margin-bottom: 20px;
-                text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
-                font-size: 2em;
-    }
-
-                .modal p {
-                    color: white;
-                margin: 15px 0;
-                font-size: 1.2em;
-                line-height: 1.5;
-    }
-
-                .modal-button {
-                    padding: 12px 30px;
-                margin-top: 25px;
-                background: linear-gradient(45deg, #4CAF50, #45a049);
-                color: white;
-                border: none;
-                border-radius: 50px;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                font-size: 1.1em;
-                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    }
-
-                .modal-button:hover {
-                    transform: translateY(-2px);
-                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-                background: linear-gradient(45deg, #45a049, #4CAF50);
-    }
-
-                /* Pause Menu Specific Styles */
-                #pauseMenu {
-                    background: rgba(0, 0, 0, 0.9);
-    }
-
-                #pauseMenu .menu-title {
-                    font - size: 3.5em;
-                margin-bottom: 1em;
-                color: #FFA500;
-                text-shadow: 0 0 10px rgba(255, 165, 0, 0.7),
-                0 0 20px rgba(255, 165, 0, 0.5),
-                0 0 30px rgba(255, 165, 0, 0.3);
-                animation: glowPause 2s ease-in-out infinite alternate;
-    }
-
-                @keyframes glowPause {
-                    from {
-                    text - shadow: 0 0 10px rgba(255, 165, 0, 0.7),
-                0 0 20px rgba(255, 165, 0, 0.5),
-                0 0 30px rgba(255, 165, 0, 0.3);
-      }
-                to {
-                    text - shadow: 0 0 15px rgba(255, 165, 0, 0.8),
-                0 0 25px rgba(255, 165, 0, 0.6),
-                0 0 35px rgba(255, 165, 0, 0.4);
-      }
-    }
-
-                #pauseMenu .menu-button {
-                    background: linear-gradient(45deg, #2196F3, #1976D2);
-                min-width: 180px;
-    }
-
-                #pauseMenu .menu-button:hover {
-                    background: linear-gradient(45deg, #1976D2, #2196F3);
-    }
-
-                /* Game Over Menu Specific Styles */
-                #gameOverMenu {
-                    background: rgba(0, 0, 0, 0.9);
-    }
-
-                #gameOverMenu .menu-title {
-                    font - size: 3.5em;
-                margin-bottom: 1em;
-                color: #FF0000;
-                text-shadow: 0 0 10px rgba(255, 0, 0, 0.7),
-                0 0 20px rgba(255, 0, 0, 0.5),
-                0 0 30px rgba(255, 0, 0, 0.3);
-                animation: glowGameOver 2s ease-in-out infinite alternate;
-    }
-
-                @keyframes glowGameOver {
-                    from {
-                    text - shadow: 0 0 10px rgba(255, 0, 0, 0.7),
-                0 0 20px rgba(255, 0, 0, 0.5),
-                0 0 30px rgba(255, 0, 0, 0.3);
-      }
-                to {
-                    text - shadow: 0 0 15px rgba(255, 0, 0, 0.8),
-                0 0 25px rgba(255, 0, 0, 0.6),
-                0 0 35px rgba(255, 0, 0, 0.4);
-      }
-    }
-
-                #gameOverMenu .menu-button {
-                    background: linear-gradient(45deg, #F44336, #D32F2F);
-                min-width: 180px;
-    }
-
-                #gameOverMenu .menu-button:hover {
-                    background: linear-gradient(45deg, #D32F2F, #F44336);
-    }
-
-                .hidden {
-                    display: none;
-    }
-            </style>
-        </head>
-        <body>
-            <!-- Main Menu Container -->
-            <div id="mainMenu" class="menu-container">
-                <h1 class="menu-title">DONKEY KONG</h1>
-                <button id="startButton" class="menu-button">START GAME</button>
-                <button id="instructionsButton" class="menu-button">INSTRUCTIONS</button>
-                <button id="creditsButton" class="menu-button">CREDITS</button>
-            </div>
-
-            <!-- Pause Menu Container -->
-            <div id="pauseMenu" class="menu-container hidden">
-                <h1 class="menu-title">GAME PAUSED</h1>
-                <button id="resumeButton" class="menu-button">RESUME GAME</button>
-                <button id="restartButton" class="menu-button">RESTART GAME</button>
-                <button id="mainMenuButton" class="menu-button">MAIN MENU</button>
-            </div>
-
-            <!-- Game Over Menu Container -->
-            <div id="gameOverMenu" class="menu-container hidden">
-                <h1 class="menu-title">GAME OVER</h1>
-                <button id="tryAgainButton" class="menu-button">TRY AGAIN</button>
-                <button id="gameOverMainMenuButton" class="menu-button">MAIN MENU</button>
-            </div>
-
-            <!-- Instructions Modal -->
-            <div id="instructionsModal" class="modal hidden">
-                <h2>INSTRUCTIONS</h2>
-                <p>Use WASD to move Mario</p>
-                <p>Press SPACE to jump</p>
-                <p>Press C to switch cameras</p>
-                <p>Press ESC to pause the game</p>
-                <p>Avoid the barrels or you'll lose!</p>
-                <p>Find the barrel near the starting position and test the collision.</p>
-                <p>Reach Princess Peach to win!</p>
-                <button class="modal-button" onclick="closeModal('instructionsModal')">CLOSE</button>
-            </div>
-
-            <!-- Credits Modal -->
-            <div id="creditsModal" class="modal hidden">
-                <h2>CREDITS</h2>
-                <p>Game developed using Three.js</p>
-                <p>Original Donkey Kong by Nintendo</p>
-                <p>Created for educational purposes</p>
-                <button class="modal-button" onclick="closeModal('creditsModal')">CLOSE</button>
-            </div>
-
-            <!-- Como alguns browsers não suportam nativamente a importação dinâmica (importmaps),
-            temos que importar este script de forma a garantir que a importação de bibliotecas
-       externas de forma dinâmica -->
-            <script async="" src="https://unpkg.com/es-module-shims@0.0.10/dist/es-module-shims.js"></script>
-
-            <!-- Aqui especificamos as Bibliotecas externas a serem utilizadas pela nossa aplicação -->
-            <script type="importmap">
-                {
-                    "imports": {
-                    "three": "https://cdn.jsdelivr.net/npm/three@0.173.0/build/three.module.js",
-                "FBXLoader": "https://unpkg.com/three@0.173.0/examples/jsm/loaders/FBXLoader.js",
-                "PointerLockControls": "https://unpkg.com/three@0.174.0/examples/jsm/controls/PointerLockControls.js"
+    // Alternar entre câmeras ao pressionar "C"
+    if (event.key === 'c' || event.key === 'C') {
+        if (cameraAtual === camaraPerspectiva) {
+            cameraAtual = camaraOrto;
+            console.log("Câmera alterada para ortográfica.");
+        } else {
+            cameraAtual = camaraPerspectiva;
+            console.log("Câmera alterada para perspectiva.");
         }
     }
-            </script>
 
-            <!-- Menu Script -->
-            <script>
-    // Menu functionality
-                document.getElementById('startButton').addEventListener('click', function() {
-                    document.getElementById('mainMenu').classList.add('hidden');
-                if (typeof startGame === 'function') {
-                    startGame();
-      }
-    });
-
-                document.getElementById('resumeButton').addEventListener('click', function() {
-                    document.getElementById('pauseMenu').classList.add('hidden');
-                if (typeof resumeGame === 'function') {
-                    resumeGame();
-      }
-    });
-
-                document.getElementById('restartButton').addEventListener('click', function() {
-      if (typeof restartGame === 'function') {
-                    restartGame();
-      }
-    });
-
-                document.getElementById('mainMenuButton').addEventListener('click', function() {
-                    document.getElementById('pauseMenu').classList.add('hidden');
-                document.getElementById('mainMenu').classList.remove('hidden');
-                // Don't pause the game when returning to main menu
-                // Just reset the player position
-                if (typeof restartGame === 'function') {
-                    restartGame();
-      }
-    });
-
-                document.getElementById('tryAgainButton').addEventListener('click', function() {
-      if (typeof restartGame === 'function') {
-                    restartGame();
-      }
-    });
-
-                document.getElementById('gameOverMainMenuButton').addEventListener('click', function() {
-                    document.getElementById('gameOverMenu').classList.add('hidden');
-                document.getElementById('mainMenu').classList.remove('hidden');
-                // Reset the player position when returning to main menu
-                if (typeof restartGame === 'function') {
-                    restartGame();
-      }
-    });
-
-                document.getElementById('instructionsButton').addEventListener('click', function() {
-                    document.getElementById('instructionsModal').classList.remove('hidden');
-    });
-
-                document.getElementById('creditsButton').addEventListener('click', function() {
-                    document.getElementById('creditsModal').classList.remove('hidden');
-    });
-
-                function closeModal(modalId) {
-                    document.getElementById(modalId).classList.add('hidden');
+    // Trigger game over screen with G key
+    if (event.key === 'g' || event.key === 'G') {
+        window.gameOver();
     }
 
-                // ESC key handler
-                document.addEventListener('keydown', function(event) {
-      if (event.key === 'Escape') {
-        if (document.getElementById('mainMenu').classList.contains('hidden')) {
-          const pauseMenu = document.getElementById('pauseMenu');
-                pauseMenu.classList.toggle('hidden');
+    if (teclasPressionadas[32] && !pulando) { // Barra de espaço
+        pulando = true;
+        velocidadeY = 0.2;
+    }
+});
 
-                if (pauseMenu.classList.contains('hidden')) {
-            if (typeof resumeGame === 'function') {
-                    resumeGame();
+document.addEventListener("keyup", function (event) {
+    delete teclasPressionadas[event.which];
+    pararAnimacao();
+    if (objetoImportado.rotation.y === Math.PI)
+        objetoImportado.rotation.y = Math.PI / 2;
+});
+
+// Funções de animação
+function iniciarAnimacao() {
+    if (!andando && mixerAnimacao) {
+        var action = mixerAnimacao.clipAction(objetoImportado.animations[0]);
+        action.play();
+        andando = true;
+    }
+
+    // Adicionar o barril à cena quando a animação do personagem começar
+    if (barrilImportado && !cena.children.includes(barrilImportado)) {
+        console.log("Barril adicionado à cena.");
+        cena.add(barrilImportado);
+    }
+}
+
+function pararAnimacao() {
+    if (andando && mixerAnimacao) {
+        var action = mixerAnimacao.clipAction(objetoImportado.animations[0]);
+        action.stop();
+        andando = false;
+    }
+}
+
+// Atualizar posição do barril no loop
+function atualizarBarril() {
+    if (barrilImportado) {
+        // Raycasting para verificar o chão
+        raycaster.set(barrilImportado.position, new THREE.Vector3(0, -1, 0));
+        const intersects = raycaster.intersectObjects(objetosColisao, true);
+        const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
+
+        if (!noChao) {
+            velocidadeBarrilY += gravidade;
+            barrilImportado.position.y += velocidadeBarrilY;
+        } else {
+            if (pulandoBarril) {
+                barrilImportado.position.y = barrilImportado.position.y;
+                pulandoBarril = false;
+                velocidadeBarrilY = 0;
             }
-          } else {
-            if (typeof pauseGame === 'function') {
-                    pauseGame();
-            }
-          }
         }
-      }
-    });
-            </script>
 
-            <!-- Game Script -->
-            <script type="module" src="./JavaScript/appThreeMovimentoCorrigido.js"></script>
-        </body>
-    </html>
+        // Verificar colisão com o Mario
+        if (objetoImportado && !barrilColisao) {
+            const distancia = objetoImportado.position.distanceTo(barrilImportado.position);
+            if (distancia < 1.5) { // Ajuste este valor conforme necessário
+                barrilColisao = true;
+                window.gameOver();
+            }
+        }
+    }
+}
+
+// Função principal
+function Start() {
+    // Retornar a câmera à posição original
+    camaraPerspectiva.position.set(0, 1, 5);
+    camaraPerspectiva.lookAt(0, 0, 0);
+
+    for (let i = 0; i < 7; i++) {
+        const y = -10 + i * 3;
+        const plano = criarChaoInvisivel(7, y, -3);
+
+        cena.add(plano);
+        objetosColisao.push(plano);
+    }
+
+    // Configuração da câmera perspectiva
+    camaraPerspectiva.position.set(0, 1, 5);
+    camaraPerspectiva.lookAt(0, 0, 0);
+
+    // Configuração da câmera ortográfica
+    camaraOrto.position.set(0, 1, 5);
+    camaraOrto.lookAt(0, 0, 0);
+
+    // Luzes
+    var luzAmbiente = new THREE.AmbientLight(0xffffff, 0.6); // Adjusted ambient light intensity
+    cena.add(luzAmbiente);
+
+    // Add multiple directional lights for better scene illumination
+    var luzDirecional1 = new THREE.DirectionalLight(0xffffff, 0.8);
+    luzDirecional1.position.set(5, 10, 7).normalize();
+    cena.add(luzDirecional1);
+
+    var luzDirecional2 = new THREE.DirectionalLight(0xffffff, 0.4);
+    luzDirecional2.position.set(-5, 8, -7).normalize();
+    cena.add(luzDirecional2);
+
+    // Add a soft hemisphere light for better ambient illumination
+    var luzHemisferica = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.5);
+    cena.add(luzHemisferica);
+
+    // Add the barrel at coordinates (13, -9, -3)
+    carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 13, y: -9, z: -3.0 }, { x: 0, y: 0, z: 0 });
+
+    requestAnimationFrame(loop);
+}
+
+// Loop de animação
+function loop() {
+    // Only update game if game is not paused or game over
+    if (window.gameState.isPaused || window.gameState.isGameOver) {
+        requestAnimationFrame(loop);
+        renderer.render(cena, cameraAtual);
+        return;
+    }
+
+    if (mixerAnimacao) {
+        mixerAnimacao.update(relogio.getDelta());
+    }
+
+    if (objetoImportado) {
+        // Raycasting para verificar o chão
+        raycaster.set(objetoImportado.position, new THREE.Vector3(0, -1, 0));
+        const intersects = raycaster.intersectObjects(objetosColisao, true);
+        const noChao = intersects.length > 0 && intersects[0].distance < 0.1;
+
+        console.log(objetoImportado.position.x);
+
+        if (!noChao) {
+            velocidadeY += gravidade; // Aplica gravidade
+        } else {
+            if (pulando) {
+                pulando = false; // Reseta o estado de pulo ao tocar o chão
+            }
+            velocidadeY = 0; // Zera a velocidade vertical ao tocar o chão
+        }
+
+        if (teclasPressionadas[32] && !pulando && noChao) { // Barra de espaço (pulo)
+            pulando = true;
+            velocidadeY = forcaPulo; // Use the new jump force
+        }
+
+        // Atualiza a posição vertical do personagem
+        objetoImportado.position.y += velocidadeY;
+
+        // Movimentação baseada na câmera atual
+        if (cameraAtual === camaraPerspectiva) {
+            // Movimentação na câmera perspectiva: W (frente) e S (trás)
+            if (objetoImportado.rotation.y === -Math.PI / 2) {
+                if (teclasPressionadas[68]) { // D (esquerda)
+                    objetoImportado.rotation.y = Math.PI;
+                    if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                        (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                        (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                        (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                        (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                        (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                        (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                        (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
+                        pulando === false) {
+                        objetoImportado.position.y += 3.1;
+                        objetoImportado.position.z -= 1;
+                    }
+                    iniciarAnimacao();
+                }
+            } else if (objetoImportado.rotation.y === Math.PI / 2) {
+                if (teclasPressionadas[65]) { // A (esquerda)
+                    objetoImportado.rotation.y = Math.PI;
+                    if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                        (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                        (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                        (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                        (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                        (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                        (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                        (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
+                        pulando === false) {
+                        objetoImportado.position.y += 3.1;
+                        objetoImportado.position.z -= 1;
+                    }
+                    iniciarAnimacao();
+                }
+            }
+
+            if (teclasPressionadas[17]) { // tecla CTRL
+                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5) ||
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) &&
+                    pulando === false) {
+                    objetoImportado.position.y -= 3;
+                    objetoImportado.position.z += 1;
+                }
+                iniciarAnimacao();
+            }
+
+            if (teclasPressionadas[87]) { // W (frente)
+                objetoImportado.position.x += velocidadeMovimento; // Use new movement speed
+                objetoImportado.rotation.y = Math.PI / 2;
+                iniciarAnimacao();
+            } else if (teclasPressionadas[83]) { // S (trás)
+                objetoImportado.position.x -= velocidadeMovimento; // Use new movement speed
+                objetoImportado.rotation.y = -Math.PI / 2;
+                iniciarAnimacao();
+            }
+        } else if (cameraAtual === camaraOrto) {
+            // Movimentação na câmara ortográfica: A (esquerda) e D (direita)
+            if (teclasPressionadas[87]) { // W (frente)
+                objetoImportado.rotation.y = Math.PI;
+                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
+                    pulando === false) {
+                    objetoImportado.position.y += 3.1;
+                    objetoImportado.position.z -= 1;
+                }
+                iniciarAnimacao();
+            } else if (teclasPressionadas[83]) {
+                objetoImportado.rotation.y = Math.PI;
+                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5) ||
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) &&
+                    pulando === false) {
+                    objetoImportado.position.y -= 3;
+                    objetoImportado.position.z += 1;
+                }
+                iniciarAnimacao();
+            } else if (teclasPressionadas[65]) { // A (esquerda)
+                objetoImportado.position.x -= velocidadeMovimento; // Use new movement speed
+                objetoImportado.rotation.y = -Math.PI / 2;
+                iniciarAnimacao();
+            } else if (teclasPressionadas[68]) { // D (direita)
+                objetoImportado.position.x += velocidadeMovimento; // Use new movement speed
+                objetoImportado.rotation.y = Math.PI / 2;
+                iniciarAnimacao();
+            }
+        }
+
+
+        // Atualizar posição do barril
+        atualizarBarril();
+
+        if (cameraAtual === camaraPerspectiva && objetoImportado && objetosColisao.length > 0) {
+            atualizarCameraParaSeguirPersonagem(camaraPerspectiva, objetoImportado);
+        }
+    }
+
+    renderer.render(cena, cameraAtual);
+    requestAnimationFrame(loop);
+}
+
+const offsetCameraPerspectiva = new THREE.Vector3(0, 1, 5); // 1 unidade acima, 5 unidades atrás
+
+function atualizarCameraParaSeguirPersonagem(camera, personagem) {
+    const alturaOmbro = 1.6; // altura do ombro
+    const distanciaAtras = 10.0; // distância atrás do personagem
+    const deslocamentoLateral = 5; // ombro esquerdo
+
+    // Direção "para trás" na rotação do personagem
+    const direcaoAtras = new THREE.Vector3(0, 0, -1).applyQuaternion(personagem.quaternion).normalize();
+    const lateralEsquerda = new THREE.Vector3(-1, 0, 0).applyQuaternion(personagem.quaternion).normalize();
+
+    // Posição da câmera: atrás + para o lado (esquerda) + na altura do ombro
+    const posicaoDesejada = personagem.position.clone()
+        .add(direcaoAtras.multiplyScalar(distanciaAtras))
+        .add(lateralEsquerda.multiplyScalar(deslocamentoLateral))
+        .add(new THREE.Vector3(0, alturaOmbro, 0));
+
+    // Define a posição da câmera diretamente
+    camera.position.copy(posicaoDesejada);
+
+    // Ponto para onde a câmera deve olhar (à frente do personagem)
+    const direcaoFrente = new THREE.Vector3(0, 0, 1).applyQuaternion(personagem.quaternion).normalize();
+    const pontoFoco = personagem.position.clone()
+        .add(direcaoFrente.multiplyScalar(10))
+        .add(new THREE.Vector3(0, alturaOmbro, 0));
+
+    camera.lookAt(pontoFoco);
+}
+
+function criarChaoInvisivel(x, y, z) {
+    // Usamos uma geometria MUITO grande simulando plano infinito
+    const geometry = new THREE.PlaneGeometry(10000, 10000);
+
+    // Material invisível
+    const material = new THREE.MeshBasicMaterial({
+        color: 0x0000000,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        depthWrite: false
+    });
+
+    const chao = new THREE.Mesh(geometry, material);
+
+    // Posição e rotação como "chão"
+    chao.position.set(x, y, z);
+    chao.rotation.x = -Math.PI / 2;
+
+    // Visível = true só pra garantir que o raycasting funcione
+    chao.visible = true;
+
+    // Extra: metadata útil
+    chao.name = 'chaoInvisivel';
+    chao.userData.isChao = true;
+    chao.userData.interativo = true;
+
+    return chao;
+}
