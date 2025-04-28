@@ -2,7 +2,58 @@ import * as THREE from 'three';
 import { FBXLoader } from 'FBXLoader';
 import { PointerLockControls } from 'PointerLockControls';
 
-document.addEventListener('DOMContentLoaded', Start);
+// Game state management
+window.gameState = {
+    isPaused: false,
+    isInitialized: false,
+    originalPosition: null,
+    isGameOver: false
+};
+
+// Global functions for menu control
+window.startGame = function () {
+    if (!window.gameState.isInitialized) {
+        Start();
+        window.gameState.isInitialized = true;
+    }
+    window.gameState.isPaused = false;
+    window.gameState.isGameOver = false;
+    document.getElementById('gameOverMenu').classList.add('hidden');
+    loop();
+};
+
+window.pauseGame = function () {
+    window.gameState.isPaused = true;
+    if (objetoImportado) {
+        window.gameState.originalPosition = objetoImportado.position.clone();
+    }
+};
+
+window.resumeGame = function () {
+    window.gameState.isPaused = false;
+};
+
+window.restartGame = function () {
+    if (objetoImportado) {
+        objetoImportado.position.set(-10, -9.7, -3.0);
+        objetoImportado.rotation.set(0, Math.PI / 2, 0);
+    }
+    window.gameState.isPaused = false;
+    window.gameState.isGameOver = false;
+    barrilColisao = false; // Reset the collision flag
+    document.getElementById('pauseMenu').classList.add('hidden');
+    document.getElementById('gameOverMenu').classList.add('hidden');
+};
+
+window.gameOver = function () {
+    window.gameState.isGameOver = true;
+    document.getElementById('gameOverMenu').classList.remove('hidden');
+};
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Don't start the game automatically, wait for the start button
+    window.gameState.isInitialized = false;
+});
 
 var cena = new THREE.Scene();
 var renderer = new THREE.WebGLRenderer();
@@ -29,7 +80,9 @@ var relogio = new THREE.Clock();
 var andando = false;
 var pulando = false;
 var velocidadeY = 0; // Velocidade vertical
-var gravidade = -0.01; // Gravidade aplicada ao objeto
+var gravidade = -0.008; // Reduced gravity for slower fall
+var forcaPulo = 0.25; // Increased jump force
+var velocidadeMovimento = 0.06; // Reduced movement speed (was 0.10)
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
 var raycaster = new THREE.Raycaster();
 var objetosColisao = []; // Lista de objetos com os quais o personagem pode colidir
@@ -37,7 +90,12 @@ var objetosColisao = []; // Lista de objetos com os quais o personagem pode coli
 var barrilImportado;
 var velocidadeBarrilY = 0; // Velocidade vertical do barril
 var pulandoBarril = false;
+var barrilColisao = false; // Flag para verificar se houve colisão com o barril
 var barrisAtivos = [];
+
+// Add TextureLoader
+const textureLoader = new THREE.TextureLoader();
+const marioTexture = textureLoader.load('./textures/mario_texture.png');  // Adjust path as needed
 
 // Escadas (pontos onde os barris podem cair)
 const posicoesEscadas = [
@@ -56,8 +114,6 @@ const posicoesEscadas = [
 
 // Carregador FBX
 var importer = new FBXLoader();
-
-// Função para carregar objetos FBX
 function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
     importer.load(caminho, function (object) {
         object.traverse(function (child) {
@@ -70,31 +126,50 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
         object.scale.set(escala.x, escala.y, escala.z);
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
-
         cena.add(object);
 
-        // ⚠️ Só associa ao objetoImportado se for chamado via callback (ex: Mario)
         if (callback) {
             callback(object);
         }
     });
 }
 
-
 carregarObjetoFBX(
-    './Objetos/mario/Mario.fbx',
-    { x: 0.01, y: 0.01, z: 0.01 },
+    './Objetos/Mario.fbx',
+    { x: 0.85, y: 0.85, z: 0.85 },
     { x: -10, y: -9.7, z: -3.0 },
     { x: 0, y: Math.PI / 2, z: 0 },
     function (object) {
-        objetoImportado = object;
+        console.log("Callback do Mario executado!");
 
-        // ⚠️ Aqui sim atribuímos o mixer se houver animação
+        // Contagem de meshes para debug
+        let contadorMeshes = 0;
+
+        // Aplicar textura ao Mario
+        object.traverse(function (child) {
+            if (child.isMesh) {
+                contadorMeshes++;
+
+                // Criar material com a textura
+                const materialTexturizado = new THREE.MeshPhongMaterial({
+                    map: marioTexture,
+                    side: THREE.DoubleSide
+                });
+
+                // Aplicar o material
+                child.material = materialTexturizado;
+                console.log(`Material texturizado aplicado à mesh ${contadorMeshes} do Mario`);
+            }
+        });
+
+        console.log(`Total de meshes encontradas no Mario: ${contadorMeshes}`);
+
+        // Remover a esfera verde já que agora temos textura
+        objetoImportado = object;
         if (object.animations.length > 0) {
             mixerAnimacao = new THREE.AnimationMixer(object);
+            mixerAnimacao.clipAction(object.animations[0]).play();
         }
-
-        // ⚠️ Adiciona à lista de colisão (se for suposto)
         objetosColisao.push(object);
     }
 );
@@ -123,7 +198,6 @@ function lançarBarril() {
 
 function carregarBarril(caminho, escala, posicao, rotacao) {
     importer.load(caminho, function (object) {
-        console.log('Barril carregado:', object); // Adicione este log
         object.traverse(function (child) {
             if (child.isMesh) {
                 child.castShadow = true;
@@ -131,36 +205,27 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
             }
         });
 
-        //cena.add(object);
         object.scale.set(escala.x, escala.y, escala.z);
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
 
         objetosColisao.push(object);
         barrilImportado = object;
-    }, undefined, function (error) {
-        console.error('Erro ao carregar o barril:', error); // Adicione este log
+        cena.add(object); // Adicionar o barril à cena imediatamente
     });
 }
 
-// Carregar objetos
-carregarObjetoFBX(
-    './Objetos/tentativa1.fbx',
-    { x: 0.03, y: 0.03, z: 0.03 },
-    { x: 1.5, y: -0.5, z: -6.0 },
-    { x: -Math.PI / 2, y: 0, z: 0 }
-);
+carregarObjetoFBX('./Objetos/tentativa1.fbx', { x: 0.03, y: 0.03, z: 0.03 }, { x: 1.5, y: -0.5, z: -6.0 }, { x: -Math.PI / 2, y: 0, z: 0 });
 
-// Donkey Kong (sem alterar objetoImportado nem mixer)
-importer.load('./Objetos/donkey/Donkey Kong.fbx', function (object) {
+importer.load('./Objetos/Donkey Kong.fbx', function (object) {
     object.traverse(child => {
         if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
         }
     });
-    object.scale.set(0.01, 0.01, 0.01);
-    object.position.set(-7, 6, -6.0);
+    object.scale.set(0.015, 0.015, 0.015);
+    object.position.set(-6.5, 5.7, -9);
     cena.add(object);
 
     // Lançar um barril a cada 3 segundos
@@ -169,15 +234,67 @@ importer.load('./Objetos/donkey/Donkey Kong.fbx', function (object) {
     }, 3000); // 3000 ms = 3 segundos
 });
 
-// Peach (já correta)
-carregarObjetoFBX('./Objetos/peach/peach.fbx',
-    { x: 0.0005, y: 0.0005, z: 0.0005 },
-    { x: 0, y: 8, z: -6.0 },
-    { x: 0, y: Math.PI / 2, z: 0 }
-);
+console.log("Iniciando carregamento da Peach...");
+carregarObjetoFBX(
+    './Objetos/peach.fbx',
+    { x: 0.05, y: 0.05, z: 0.05 },
+    { x: 0, y: 7.0, z: -9.5 },
+    { x: 0, y: 0, z: 0 },
+    function (object) {
+        console.log("Callback da Peach executado!");
 
-// Carregar o barril
-carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 0, y: 0, z: -5.0 }, { x: 0, y: 0, z: 0 });
+        // Load textures
+        const textureLoader = new THREE.TextureLoader();
+        const bodyTexture = textureLoader.load('./textures/peach_body.png');
+        const eyeTexture = textureLoader.load('./textures/peach_eye.0.png');
+
+        // Contagem de meshes para debug
+        let contadorMeshes = 0;
+
+        // Apply appropriate textures based on mesh names
+        object.traverse(function (child) {
+            if (child.isMesh) {
+                contadorMeshes++;
+                console.log(`Mesh ${contadorMeshes} name:`, child.name);
+
+                // Create materials with textures
+                if (child.name.toLowerCase().includes('eye')) {
+                    // Eye material
+                    child.material = new THREE.MeshPhongMaterial({
+                        map: eyeTexture,
+                        shininess: 50,
+                        side: THREE.DoubleSide
+                    });
+                    console.log(`Eye texture applied to mesh ${contadorMeshes}`);
+                } else {
+                    // Body material
+                    child.material = new THREE.MeshPhongMaterial({
+                        map: bodyTexture,
+                        shininess: 30,
+                        side: THREE.DoubleSide
+                    });
+                    console.log(`Body texture applied to mesh ${contadorMeshes}`);
+                }
+            }
+        });
+
+        console.log(`Total de meshes encontradas na Peach: ${contadorMeshes}`);
+
+        // Adicionar uma luz pontual mais forte para destacar a Peach
+        const luzPeach = new THREE.PointLight(0xFFFFFF, 5, 50);
+        luzPeach.position.set(0, 10, 0);
+        object.add(luzPeach);
+
+        // Adicionar uma caixa de bounding box mais visível
+        const bbox = new THREE.Box3().setFromObject(object);
+        const helper = new THREE.Box3Helper(bbox, 0xFF00FF);
+        cena.add(helper);
+
+        // Adicionar o objeto à cena explicitamente
+        cena.add(object);
+        console.log("Peach adicionada à cena com posição:", object.position);
+    }
+);
 
 // Skybox
 function criarSkybox(caminhoTexturas, tamanho) {
@@ -209,6 +326,13 @@ cena.add(skybox);
 
 // Eventos de teclado
 document.addEventListener("keydown", function (event) {
+    // Don't process game controls if any menu is visible
+    if (!document.getElementById('mainMenu').classList.contains('hidden') ||
+        !document.getElementById('pauseMenu').classList.contains('hidden') ||
+        !document.getElementById('gameOverMenu').classList.contains('hidden')) {
+        return;
+    }
+
     teclasPressionadas[event.which] = true;
 
     // Alternar entre câmeras ao pressionar "C"
@@ -220,6 +344,11 @@ document.addEventListener("keydown", function (event) {
             cameraAtual = camaraPerspectiva;
             console.log("Câmera alterada para perspectiva.");
         }
+    }
+
+    // Trigger game over screen with G key
+    if (event.key === 'g' || event.key === 'G') {
+        window.gameOver();
     }
 
     if (teclasPressionadas[32] && !pulando) { // Barra de espaço
@@ -256,12 +385,6 @@ function pararAnimacao() {
         action.stop();
         andando = false;
     }
-
-    // Remover o barril da cena quando a animação do personagem parar
-    if (barrilImportado && cena.children.includes(barrilImportado)) {
-        console.log("Barril removido da cena.");
-        cena.remove(barrilImportado);
-    }
 }
 
 // Atualizar posição do barril no loop
@@ -282,11 +405,23 @@ function atualizarBarril() {
                 velocidadeBarrilY = 0;
             }
         }
+
+        // Verificar colisão com o Mario
+        if (objetoImportado && !barrilColisao) {
+            const distancia = objetoImportado.position.distanceTo(barrilImportado.position);
+            if (distancia < 1.5) { // Ajuste este valor conforme necessário
+                barrilColisao = true;
+                window.gameOver();
+            }
+        }
     }
 }
 
 // Função principal
 function Start() {
+    // Retornar a câmera à posição original
+    camaraPerspectiva.position.set(0, 1, 5);
+    camaraPerspectiva.lookAt(0, 0, 0);
 
     for (let i = 0; i < 7; i++) {
         const y = -10 + i * 3;
@@ -305,12 +440,24 @@ function Start() {
     camaraOrto.lookAt(0, 0, 0);
 
     // Luzes
-    var luzAmbiente = new THREE.AmbientLight(0xffffff);
+    var luzAmbiente = new THREE.AmbientLight(0xffffff, 0.6); // Adjusted ambient light intensity
     cena.add(luzAmbiente);
 
-    var luzDirecional = new THREE.DirectionalLight(0xffffff, 1);
-    luzDirecional.position.set(5, 10, 7).normalize();
-    cena.add(luzDirecional);
+    // Add multiple directional lights for better scene illumination
+    var luzDirecional1 = new THREE.DirectionalLight(0xffffff, 0.8);
+    luzDirecional1.position.set(5, 10, 7).normalize();
+    cena.add(luzDirecional1);
+
+    var luzDirecional2 = new THREE.DirectionalLight(0xffffff, 0.4);
+    luzDirecional2.position.set(-5, 8, -7).normalize();
+    cena.add(luzDirecional2);
+
+    // Add a soft hemisphere light for better ambient illumination
+    var luzHemisferica = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.5);
+    cena.add(luzHemisferica);
+
+    // Add the barrel at coordinates (13, -9, -3)
+    carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 13, y: -9, z: -3.0 }, { x: 0, y: 0, z: 0 });
 
     requestAnimationFrame(loop);
 }
@@ -322,6 +469,13 @@ function foraDaPlataforma(barril) {
 
 // Loop de animação
 function loop() {
+    // Only update game if game is not paused or game over
+    if (window.gameState.isPaused || window.gameState.isGameOver) {
+        requestAnimationFrame(loop);
+        renderer.render(cena, cameraAtual);
+        return;
+    }
+
     if (mixerAnimacao) {
         mixerAnimacao.update(relogio.getDelta());
     }
@@ -345,7 +499,7 @@ function loop() {
 
         if (teclasPressionadas[32] && !pulando && noChao) { // Barra de espaço (pulo)
             pulando = true;
-            velocidadeY = 0.17; // Define a força inicial do pulo
+            velocidadeY = forcaPulo; // Use the new jump force
         }
 
         // Atualiza a posição vertical do personagem
@@ -357,7 +511,7 @@ function loop() {
             if (objetoImportado.rotation.y === -Math.PI / 2) {
                 if (teclasPressionadas[68]) { // D (esquerda)
                     objetoImportado.rotation.y = Math.PI;
-                    if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                    if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                         (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                         (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
@@ -365,7 +519,8 @@ function loop() {
                         (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                         (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) {
+                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
+                        pulando === false) {
                         objetoImportado.position.y += 3.1;
                         objetoImportado.position.z -= 1;
                     }
@@ -374,7 +529,7 @@ function loop() {
             } else if (objetoImportado.rotation.y === Math.PI / 2) {
                 if (teclasPressionadas[65]) { // A (esquerda)
                     objetoImportado.rotation.y = Math.PI;
-                    if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                    if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                         (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                         (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
@@ -382,7 +537,8 @@ function loop() {
                         (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                         (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) {
+                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
+                        pulando === false) {
                         objetoImportado.position.y += 3.1;
                         objetoImportado.position.z -= 1;
                     }
@@ -391,7 +547,7 @@ function loop() {
             }
 
             if (teclasPressionadas[17]) { // tecla CTRL
-                if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
                     (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
                     (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
@@ -399,7 +555,8 @@ function loop() {
                     (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5) ||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) {
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) &&
+                    pulando === false) {
                     objetoImportado.position.y -= 3;
                     objetoImportado.position.z += 1;
                 }
@@ -407,11 +564,11 @@ function loop() {
             }
 
             if (teclasPressionadas[87]) { // W (frente)
-                objetoImportado.position.x += 0.10; // Move para a direita
+                objetoImportado.position.x += velocidadeMovimento; // Use new movement speed
                 objetoImportado.rotation.y = Math.PI / 2;
                 iniciarAnimacao();
             } else if (teclasPressionadas[83]) { // S (trás)
-                objetoImportado.position.x -= 0.10; // Move para a esquerda
+                objetoImportado.position.x -= velocidadeMovimento; // Use new movement speed
                 objetoImportado.rotation.y = -Math.PI / 2;
                 iniciarAnimacao();
             }
@@ -419,7 +576,7 @@ function loop() {
             // Movimentação na câmara ortográfica: A (esquerda) e D (direita)
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.rotation.y = Math.PI;
-                if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
@@ -427,14 +584,15 @@ function loop() {
                     (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) {
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
+                    pulando === false) {
                     objetoImportado.position.y += 3.1;
                     objetoImportado.position.z -= 1;
                 }
                 iniciarAnimacao();
             } else if (teclasPressionadas[83]) {
                 objetoImportado.rotation.y = Math.PI;
-                if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
                     (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
                     (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
@@ -442,17 +600,18 @@ function loop() {
                     (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5) ||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) {
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) &&
+                    pulando === false) {
                     objetoImportado.position.y -= 3;
                     objetoImportado.position.z += 1;
                 }
                 iniciarAnimacao();
             } else if (teclasPressionadas[65]) { // A (esquerda)
-                objetoImportado.position.x -= 0.10; // Move para a esquerda
+                objetoImportado.position.x -= velocidadeMovimento; // Use new movement speed
                 objetoImportado.rotation.y = -Math.PI / 2;
                 iniciarAnimacao();
             } else if (teclasPressionadas[68]) { // D (direita)
-                objetoImportado.position.x += 0.10; // Move para a direita
+                objetoImportado.position.x += velocidadeMovimento; // Use new movement speed
                 objetoImportado.rotation.y = Math.PI / 2;
                 iniciarAnimacao();
             }
@@ -552,7 +711,7 @@ function loop() {
         }
     }
 
-    renderer.render(cena, cameraAtual); // Renderiza com a câmera atual
+    renderer.render(cena, cameraAtual);
     requestAnimationFrame(loop);
 }
 
