@@ -1,7 +1,9 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'FBXLoader';
 import { PointerLockControls } from 'PointerLockControls';
+
 document.addEventListener('DOMContentLoaded', Start);
+
 var cena = new THREE.Scene();
 var renderer = new THREE.WebGLRenderer();
 var camaraPerspectiva = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -13,10 +15,13 @@ var camaraOrto = new THREE.OrthographicCamera(
     0.1,                      // near
     100                       // far
 );
+
 var cameraAtual = camaraPerspectiva; // Define a câmera inicial como a perspectiva
+
 renderer.setSize(window.innerWidth - 15, window.innerHeight - 80);
 renderer.setClearColor(0xaaaaaa);
 document.body.appendChild(renderer.domElement);
+
 // Variáveis globais
 var objetoImportado;
 var mixerAnimacao;
@@ -33,31 +38,25 @@ var barrilImportado;
 var velocidadeBarrilY = 0; // Velocidade vertical do barril
 var pulandoBarril = false;
 var barrisAtivos = [];
-// Plataformas (vigas de ferro) onde o barril se move
-const plataformas = [
-    { y: 5, direcao: 1 },
-    { y: 2, direcao: -1 },
-    { y: -1, direcao: 1 },
-    { y: -4, direcao: -1 },
-    { y: -7, direcao: 1 },
-    { y: -10, direcao: -1 }
+
+// Escadas (pontos onde os barris podem cair)
+const posicoesEscadas = [
+    { xMin: 9.8, xMax: 10.2, y: -7 },  // Primeiro plano
+    { xMin: -7.2, xMax: -6.8, y: -4 }, // Segundo plano
+    { xMin: 0.4, xMax: 0.6, y: -4 },   // Segundo plano
+    { xMin: 1.8, xMax: 2.2, y: -1 },   // Terceiro plano
+    { xMin: 9.8, xMax: 10.2, y: -1 },  // Terceiro plano
+    { xMin: -2.2, xMax: -1.8, y: 2 },  // Quarto plano
+    { xMin: -7.2, xMax: -6.8, y: 2 },  // Quarto plano
+    { xMin: 9.8, xMax: 10.2, y: 5 },   // Quinto plano
+    { xMin: 3.8, xMax: 4.2, y: 8 }     // Sexto plano
 ];
 
-const escadasParaBarris = [
-    { xMin: 9, xMax: 11, yMin: -7, yMax: -4 },     // Escada direita do nível mais baixo
-    { xMin: 0, xMax: 1, yMin: -7, yMax: -4 },      // Escada meio do nível mais baixo
-    { xMin: 1, xMax: 3, yMin: -4, yMax: -1 },      // Escada meio do quarto plano
-    { xMin: 9, xMax: 11, yMin: -4, yMax: -1 },     // Escada direita do quarto plano
-    { xMin: 0, xMax: 1, yMin: -1, yMax: 2 },       // Escada meio do terceiro plano
-    { xMin: 9, xMax: 11, yMin: -1, yMax: 2 },      // Escada direita do terceiro plano
-    { xMin: 1, xMax: 3, yMin: 2, yMax: 5 },        // Escada meio do segundo plano
-    { xMin: 9, xMax: 11, yMin: 2, yMax: 5 },       // Escada direita do segundo plano
-    { xMin: 9, xMax: 11, yMin: 5, yMax: 8 }        // Escada direita do nível mais alto
-];
 
 
 // Carregador FBX
 var importer = new FBXLoader();
+
 // Função para carregar objetos FBX
 function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
     importer.load(caminho, function (object) {
@@ -67,16 +66,20 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
                 child.receiveShadow = true;
             }
         });
+
         object.scale.set(escala.x, escala.y, escala.z);
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
+
         cena.add(object);
+
         // ⚠️ Só associa ao objetoImportado se for chamado via callback (ex: Mario)
         if (callback) {
             callback(object);
         }
     });
 }
+
 
 carregarObjetoFBX(
     './Objetos/mario/Mario.fbx',
@@ -85,29 +88,37 @@ carregarObjetoFBX(
     { x: 0, y: Math.PI / 2, z: 0 },
     function (object) {
         objetoImportado = object;
+
         // ⚠️ Aqui sim atribuímos o mixer se houver animação
         if (object.animations.length > 0) {
             mixerAnimacao = new THREE.AnimationMixer(object);
         }
+
         // ⚠️ Adiciona à lista de colisão (se for suposto)
         objetosColisao.push(object);
     }
 );
+
 function lançarBarril() {
     if (!barrilImportado) return;
+
     const novoBarril = barrilImportado.clone();
-    novoBarril.position.set(-7, 6, -6.0); // Topo da torre
-    novoBarril.userData.velocidade = new THREE.Vector3(0.05, 0, 0);
-    novoBarril.userData.plataformaAtual = 0;
+    novoBarril.position.set(-7, 8, -6.0); // Posição inicial com y=8
+    novoBarril.rotation.set(Math.PI/2, 0, 0); // Rotação para deitar o barril
+    novoBarril.userData.velocidade = new THREE.Vector3(0.08, 0, 0); // Reduced horizontal speed
+    novoBarril.userData.plataformaAtual = 0; // Contador para saber em qual plano está
+
     novoBarril.traverse(child => {
         if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
         }
     });
+
     cena.add(novoBarril);
     barrisAtivos.push(novoBarril);
 }
+
 
 
 function carregarBarril(caminho, escala, posicao, rotacao) {
@@ -119,16 +130,19 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
                 child.receiveShadow = true;
             }
         });
+
         //cena.add(object);
         object.scale.set(escala.x, escala.y, escala.z);
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
+
         objetosColisao.push(object);
         barrilImportado = object;
     }, undefined, function (error) {
         console.error('Erro ao carregar o barril:', error); // Adicione este log
     });
 }
+
 // Carregar objetos
 carregarObjetoFBX(
     './Objetos/tentativa1.fbx',
@@ -136,6 +150,7 @@ carregarObjetoFBX(
     { x: 1.5, y: -0.5, z: -6.0 },
     { x: -Math.PI / 2, y: 0, z: 0 }
 );
+
 // Donkey Kong (sem alterar objetoImportado nem mixer)
 importer.load('./Objetos/donkey/Donkey Kong.fbx', function (object) {
     object.traverse(child => {
@@ -147,19 +162,23 @@ importer.load('./Objetos/donkey/Donkey Kong.fbx', function (object) {
     object.scale.set(0.01, 0.01, 0.01);
     object.position.set(-7, 6, -6.0);
     cena.add(object);
+
     // Lançar um barril a cada 3 segundos
     setInterval(() => {
         lançarBarril();
     }, 3000); // 3000 ms = 3 segundos
 });
+
 // Peach (já correta)
 carregarObjetoFBX('./Objetos/peach/peach.fbx',
     { x: 0.0005, y: 0.0005, z: 0.0005 },
     { x: 0, y: 8, z: -6.0 },
     { x: 0, y: Math.PI / 2, z: 0 }
 );
+
 // Carregar o barril
 carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 0, y: 0, z: -5.0 }, { x: 0, y: 0, z: 0 });
+
 // Skybox
 function criarSkybox(caminhoTexturas, tamanho) {
     const loader = new THREE.TextureLoader();
@@ -171,10 +190,13 @@ function criarSkybox(caminhoTexturas, tamanho) {
         new THREE.MeshBasicMaterial({ map: loader.load(caminhoTexturas.posz) }),
         new THREE.MeshBasicMaterial({ map: loader.load(caminhoTexturas.negz) }),
     ];
+
     materialArray.forEach(material => material.side = THREE.BackSide);
+
     const skyboxGeo = new THREE.BoxGeometry(tamanho, tamanho, tamanho);
     return new THREE.Mesh(skyboxGeo, materialArray);
 }
+
 const skybox = criarSkybox({
     posx: './Skybox/posx.png',
     negx: './Skybox/negx.png',
@@ -184,9 +206,11 @@ const skybox = criarSkybox({
     negz: './Skybox/negz.png',
 }, 100);
 cena.add(skybox);
+
 // Eventos de teclado
 document.addEventListener("keydown", function (event) {
     teclasPressionadas[event.which] = true;
+
     // Alternar entre câmeras ao pressionar "C"
     if (event.key === 'c' || event.key === 'C') {
         if (cameraAtual === camaraPerspectiva) {
@@ -197,17 +221,20 @@ document.addEventListener("keydown", function (event) {
             console.log("Câmera alterada para perspectiva.");
         }
     }
+
     if (teclasPressionadas[32] && !pulando) { // Barra de espaço
         pulando = true;
         velocidadeY = 0.2;
     }
 });
+
 document.addEventListener("keyup", function (event) {
     delete teclasPressionadas[event.which];
     pararAnimacao();
     if (objetoImportado.rotation.y === Math.PI)
         objetoImportado.rotation.y = Math.PI / 2;
 });
+
 // Funções de animação
 function iniciarAnimacao() {
     if (!andando && mixerAnimacao) {
@@ -215,24 +242,28 @@ function iniciarAnimacao() {
         action.play();
         andando = true;
     }
+
     // Adicionar o barril à cena quando a animação do personagem começar
     if (barrilImportado && !cena.children.includes(barrilImportado)) {
         console.log("Barril adicionado à cena.");
         cena.add(barrilImportado);
     }
 }
+
 function pararAnimacao() {
     if (andando && mixerAnimacao) {
         var action = mixerAnimacao.clipAction(objetoImportado.animations[0]);
         action.stop();
         andando = false;
     }
+
     // Remover o barril da cena quando a animação do personagem parar
     if (barrilImportado && cena.children.includes(barrilImportado)) {
         console.log("Barril removido da cena.");
         cena.remove(barrilImportado);
     }
 }
+
 // Atualizar posição do barril no loop
 function atualizarBarril() {
     if (barrilImportado) {
@@ -240,6 +271,7 @@ function atualizarBarril() {
         raycaster.set(barrilImportado.position, new THREE.Vector3(0, -1, 0));
         const intersects = raycaster.intersectObjects(objetosColisao, true);
         const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
+
         if (!noChao) {
             velocidadeBarrilY += gravidade;
             barrilImportado.position.y += velocidadeBarrilY;
@@ -252,36 +284,39 @@ function atualizarBarril() {
         }
     }
 }
+
 // Função principal
 function Start() {
+
     for (let i = 0; i < 7; i++) {
         const y = -10 + i * 3;
         const plano = criarChaoInvisivel(7, y, -3);
+
         cena.add(plano);
         objetosColisao.push(plano);
     }
+
     // Configuração da câmera perspectiva
     camaraPerspectiva.position.set(0, 1, 5);
     camaraPerspectiva.lookAt(0, 0, 0);
+
     // Configuração da câmera ortográfica
     camaraOrto.position.set(0, 1, 5);
     camaraOrto.lookAt(0, 0, 0);
+
     // Luzes
     var luzAmbiente = new THREE.AmbientLight(0xffffff);
     cena.add(luzAmbiente);
+
     var luzDirecional = new THREE.DirectionalLight(0xffffff, 1);
     luzDirecional.position.set(5, 10, 7).normalize();
     cena.add(luzDirecional);
+
     requestAnimationFrame(loop);
 }
+
 function foraDaPlataforma(barril) {
     return barril.position.x < -10 || barril.position.x > 12;
-}
-function emEscadaParaBarris(barril) {
-    return escadasParaBarris.some(escada => {
-        return barril.position.x >= escada.xMin && barril.position.x <= escada.xMax &&
-            barril.position.y >= escada.yMin && barril.position.y <= escada.yMax;
-    });
 }
 
 
@@ -290,12 +325,15 @@ function loop() {
     if (mixerAnimacao) {
         mixerAnimacao.update(relogio.getDelta());
     }
+
     if (objetoImportado) {
         // Raycasting para verificar o chão
         raycaster.set(objetoImportado.position, new THREE.Vector3(0, -1, 0));
         const intersects = raycaster.intersectObjects(objetosColisao, true);
         const noChao = intersects.length > 0 && intersects[0].distance < 0.1;
+
         console.log(objetoImportado.position.x);
+
         if (!noChao) {
             velocidadeY += gravidade; // Aplica gravidade
         } else {
@@ -304,12 +342,15 @@ function loop() {
             }
             velocidadeY = 0; // Zera a velocidade vertical ao tocar o chão
         }
+
         if (teclasPressionadas[32] && !pulando && noChao) { // Barra de espaço (pulo)
             pulando = true;
             velocidadeY = 0.17; // Define a força inicial do pulo
         }
+
         // Atualiza a posição vertical do personagem
         objetoImportado.position.y += velocidadeY;
+
         // Movimentação baseada na câmera atual
         if (cameraAtual === camaraPerspectiva) {
             // Movimentação na câmera perspectiva: W (frente) e S (trás)
@@ -348,6 +389,7 @@ function loop() {
                     iniciarAnimacao();
                 }
             }
+
             if (teclasPressionadas[17]) { // tecla CTRL
                 if ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
@@ -363,6 +405,7 @@ function loop() {
                 }
                 iniciarAnimacao();
             }
+
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.position.x += 0.10; // Move para a direita
                 objetoImportado.rotation.y = Math.PI / 2;
@@ -415,62 +458,137 @@ function loop() {
             }
         }
 
+
         // Atualizar posição do barril
         atualizarBarril();
+
         barrisAtivos.forEach((barril, index) => {
-            const plataforma = plataformas[barril.userData.plataformaAtual];
-            if (!plataforma) return;
-            // Movimento horizontal
-            barril.position.x += plataforma.direcao * 0.05;
-            // Verifica se o barril deve descer
-            const deveDescer =
-                emEscadaParaBarris(barril) ||
-                barril.position.x < -10 || barril.position.x > 12; // fim da viga
-            if (deveDescer) {
-                barril.userData.plataformaAtual += 1;
-                if (plataformas[barril.userData.plataformaAtual]) {
-                    // Vai para a próxima viga
-                    barril.position.y = plataformas[barril.userData.plataformaAtual].y;
+            // Remove o barril se estiver muito abaixo (fora da cena)
+            if (barril.position.y < -10) {
+                cena.remove(barril);
+                barrisAtivos.splice(index, 1);
+                return;
+            }
+
+            // Inicializa a plataforma atual se não existir
+            if (barril.userData.plataformaAtual === undefined) {
+                barril.userData.plataformaAtual = 0;
+            }
+
+            // Raycasting para verificar o chão
+            raycaster.set(barril.position, new THREE.Vector3(0, -1, 0));
+            const intersects = raycaster.intersectObjects(objetosColisao, true);
+            const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
+
+            // Log da posição atual do barril
+            console.log("Barril posição:", {
+                x: barril.position.x.toFixed(2),
+                y: barril.position.y.toFixed(2),
+                plataforma: barril.userData.plataformaAtual
+            });
+
+            // Verifica se está sobre uma escada para a plataforma atual
+            const laddersAtCurrentHeight = posicoesEscadas.filter(escada => {
+                // Verifica se o barril está na mesma altura que a escada (com uma pequena tolerância)
+                const alturaCorreta = Math.abs(barril.position.y - escada.y) < 0.5;
+                // Verifica se está dentro dos limites x da escada
+                const dentroDosLimites = barril.position.x >= escada.xMin && barril.position.x <= escada.xMax;
+                return alturaCorreta && dentroDosLimites;
+            });
+
+            // Se estiver no ar, aplica gravidade
+            if (!noChao) {
+                barril.userData.velocidade.y += gravidade;
+                barril.position.y += barril.userData.velocidade.y;
+            } else {
+                // Se estiver no chão
+                if (laddersAtCurrentHeight.length > 0) {
+                    // Randomly decide whether to fall down a ladder or continue moving
+                    if (Math.random() < 0.3) { // 30% chance to fall down a ladder
+                        // Randomly choose one of the available ladders
+                        const chosenLadder = laddersAtCurrentHeight[Math.floor(Math.random() * laddersAtCurrentHeight.length)];
+                        
+                        // Move to the chosen ladder's position
+                        barril.position.x = (chosenLadder.xMin + chosenLadder.xMax) / 2;
+                        
+                        // Fall down (descida como antes)
+                        barril.position.y -= 3;
+                        barril.userData.plataformaAtual += 1;
+                        
+                        // Alternate horizontal movement direction with reduced speed
+                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.08 : -0.08;
+                        console.log("Barril caiu na escada. Nova plataforma:", barril.userData.plataformaAtual, "Nova posição y:", barril.position.y);
+                    } else {
+                        // Continue moving horizontally
+                        barril.position.x += barril.userData.velocidade.x;
+                        // Manter barril rente ao plano
+                        let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
+                        let planoMaisProximo = alturasPlanos.reduce((prev, curr) => Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
+                        let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
+                        barril.position.y = planoMaisProximo + offset;
+                    }
                 } else {
-                    // Cai com gravidade
-                    barril.userData.velocidade.y += gravidade;
-                    barril.position.y += barril.userData.velocidade.y;
+                    // No ladders available, continue moving horizontally
+                    barril.position.x += barril.userData.velocidade.x;
+                    // Manter barril rente ao plano
+                    let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
+                    let planoMaisProximo = alturasPlanos.reduce((prev, curr) => Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
+                    let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
+                    barril.position.y = planoMaisProximo + offset;
+                    
+                    // Verifica se atingiu os limites da plataforma
+                    if (barril.position.x < -10 || barril.position.x > 12) {
+                        barril.position.y -= 3;
+                        barril.userData.plataformaAtual += 1;
+                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.08 : -0.08;
+                    }
                 }
             }
         });
+        
 
         if (cameraAtual === camaraPerspectiva && objetoImportado && objetosColisao.length > 0) {
             atualizarCameraParaSeguirPersonagem(camaraPerspectiva, objetoImportado);
         }
     }
+
     renderer.render(cena, cameraAtual); // Renderiza com a câmera atual
     requestAnimationFrame(loop);
 }
+
 const offsetCameraPerspectiva = new THREE.Vector3(0, 1, 5); // 1 unidade acima, 5 unidades atrás
+
 function atualizarCameraParaSeguirPersonagem(camera, personagem) {
     const alturaOmbro = 1.6; // altura do ombro
     const distanciaAtras = 10.0; // distância atrás do personagem
     const deslocamentoLateral = 5; // ombro esquerdo
+
     // Direção "para trás" na rotação do personagem
     const direcaoAtras = new THREE.Vector3(0, 0, -1).applyQuaternion(personagem.quaternion).normalize();
     const lateralEsquerda = new THREE.Vector3(-1, 0, 0).applyQuaternion(personagem.quaternion).normalize();
+
     // Posição da câmera: atrás + para o lado (esquerda) + na altura do ombro
     const posicaoDesejada = personagem.position.clone()
         .add(direcaoAtras.multiplyScalar(distanciaAtras))
         .add(lateralEsquerda.multiplyScalar(deslocamentoLateral))
         .add(new THREE.Vector3(0, alturaOmbro, 0));
+
     // Define a posição da câmera diretamente
     camera.position.copy(posicaoDesejada);
+
     // Ponto para onde a câmera deve olhar (à frente do personagem)
     const direcaoFrente = new THREE.Vector3(0, 0, 1).applyQuaternion(personagem.quaternion).normalize();
     const pontoFoco = personagem.position.clone()
         .add(direcaoFrente.multiplyScalar(10))
         .add(new THREE.Vector3(0, alturaOmbro, 0));
+
     camera.lookAt(pontoFoco);
 }
+
 function criarChaoInvisivel(x, y, z) {
     // Usamos uma geometria MUITO grande simulando plano infinito
     const geometry = new THREE.PlaneGeometry(10000, 10000);
+
     // Material invisível
     const material = new THREE.MeshBasicMaterial({
         color: 0x0000000,
@@ -479,15 +597,20 @@ function criarChaoInvisivel(x, y, z) {
         side: THREE.DoubleSide,
         depthWrite: false
     });
+
     const chao = new THREE.Mesh(geometry, material);
+
     // Posição e rotação como "chão"
     chao.position.set(x, y, z);
     chao.rotation.x = -Math.PI / 2;
+
     // Visível = true só pra garantir que o raycasting funcione
     chao.visible = true;
+
     // Extra: metadata útil
     chao.name = 'chaoInvisivel';
     chao.userData.isChao = true;
     chao.userData.interativo = true;
+
     return chao;
 }
