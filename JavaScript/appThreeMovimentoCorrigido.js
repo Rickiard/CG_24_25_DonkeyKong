@@ -200,9 +200,9 @@ function lançarBarril() {
     if (!barrilImportado) return;
 
     const novoBarril = barrilImportado.clone();
-    novoBarril.position.set(-7, 8, -6.0); // Posição inicial com y=8
+    novoBarril.position.set(-7, 5.25, -6.0); // Posição inicial com y=8
     novoBarril.rotation.set(Math.PI/2, 0, 0); // Rotação para deitar o barril
-    novoBarril.userData.velocidade = new THREE.Vector3(0.08, 0, 0); // Reduced horizontal speed
+    novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0); // Reduced horizontal speed
     novoBarril.userData.plataformaAtual = 0; // Contador para saber em qual plano está
 
     novoBarril.traverse(child => {
@@ -512,8 +512,8 @@ function Start() {
     var luzHemisferica = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.5);
     cena.add(luzHemisferica);
 
-    // Add the barrel template (but make it invisible)
-    carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 0, y: -100, z: 0 }, { x: 0, y: 0, z: 0 });
+    // Add the barrel at coordinates (13, -9, -3)
+    carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: 13, y: -9, z: -3.0 }, { x: 0, y: 0, z: 0 });
 
     requestAnimationFrame(loop);
 }
@@ -767,7 +767,8 @@ function loop() {
                         barril.userData.plataformaAtual += 1;
                         
                         // Alternate horizontal movement direction with reduced speed
-                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.08 : -0.08;
+                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
+                        console.log("Barril caiu na escada. Nova plataforma:", barril.userData.plataformaAtual, "Nova posição y:", barril.position.y);
                     } else {
                         // Continue moving horizontally
                         barril.position.x += barril.userData.velocidade.x;
@@ -790,7 +791,7 @@ function loop() {
                     if (barril.position.x < -10 || barril.position.x > 12) {
                         barril.position.y -= 3;
                         barril.userData.plataformaAtual += 1;
-                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.08 : -0.08;
+                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
                     }
                 }
             }
