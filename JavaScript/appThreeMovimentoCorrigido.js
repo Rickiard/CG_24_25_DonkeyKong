@@ -79,14 +79,20 @@ var mixerAnimacao;
 var relogio = new THREE.Clock();
 var andando = false;
 var pulando = false;
+var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
-var gravidade = -0.008; // Reduced gravity for slower fall
-var forcaPulo = 0.15; // Increased jump force
+var gravidade = -0.007; // Slightly increased gravity for faster fall
+var forcaPulo = 0.14; // Reduced jump force for lower height
 var velocidadeMovimento = 0.06; // Reduced movement speed (was 0.10)
+var velocidadeMovimentoAr = 0.04; // Slower movement speed while in air
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
+var teclasPressionadasAnterior = {}; // Track previous frame's key states
 var raycaster = new THREE.Raycaster();
 var objetosColisao = []; // Lista de objetos com os quais o personagem pode colidir
 var animacaoAtual = null; // Track current animation
+var plataformas = []; // Array to store platform information
+var ultimoPulo = 0; // Track when the last jump occurred
+var puloPendente = false; // Track if a jump is pending
 // Variáveis globais para o barril
 var barrilImportado;
 var velocidadeBarrilY = 0; // Velocidade vertical do barril
@@ -353,15 +359,10 @@ document.addEventListener("keydown", function (event) {
     if (event.key === 'g' || event.key === 'G') {
         window.gameOver();
     }
-
-    if (teclasPressionadas[32] && !pulando) { // Barra de espaço
-        pulando = true;
-        velocidadeY = 0.2;
-    }
 });
 
 document.addEventListener("keyup", function (event) {
-    delete teclasPressionadas[event.which];
+    teclasPressionadas[event.which] = false;
     pararAnimacao();
     if (objetoImportado.rotation.y === Math.PI)
         objetoImportado.rotation.y = Math.PI / 2;
@@ -436,12 +437,24 @@ function Start() {
     camaraPerspectiva.position.set(0, 1, 5);
     camaraPerspectiva.lookAt(0, 0, 0);
 
-    for (let i = 0; i < 7; i++) {
-        const y = -10 + i * 3;
-        const plano = criarChaoInvisivel(7, y, -3);
+    // Create platforms with specific boundaries
+    const plataformasInfo = [
+        { y: -10, xMin: -12, xMax: 12 },  // Bottom platform
+        { y: -7, xMin: -12, xMax: 12 },   // Second platform
+        { y: -4, xMin: -12, xMax: 12 },   // Third platform
+        { y: -1, xMin: -12, xMax: 12 },   // Fourth platform
+        { y: 2, xMin: -12, xMax: 12 },    // Fifth platform
+        { y: 5, xMin: -12, xMax: 12 },    // Sixth platform
+        { y: 8, xMin: -12, xMax: 12 }     // Top platform
+    ];
 
+    for (let i = 0; i < plataformasInfo.length; i++) {
+        const info = plataformasInfo[i];
+        const plano = criarChaoInvisivel(7, info.y, -3);
+        plano.userData.plataformaInfo = info; // Store platform info
         cena.add(plano);
         objetosColisao.push(plano);
+        plataformas.push(plano);
     }
 
     // Configuração da câmera perspectiva
@@ -499,27 +512,79 @@ function loop() {
         const intersects = raycaster.intersectObjects(objetosColisao, true);
         const noChao = intersects.length > 0 && intersects[0].distance < 0.1;
 
-        console.log(objetoImportado.position.x);
+        // Get current platform info
+        let plataformaAtual = null;
+        if (intersects.length > 0) {
+            plataformaAtual = intersects[0].object.userData.plataformaInfo;
+        }
 
         if (!noChao) {
             velocidadeY += gravidade; // Aplica gravidade
+            podePular = false; // Cannot jump while in the air
         } else {
             if (pulando) {
                 pulando = false; // Reseta o estado de pulo ao tocar o chão
             }
             velocidadeY = 0; // Zera a velocidade vertical ao tocar o chão
+            podePular = true; // Reset jump ability when on ground
+            
+            // Snap to platform height
+            if (plataformaAtual) {
+                objetoImportado.position.y = plataformaAtual.y + 0.1; // Small offset to prevent floating
+            }
+
+            // Process pending jump if we just landed
+            if (puloPendente) {
+                puloPendente = false;
+                pulando = true;
+                podePular = false;
+                velocidadeY = forcaPulo;
+                ultimoPulo = relogio.getElapsedTime();
+            }
         }
 
-        if (teclasPressionadas[32] && !pulando && noChao) { // Barra de espaço (pulo)
-            pulando = true;
-            velocidadeY = forcaPulo; // Use the new jump force
+        // Handle jump input in the loop for consistent behavior
+        if (teclasPressionadas[32] && !teclasPressionadasAnterior[32]) { // Spacebar just pressed
+            const tempoAtual = relogio.getElapsedTime();
+            if (tempoAtual - ultimoPulo > 0.1) { // Minimum time between jumps
+                if (podePular && !pulando) {
+                    pulando = true;
+                    podePular = false;
+                    velocidadeY = forcaPulo;
+                    ultimoPulo = tempoAtual;
+                } else if (noChao) {
+                    // If we're on the ground but can't jump yet, queue the jump
+                    puloPendente = true;
+                }
+            }
         }
 
         // Atualiza a posição vertical do personagem
         objetoImportado.position.y += velocidadeY;
 
+        // Prevent falling below platforms
+        if (objetoImportado.position.y < -10) {
+            objetoImportado.position.y = -10;
+            velocidadeY = 0;
+            pulando = false;
+            podePular = true; // Reset jump ability when hitting bottom
+        }
+
+        // Check platform boundaries before horizontal movement
+        if (plataformaAtual) {
+            const novaPosicaoX = objetoImportado.position.x;
+            if (novaPosicaoX < plataformaAtual.xMin) {
+                objetoImportado.position.x = plataformaAtual.xMin;
+            } else if (novaPosicaoX > plataformaAtual.xMax) {
+                objetoImportado.position.x = plataformaAtual.xMax;
+            }
+        }
+
         // Movimentação baseada na câmera atual
         if (cameraAtual === camaraPerspectiva) {
+            // Use different movement speed based on whether Mario is in the air
+            const velocidadeAtual = noChao ? velocidadeMovimento : velocidadeMovimentoAr;
+
             // Movimentação na câmera perspectiva: W (frente) e S (trás)
             if (objetoImportado.rotation.y === -Math.PI / 2) {
                 if (teclasPressionadas[68]) { // D (esquerda)
@@ -559,34 +624,19 @@ function loop() {
                 }
             }
 
-            if (teclasPressionadas[17]) { // tecla CTRL
-                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
-                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
-                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
-                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
-                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
-                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5) ||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) &&
-                    pulando === false) {
-                    objetoImportado.position.y -= 3;
-                    objetoImportado.position.z += 1;
-                }
-                iniciarAnimacao();
-            }
-
             if (teclasPressionadas[87]) { // W (frente)
-                objetoImportado.position.x += velocidadeMovimento; // Use new movement speed
+                objetoImportado.position.x += velocidadeAtual;
                 objetoImportado.rotation.y = Math.PI / 2;
                 iniciarAnimacao();
             } else if (teclasPressionadas[83]) { // S (trás)
-                objetoImportado.position.x -= velocidadeMovimento; // Use new movement speed
+                objetoImportado.position.x -= velocidadeAtual;
                 objetoImportado.rotation.y = -Math.PI / 2;
                 iniciarAnimacao();
             }
         } else if (cameraAtual === camaraOrto) {
-            // Movimentação na câmara ortográfica: A (esquerda) e D (direita)
+            // Use different movement speed based on whether Mario is in the air
+            const velocidadeAtual = noChao ? velocidadeMovimento : velocidadeMovimentoAr;
+
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.rotation.y = Math.PI;
                 if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
@@ -620,11 +670,11 @@ function loop() {
                 }
                 iniciarAnimacao();
             } else if (teclasPressionadas[65]) { // A (esquerda)
-                objetoImportado.position.x -= velocidadeMovimento; // Use new movement speed
+                objetoImportado.position.x -= velocidadeAtual;
                 objetoImportado.rotation.y = -Math.PI / 2;
                 iniciarAnimacao();
             } else if (teclasPressionadas[68]) { // D (direita)
-                objetoImportado.position.x += velocidadeMovimento; // Use new movement speed
+                objetoImportado.position.x += velocidadeAtual;
                 objetoImportado.rotation.y = Math.PI / 2;
                 iniciarAnimacao();
             }
@@ -722,6 +772,9 @@ function loop() {
         if (cameraAtual === camaraPerspectiva && objetoImportado && objetosColisao.length > 0) {
             atualizarCameraParaSeguirPersonagem(camaraPerspectiva, objetoImportado);
         }
+
+        // Update previous key states
+        teclasPressionadasAnterior = { ...teclasPressionadas };
     }
 
     renderer.render(cena, cameraAtual);
