@@ -225,8 +225,6 @@ function lançarBarril() {
     barrisAtivos.push(novoBarril);
 }
 
-
-
 function carregarBarril(caminho, escala, posicao, rotacao) {
     importer.load(caminho, function (object) {
         object.traverse(function (child) {
@@ -511,7 +509,7 @@ function Start() {
     cena.add(luzHemisferica);
 
     // Add the barrel at coordinates (13, -9, -3)
-    carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: 13, y: -9, z: -3.0 }, { x: 0, y: 0, z: 0 });
+    carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -10, y: 5.7, z: -9 }, { x: 0, y: 0, z: 0 });
 
     requestAnimationFrame(loop);
 }
