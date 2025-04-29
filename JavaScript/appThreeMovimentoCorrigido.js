@@ -81,11 +81,12 @@ var andando = false;
 var pulando = false;
 var velocidadeY = 0; // Velocidade vertical
 var gravidade = -0.008; // Reduced gravity for slower fall
-var forcaPulo = 0.25; // Increased jump force
+var forcaPulo = 0.15; // Increased jump force
 var velocidadeMovimento = 0.06; // Reduced movement speed (was 0.10)
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
 var raycaster = new THREE.Raycaster();
 var objetosColisao = []; // Lista de objetos com os quais o personagem pode colidir
+var animacaoAtual = null; // Track current animation
 // Variáveis globais para o barril
 var barrilImportado;
 var velocidadeBarrilY = 0; // Velocidade vertical do barril
@@ -136,7 +137,7 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
 
 carregarObjetoFBX(
     './Objetos/Mario.fbx',
-    { x: 0.85, y: 0.85, z: 0.85 },
+    { x: 0.008, y: 0.008, z: 0.008 },
     { x: -10, y: -9.7, z: -3.0 },
     { x: 0, y: Math.PI / 2, z: 0 },
     function (object) {
@@ -168,7 +169,9 @@ carregarObjetoFBX(
         objetoImportado = object;
         if (object.animations.length > 0) {
             mixerAnimacao = new THREE.AnimationMixer(object);
-            mixerAnimacao.clipAction(object.animations[0]).play();
+            // Start with idle animation (assuming it's the first animation)
+            animacaoAtual = mixerAnimacao.clipAction(object.animations[3]);
+            animacaoAtual.play();
         }
         objetosColisao.push(object);
     }
@@ -366,9 +369,14 @@ document.addEventListener("keyup", function (event) {
 
 // Funções de animação
 function iniciarAnimacao() {
-    if (!andando && mixerAnimacao) {
-        var action = mixerAnimacao.clipAction(objetoImportado.animations[0]);
-        action.play();
+    if (!andando && mixerAnimacao && objetoImportado.animations.length > 1) {
+        // Stop current animation
+        if (animacaoAtual) {
+            animacaoAtual.stop();
+        }
+        // Start running animation (assuming it's the second animation)
+        animacaoAtual = mixerAnimacao.clipAction(objetoImportado.animations[7]);
+        animacaoAtual.play();
         andando = true;
     }
 
@@ -380,9 +388,14 @@ function iniciarAnimacao() {
 }
 
 function pararAnimacao() {
-    if (andando && mixerAnimacao) {
-        var action = mixerAnimacao.clipAction(objetoImportado.animations[0]);
-        action.stop();
+    if (andando && mixerAnimacao && objetoImportado.animations.length > 0) {
+        // Stop current animation
+        if (animacaoAtual) {
+            animacaoAtual.stop();
+        }
+        // Start idle animation (assuming it's the first animation)
+        animacaoAtual = mixerAnimacao.clipAction(objetoImportado.animations[3]);
+        animacaoAtual.play();
         andando = false;
     }
 }
