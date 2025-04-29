@@ -8,6 +8,7 @@ window.gameState = {
     isInitialized: false,
     originalPosition: null,
     isGameOver: false,
+    isWin: false,
     score: 0
 };
 
@@ -24,9 +25,11 @@ window.startGame = function () {
     }
     window.gameState.isPaused = false;
     window.gameState.isGameOver = false;
+    window.gameState.isWin = false;
     window.gameState.score = 0;
     updateScoreDisplay();
     document.getElementById('gameOverMenu').classList.add('hidden');
+    document.getElementById('winMenu').classList.add('hidden');
     loop();
 };
 
@@ -51,6 +54,7 @@ window.restartGame = function () {
     // Reset game state
     window.gameState.isPaused = false;
     window.gameState.isGameOver = false;
+    window.gameState.isWin = false;
     window.gameState.score = 0;
     updateScoreDisplay();
 
@@ -62,6 +66,7 @@ window.restartGame = function () {
     // Hide menus
     document.getElementById('pauseMenu').classList.add('hidden');
     document.getElementById('gameOverMenu').classList.add('hidden');
+    document.getElementById('winMenu').classList.add('hidden');
 
     // Restart the game loop
     loop();
@@ -71,6 +76,12 @@ window.gameOver = function () {
     window.gameState.isGameOver = true;
     document.getElementById('gameOverMenu').classList.remove('hidden');
     document.getElementById('finalScore').textContent = `Score: ${window.gameState.score}`;
+};
+
+window.gameWin = function () {
+    window.gameState.isWin = true;
+    document.getElementById('winMenu').classList.remove('hidden');
+    document.getElementById('winScore').textContent = `Score: ${window.gameState.score}`;
 };
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -371,11 +382,6 @@ document.addEventListener("keydown", function (event) {
             cameraAtual = camaraPerspectiva;
         }
     }
-
-    // Trigger game over screen with G key
-    if (event.key === 'g' || event.key === 'G') {
-        window.gameOver();
-    }
 });
 
 document.addEventListener("keyup", function (event) {
@@ -521,8 +527,8 @@ function foraDaPlataforma(barril) {
 
 // Loop de animação
 function loop() {
-    // Only update game if game is not paused or game over
-    if (window.gameState.isPaused || window.gameState.isGameOver) {
+    // Only update game if game is not paused, game over, or win
+    if (window.gameState.isPaused || window.gameState.isGameOver || window.gameState.isWin) {
         requestAnimationFrame(loop);
         renderer.render(cena, cameraAtual);
         return;
@@ -815,6 +821,24 @@ function loop() {
             }
         });
         
+        // Check if Mario has reached the win position (2, 7, -9.5)
+        if (objetoImportado) {
+            // Check if Mario is at position (2, 7, -9.5) with some tolerance
+            const marioPos = objetoImportado.position;
+            if (Math.abs(marioPos.x - 2) < 1.0 && 
+                Math.abs(marioPos.y - 7) < 1.0 && 
+                Math.abs(marioPos.z - (-9.5)) < 1.0) {
+                // Player has reached the win position
+                window.gameWin();
+            }
+            
+            // Also check proximity to Princess Peach as an alternative win condition
+            const distanceToPeach = objetoImportado.position.distanceTo(new THREE.Vector3(0, 7, -9.5));
+            if (distanceToPeach < 2.0) {
+                // Player has reached Princess Peach
+                window.gameWin();
+            }
+        }
 
         if (cameraAtual === camaraPerspectiva && objetoImportado && objetosColisao.length > 0) {
             atualizarCameraParaSeguirPersonagem(camaraPerspectiva, objetoImportado);
