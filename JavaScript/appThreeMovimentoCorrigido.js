@@ -444,7 +444,8 @@ function atualizarBarril() {
             
             // Check if Mario is jumping over the barrel
             if (objetoImportado.position.y > barrilImportado.position.y + 1 && 
-                Math.abs(objetoImportado.position.x - barrilImportado.position.x) < 2) {
+                Math.abs(objetoImportado.position.x - barrilImportado.position.x) < 1.5 &&
+                Math.abs(objetoImportado.position.z - barrilImportado.position.z) < 1.5) {
                 window.gameState.score += 100;
                 updateScoreDisplay();
                 console.log("Score:", window.gameState.score);
@@ -750,7 +751,8 @@ function loop() {
                 
                 // Check if Mario is jumping over the barrel
                 if (objetoImportado.position.y > barril.position.y + 1 && 
-                    Math.abs(objetoImportado.position.x - barril.position.x) < 2) {
+                    Math.abs(objetoImportado.position.x - barril.position.x) < 1.5 &&
+                    Math.abs(objetoImportado.position.z - barril.position.z) < 1.5) {
                     window.gameState.score += 100;
                     updateScoreDisplay();
                     console.log("Score:", window.gameState.score);
