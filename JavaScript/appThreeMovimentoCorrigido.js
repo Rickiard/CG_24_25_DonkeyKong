@@ -42,17 +42,29 @@ window.resumeGame = function () {
 };
 
 window.restartGame = function () {
+    // Reset Mario's position and rotation
     if (objetoImportado) {
         objetoImportado.position.set(-10, -9.7, -3.0);
         objetoImportado.rotation.set(0, Math.PI / 2, 0);
     }
+
+    // Reset game state
     window.gameState.isPaused = false;
     window.gameState.isGameOver = false;
     window.gameState.score = 0;
     updateScoreDisplay();
+
+    // Reset barrel collisions and remove active barrels
     barrilColisao = false;
+    barrisAtivos.forEach(barril => cena.remove(barril));
+    barrisAtivos = [];
+
+    // Hide menus
     document.getElementById('pauseMenu').classList.add('hidden');
     document.getElementById('gameOverMenu').classList.add('hidden');
+
+    // Restart the game loop
+    loop();
 };
 
 window.gameOver = function () {
@@ -160,7 +172,6 @@ carregarObjetoFBX(
     { x: -10, y: -9.7, z: -3.0 },
     { x: 0, y: Math.PI / 2, z: 0 },
     function (object) {
-        console.log("Callback do Mario executado!");
 
         // Contagem de meshes para debug
         let contadorMeshes = 0;
@@ -178,11 +189,9 @@ carregarObjetoFBX(
 
                 // Aplicar o material
                 child.material = materialTexturizado;
-                console.log(`Material texturizado aplicado à mesh ${contadorMeshes} do Mario`);
             }
         });
 
-        console.log(`Total de meshes encontradas no Mario: ${contadorMeshes}`);
 
         // Remover a esfera verde já que agora temos textura
         objetoImportado = object;
@@ -271,7 +280,6 @@ carregarObjetoFBX(
     { x: 0, y: 7.0, z: -9.5 },
     { x: 0, y: 0, z: 0 },
     function (object) {
-        console.log("Callback da Peach executado!");
 
         // Load textures
         const textureLoader = new THREE.TextureLoader();
@@ -285,7 +293,6 @@ carregarObjetoFBX(
         object.traverse(function (child) {
             if (child.isMesh) {
                 contadorMeshes++;
-                console.log(`Mesh ${contadorMeshes} name:`, child.name);
 
                 // Create materials with textures
                 if (child.name.toLowerCase().includes('eye')) {
@@ -295,7 +302,6 @@ carregarObjetoFBX(
                         shininess: 50,
                         side: THREE.DoubleSide
                     });
-                    console.log(`Eye texture applied to mesh ${contadorMeshes}`);
                 } else {
                     // Body material
                     child.material = new THREE.MeshPhongMaterial({
@@ -303,12 +309,9 @@ carregarObjetoFBX(
                         shininess: 30,
                         side: THREE.DoubleSide
                     });
-                    console.log(`Body texture applied to mesh ${contadorMeshes}`);
                 }
             }
         });
-
-        console.log(`Total de meshes encontradas na Peach: ${contadorMeshes}`);
 
         // Configurar o mixer de animação para a Peach
         if (object.animations.length > 0) {
@@ -320,7 +323,6 @@ carregarObjetoFBX(
 
         // Adicionar o objeto à cena explicitamente
         cena.add(object);
-        console.log("Peach adicionada à cena com posição:", object.position);
     }
 );
 
@@ -367,10 +369,8 @@ document.addEventListener("keydown", function (event) {
     if (event.key === 'c' || event.key === 'C') {
         if (cameraAtual === camaraPerspectiva) {
             cameraAtual = camaraOrto;
-            console.log("Câmera alterada para ortográfica.");
         } else {
             cameraAtual = camaraPerspectiva;
-            console.log("Câmera alterada para perspectiva.");
         }
     }
 
@@ -402,7 +402,6 @@ function iniciarAnimacao() {
 
     // Adicionar o barril à cena quando a animação do personagem começar
     if (barrilImportado && !cena.children.includes(barrilImportado)) {
-        console.log("Barril adicionado à cena.");
         cena.add(barrilImportado);
     }
 }
@@ -449,11 +448,10 @@ function atualizarBarril() {
                 Math.abs(objetoImportado.position.z - barrilImportado.position.z) < 1.5) {
                 window.gameState.score += 100;
                 updateScoreDisplay();
-                console.log("Score:", window.gameState.score);
             }
             
             // Check for collision
-            if (distancia < 1.5) {
+            if (distancia < 1) {
                 barrilColisao = true;
                 window.gameOver();
             }
@@ -768,7 +766,6 @@ function loop() {
                         
                         // Alternate horizontal movement direction with reduced speed
                         barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
-                        console.log("Barril caiu na escada. Nova plataforma:", barril.userData.plataformaAtual, "Nova posição y:", barril.position.y);
                     } else {
                         // Continue moving horizontally
                         barril.position.x += barril.userData.velocidade.x;
@@ -795,24 +792,27 @@ function loop() {
                     }
                 }
             }
-
-            // Check for collision with Mario
+            // Check for collision with Mario using bounding box intersection
             if (objetoImportado && !barrilColisao) {
-                const distancia = objetoImportado.position.distanceTo(barril.position);
-                
-                // Check if Mario is jumping over the barrel
-                if (objetoImportado.position.y > barril.position.y + 1 && 
-                    Math.abs(objetoImportado.position.x - barril.position.x) < 1.5 &&
-                    Math.abs(objetoImportado.position.z - barril.position.z) < 1.5) {
-                    window.gameState.score += 100;
-                    updateScoreDisplay();
-                    console.log("Score:", window.gameState.score);
-                }
-                
-                // Check for collision
-                if (distancia < 1.5) {
-                    barrilColisao = true;
-                    window.gameOver();
+                // Create bounding boxes for Mario and the barrel
+                const marioBox = new THREE.Box3().setFromObject(objetoImportado);
+                const barrilBox = new THREE.Box3().setFromObject(barril);
+
+                // Check if the bounding boxes intersect
+                if (marioBox.intersectsBox(barrilBox)) {
+                    // Check if Mario is jumping over the barrel
+                    if (
+                        objetoImportado.position.y > barril.position.y + 1 &&
+                        Math.abs(objetoImportado.position.x - barril.position.x) < 1.5 &&
+                        Math.abs(objetoImportado.position.z - barril.position.z) < 1.5
+                    ) {
+                        window.gameState.score += 100;
+                        updateScoreDisplay();
+                    } else {
+                        // Collision detected
+                        barrilColisao = true;
+                        window.gameOver();
+                    }
                 }
             }
         });
