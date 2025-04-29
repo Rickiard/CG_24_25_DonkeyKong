@@ -93,6 +93,8 @@ var velocidadeBarrilY = 0; // Velocidade vertical do barril
 var pulandoBarril = false;
 var barrilColisao = false; // Flag para verificar se houve colisão com o barril
 var barrisAtivos = [];
+// Variáveis para os mixers de animação
+var mixerPeach, mixerDonkeyKong;
 
 // Add TextureLoader
 const textureLoader = new THREE.TextureLoader();
@@ -229,6 +231,15 @@ importer.load('./Objetos/Donkey Kong.fbx', function (object) {
     });
     object.scale.set(0.015, 0.015, 0.015);
     object.position.set(-6.5, 5.7, -9);
+
+    // Configurar o mixer de animação para o Donkey Kong
+    if (object.animations.length > 0) {
+        mixerDonkeyKong = new THREE.AnimationMixer(object);
+        const animacaoDonkeyKong = mixerDonkeyKong.clipAction(object.animations[0]); // Use a primeira animação
+        animacaoDonkeyKong.loop = THREE.LoopRepeat; // Configurar para repetir
+        animacaoDonkeyKong.play();
+    }
+
     cena.add(object);
 
     // Lançar um barril a cada 3 segundos
@@ -237,7 +248,6 @@ importer.load('./Objetos/Donkey Kong.fbx', function (object) {
     }, 3000); // 3000 ms = 3 segundos
 });
 
-console.log("Iniciando carregamento da Peach...");
 carregarObjetoFBX(
     './Objetos/peach.fbx',
     { x: 0.05, y: 0.05, z: 0.05 },
@@ -283,15 +293,13 @@ carregarObjetoFBX(
 
         console.log(`Total de meshes encontradas na Peach: ${contadorMeshes}`);
 
-        // Adicionar uma luz pontual mais forte para destacar a Peach
-        const luzPeach = new THREE.PointLight(0xFFFFFF, 5, 50);
-        luzPeach.position.set(0, 10, 0);
-        object.add(luzPeach);
-
-        // Adicionar uma caixa de bounding box mais visível
-        const bbox = new THREE.Box3().setFromObject(object);
-        const helper = new THREE.Box3Helper(bbox, 0xFF00FF);
-        cena.add(helper);
+        // Configurar o mixer de animação para a Peach
+        if (object.animations.length > 0) {
+            mixerPeach = new THREE.AnimationMixer(object);
+            const animacaoPeach = mixerPeach.clipAction(object.animations[0]); // Use a primeira animação
+            animacaoPeach.loop = THREE.LoopRepeat; // Configurar para repetir
+            animacaoPeach.play();
+        }
 
         // Adicionar o objeto à cena explicitamente
         cena.add(object);
@@ -489,8 +497,16 @@ function loop() {
         return;
     }
 
+    const delta = relogio.getDelta();
+
     if (mixerAnimacao) {
-        mixerAnimacao.update(relogio.getDelta());
+        mixerAnimacao.update(delta);
+    }
+    if (mixerPeach) {
+        mixerPeach.update(delta);
+    }
+    if (mixerDonkeyKong) {
+        mixerDonkeyKong.update(delta);
     }
 
     if (objetoImportado) {
