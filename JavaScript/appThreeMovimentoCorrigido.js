@@ -7,8 +7,14 @@ window.gameState = {
     isPaused: false,
     isInitialized: false,
     originalPosition: null,
-    isGameOver: false
+    isGameOver: false,
+    score: 0
 };
+
+// Function to update score display
+function updateScoreDisplay() {
+    document.getElementById('scoreDisplay').textContent = `Score: ${window.gameState.score}`;
+}
 
 // Global functions for menu control
 window.startGame = function () {
@@ -18,6 +24,8 @@ window.startGame = function () {
     }
     window.gameState.isPaused = false;
     window.gameState.isGameOver = false;
+    window.gameState.score = 0;
+    updateScoreDisplay();
     document.getElementById('gameOverMenu').classList.add('hidden');
     loop();
 };
@@ -40,7 +48,9 @@ window.restartGame = function () {
     }
     window.gameState.isPaused = false;
     window.gameState.isGameOver = false;
-    barrilColisao = false; // Reset the collision flag
+    window.gameState.score = 0;
+    updateScoreDisplay();
+    barrilColisao = false;
     document.getElementById('pauseMenu').classList.add('hidden');
     document.getElementById('gameOverMenu').classList.add('hidden');
 };
@@ -48,6 +58,7 @@ window.restartGame = function () {
 window.gameOver = function () {
     window.gameState.isGameOver = true;
     document.getElementById('gameOverMenu').classList.remove('hidden');
+    document.getElementById('finalScore').textContent = `Score: ${window.gameState.score}`;
 };
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -430,7 +441,17 @@ function atualizarBarril() {
         // Verificar colisão com o Mario
         if (objetoImportado && !barrilColisao) {
             const distancia = objetoImportado.position.distanceTo(barrilImportado.position);
-            if (distancia < 1.5) { // Ajuste este valor conforme necessário
+            
+            // Check if Mario is jumping over the barrel
+            if (objetoImportado.position.y > barrilImportado.position.y + 1 && 
+                Math.abs(objetoImportado.position.x - barrilImportado.position.x) < 2) {
+                window.gameState.score += 100;
+                updateScoreDisplay();
+                console.log("Score:", window.gameState.score);
+            }
+            
+            // Check for collision
+            if (distancia < 1.5) {
                 barrilColisao = true;
                 window.gameOver();
             }
@@ -477,8 +498,8 @@ function Start() {
     var luzHemisferica = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.5);
     cena.add(luzHemisferica);
 
-    // Add the barrel at coordinates (13, -9, -3)
-    carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 13, y: -9, z: -3.0 }, { x: 0, y: 0, z: 0 });
+    // Add the barrel template (but make it invisible)
+    carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 0, y: -100, z: 0 }, { x: 0, y: 0, z: 0 });
 
     requestAnimationFrame(loop);
 }
@@ -668,18 +689,9 @@ function loop() {
             const intersects = raycaster.intersectObjects(objetosColisao, true);
             const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
 
-            // Log da posição atual do barril
-            console.log("Barril posição:", {
-                x: barril.position.x.toFixed(2),
-                y: barril.position.y.toFixed(2),
-                plataforma: barril.userData.plataformaAtual
-            });
-
             // Verifica se está sobre uma escada para a plataforma atual
             const laddersAtCurrentHeight = posicoesEscadas.filter(escada => {
-                // Verifica se o barril está na mesma altura que a escada (com uma pequena tolerância)
                 const alturaCorreta = Math.abs(barril.position.y - escada.y) < 0.5;
-                // Verifica se está dentro dos limites x da escada
                 const dentroDosLimites = barril.position.x >= escada.xMin && barril.position.x <= escada.xMax;
                 return alturaCorreta && dentroDosLimites;
             });
@@ -705,7 +717,6 @@ function loop() {
                         
                         // Alternate horizontal movement direction with reduced speed
                         barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.08 : -0.08;
-                        console.log("Barril caiu na escada. Nova plataforma:", barril.userData.plataformaAtual, "Nova posição y:", barril.position.y);
                     } else {
                         // Continue moving horizontally
                         barril.position.x += barril.userData.velocidade.x;
@@ -730,6 +741,25 @@ function loop() {
                         barril.userData.plataformaAtual += 1;
                         barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.08 : -0.08;
                     }
+                }
+            }
+
+            // Check for collision with Mario
+            if (objetoImportado && !barrilColisao) {
+                const distancia = objetoImportado.position.distanceTo(barril.position);
+                
+                // Check if Mario is jumping over the barrel
+                if (objetoImportado.position.y > barril.position.y + 1 && 
+                    Math.abs(objetoImportado.position.x - barril.position.x) < 2) {
+                    window.gameState.score += 100;
+                    updateScoreDisplay();
+                    console.log("Score:", window.gameState.score);
+                }
+                
+                // Check for collision
+                if (distancia < 1.5) {
+                    barrilColisao = true;
+                    window.gameOver();
                 }
             }
         });

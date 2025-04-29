@@ -14,6 +14,23 @@
       overflow: hidden;
     }
 
+    /* Score Display Styles */
+    #scoreDisplay {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      font-size: 2em;
+      color: #FFD700;
+      text-shadow: 0 0 10px rgba(255, 215, 0, 0.7),
+                   0 0 20px rgba(255, 215, 0, 0.5),
+                   0 0 30px rgba(255, 215, 0, 0.3);
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: 2px solid #FFD700;
+    }
+
     /* Menu Container Styles */
     .menu-container {
       position: absolute;
@@ -224,12 +241,38 @@
       background: linear-gradient(45deg, #D32F2F, #F44336);
     }
 
+    .score-display {
+      font-size: 2.5em;
+      color: #FFD700;
+      margin: 20px 0;
+      text-shadow: 0 0 10px rgba(255, 215, 0, 0.7),
+                   0 0 20px rgba(255, 215, 0, 0.5),
+                   0 0 30px rgba(255, 215, 0, 0.3);
+      animation: glowScore 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes glowScore {
+      from {
+        text-shadow: 0 0 10px rgba(255, 215, 0, 0.7),
+                     0 0 20px rgba(255, 215, 0, 0.5),
+                     0 0 30px rgba(255, 215, 0, 0.3);
+      }
+      to {
+        text-shadow: 0 0 15px rgba(255, 215, 0, 0.8),
+                     0 0 25px rgba(255, 215, 0, 0.6),
+                     0 0 35px rgba(255, 215, 0, 0.4);
+      }
+    }
+
     .hidden {
       display: none;
     }
   </style>
 </head>
 <body>
+  <!-- Score Display -->
+  <div id="scoreDisplay">Score: 0</div>
+
   <!-- Main Menu Container -->
   <div id="mainMenu" class="menu-container">
     <h1 class="menu-title">DONKEY KONG</h1>
@@ -249,6 +292,7 @@
   <!-- Game Over Menu Container -->
   <div id="gameOverMenu" class="menu-container hidden">
     <h1 class="menu-title">GAME OVER</h1>
+    <div id="finalScore" class="score-display">Score: 0</div>
     <button id="tryAgainButton" class="menu-button">TRY AGAIN</button>
     <button id="gameOverMainMenuButton" class="menu-button">MAIN MENU</button>
   </div>
