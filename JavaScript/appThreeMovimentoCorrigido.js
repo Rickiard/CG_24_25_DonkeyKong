@@ -8,6 +8,7 @@ window.gameState = {
     isInitialized: false,
     originalPosition: null,
     isGameOver: false,
+    isWin: false,
     score: 0
 };
 
@@ -24,9 +25,11 @@ window.startGame = function () {
     }
     window.gameState.isPaused = false;
     window.gameState.isGameOver = false;
+    window.gameState.isWin = false;
     window.gameState.score = 0;
     updateScoreDisplay();
     document.getElementById('gameOverMenu').classList.add('hidden');
+    document.getElementById('winMenu').classList.add('hidden');
     loop();
 };
 
@@ -42,23 +45,43 @@ window.resumeGame = function () {
 };
 
 window.restartGame = function () {
+    // Reset Mario's position and rotation
     if (objetoImportado) {
         objetoImportado.position.set(-10, -9.7, -3.0);
         objetoImportado.rotation.set(0, Math.PI / 2, 0);
     }
+
+    // Reset game state
     window.gameState.isPaused = false;
     window.gameState.isGameOver = false;
+    window.gameState.isWin = false;
     window.gameState.score = 0;
     updateScoreDisplay();
+
+    // Reset barrel collisions and remove active barrels
     barrilColisao = false;
+    barrisAtivos.forEach(barril => cena.remove(barril));
+    barrisAtivos = [];
+
+    // Hide menus
     document.getElementById('pauseMenu').classList.add('hidden');
     document.getElementById('gameOverMenu').classList.add('hidden');
+    document.getElementById('winMenu').classList.add('hidden');
+
+    // Restart the game loop
+    loop();
 };
 
 window.gameOver = function () {
     window.gameState.isGameOver = true;
     document.getElementById('gameOverMenu').classList.remove('hidden');
     document.getElementById('finalScore').textContent = `Score: ${window.gameState.score}`;
+};
+
+window.gameWin = function () {
+    window.gameState.isWin = true;
+    document.getElementById('winMenu').classList.remove('hidden');
+    document.getElementById('winScore').textContent = `Score: ${window.gameState.score}`;
 };
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -90,14 +113,20 @@ var mixerAnimacao;
 var relogio = new THREE.Clock();
 var andando = false;
 var pulando = false;
+var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
-var gravidade = -0.008; // Reduced gravity for slower fall
-var forcaPulo = 0.15; // Increased jump force
-var velocidadeMovimento = 0.06; // Reduced movement speed (was 0.10)
+var gravidade = -0.004; // Slightly increased gravity for faster fall
+var forcaPulo = 0.12; // Reduced jump force for lower height
+var velocidadeMovimento = 0.03; // Reduced movement speed (was 0.10)
+var velocidadeMovimentoAr = 0.02; // Slower movement speed while in air
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
+var teclasPressionadasAnterior = {}; // Track previous frame's key states
 var raycaster = new THREE.Raycaster();
 var objetosColisao = []; // Lista de objetos com os quais o personagem pode colidir
 var animacaoAtual = null; // Track current animation
+var plataformas = []; // Array to store platform information
+var ultimoPulo = 0; // Track when the last jump occurred
+var puloPendente = false; // Track if a jump is pending
 // Variáveis globais para o barril
 var barrilImportado;
 var velocidadeBarrilY = 0; // Velocidade vertical do barril
@@ -154,7 +183,6 @@ carregarObjetoFBX(
     { x: -10, y: -9.7, z: -3.0 },
     { x: 0, y: Math.PI / 2, z: 0 },
     function (object) {
-        console.log("Callback do Mario executado!");
 
         // Contagem de meshes para debug
         let contadorMeshes = 0;
@@ -172,11 +200,9 @@ carregarObjetoFBX(
 
                 // Aplicar o material
                 child.material = materialTexturizado;
-                console.log(`Material texturizado aplicado à mesh ${contadorMeshes} do Mario`);
             }
         });
 
-        console.log(`Total de meshes encontradas no Mario: ${contadorMeshes}`);
 
         // Remover a esfera verde já que agora temos textura
         objetoImportado = object;
@@ -194,9 +220,9 @@ function lançarBarril() {
     if (!barrilImportado) return;
 
     const novoBarril = barrilImportado.clone();
-    novoBarril.position.set(-7, 8, -6.0); // Posição inicial com y=8
+    novoBarril.position.set(-7, 5.25, -6.0); // Posição inicial com y=8
     novoBarril.rotation.set(Math.PI/2, 0, 0); // Rotação para deitar o barril
-    novoBarril.userData.velocidade = new THREE.Vector3(0.08, 0, 0); // Reduced horizontal speed
+    novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0); // Reduced horizontal speed
     novoBarril.userData.plataformaAtual = 0; // Contador para saber em qual plano está
 
     novoBarril.traverse(child => {
@@ -209,8 +235,6 @@ function lançarBarril() {
     cena.add(novoBarril);
     barrisAtivos.push(novoBarril);
 }
-
-
 
 function carregarBarril(caminho, escala, posicao, rotacao) {
     importer.load(caminho, function (object) {
@@ -265,7 +289,6 @@ carregarObjetoFBX(
     { x: 0, y: 7.0, z: -9.5 },
     { x: 0, y: 0, z: 0 },
     function (object) {
-        console.log("Callback da Peach executado!");
 
         // Load textures
         const textureLoader = new THREE.TextureLoader();
@@ -279,7 +302,6 @@ carregarObjetoFBX(
         object.traverse(function (child) {
             if (child.isMesh) {
                 contadorMeshes++;
-                console.log(`Mesh ${contadorMeshes} name:`, child.name);
 
                 // Create materials with textures
                 if (child.name.toLowerCase().includes('eye')) {
@@ -289,7 +311,6 @@ carregarObjetoFBX(
                         shininess: 50,
                         side: THREE.DoubleSide
                     });
-                    console.log(`Eye texture applied to mesh ${contadorMeshes}`);
                 } else {
                     // Body material
                     child.material = new THREE.MeshPhongMaterial({
@@ -297,12 +318,9 @@ carregarObjetoFBX(
                         shininess: 30,
                         side: THREE.DoubleSide
                     });
-                    console.log(`Body texture applied to mesh ${contadorMeshes}`);
                 }
             }
         });
-
-        console.log(`Total de meshes encontradas na Peach: ${contadorMeshes}`);
 
         // Configurar o mixer de animação para a Peach
         if (object.animations.length > 0) {
@@ -314,7 +332,6 @@ carregarObjetoFBX(
 
         // Adicionar o objeto à cena explicitamente
         cena.add(object);
-        console.log("Peach adicionada à cena com posição:", object.position);
     }
 );
 
@@ -361,26 +378,14 @@ document.addEventListener("keydown", function (event) {
     if (event.key === 'c' || event.key === 'C') {
         if (cameraAtual === camaraPerspectiva) {
             cameraAtual = camaraOrto;
-            console.log("Câmera alterada para ortográfica.");
         } else {
             cameraAtual = camaraPerspectiva;
-            console.log("Câmera alterada para perspectiva.");
         }
-    }
-
-    // Trigger game over screen with G key
-    if (event.key === 'g' || event.key === 'G') {
-        window.gameOver();
-    }
-
-    if (teclasPressionadas[32] && !pulando) { // Barra de espaço
-        pulando = true;
-        velocidadeY = 0.2;
     }
 });
 
 document.addEventListener("keyup", function (event) {
-    delete teclasPressionadas[event.which];
+    teclasPressionadas[event.which] = false;
     pararAnimacao();
     if (objetoImportado.rotation.y === Math.PI)
         objetoImportado.rotation.y = Math.PI / 2;
@@ -401,7 +406,6 @@ function iniciarAnimacao() {
 
     // Adicionar o barril à cena quando a animação do personagem começar
     if (barrilImportado && !cena.children.includes(barrilImportado)) {
-        console.log("Barril adicionado à cena.");
         cena.add(barrilImportado);
     }
 }
@@ -448,11 +452,10 @@ function atualizarBarril() {
                 Math.abs(objetoImportado.position.z - barrilImportado.position.z) < 1.5) {
                 window.gameState.score += 100;
                 updateScoreDisplay();
-                console.log("Score:", window.gameState.score);
             }
             
             // Check for collision
-            if (distancia < 1.5) {
+            if (distancia < 1) {
                 barrilColisao = true;
                 window.gameOver();
             }
@@ -466,12 +469,24 @@ function Start() {
     camaraPerspectiva.position.set(0, 1, 5);
     camaraPerspectiva.lookAt(0, 0, 0);
 
-    for (let i = 0; i < 7; i++) {
-        const y = -10 + i * 3;
-        const plano = criarChaoInvisivel(7, y, -3);
+    // Create platforms with specific boundaries
+    const plataformasInfo = [
+        { y: -10, xMin: -12, xMax: 12 },  // Bottom platform
+        { y: -7, xMin: -12, xMax: 12 },   // Second platform
+        { y: -4, xMin: -12, xMax: 12 },   // Third platform
+        { y: -1, xMin: -12, xMax: 12 },   // Fourth platform
+        { y: 2, xMin: -12, xMax: 12 },    // Fifth platform
+        { y: 5, xMin: -12, xMax: 12 },    // Sixth platform
+        { y: 8, xMin: -12, xMax: 12 }     // Top platform
+    ];
 
+    for (let i = 0; i < plataformasInfo.length; i++) {
+        const info = plataformasInfo[i];
+        const plano = criarChaoInvisivel(7, info.y, -3);
+        plano.userData.plataformaInfo = info; // Store platform info
         cena.add(plano);
         objetosColisao.push(plano);
+        plataformas.push(plano);
     }
 
     // Configuração da câmera perspectiva
@@ -499,8 +514,8 @@ function Start() {
     var luzHemisferica = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.5);
     cena.add(luzHemisferica);
 
-    // Add the barrel template (but make it invisible)
-    carregarBarril('./Objetos/Barril.fbx', { x: 0.25, y: 0.25, z: 0.25 }, { x: 0, y: -100, z: 0 }, { x: 0, y: 0, z: 0 });
+    // Add the barrel at coordinates (13, -9, -3)
+    carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -10, y: 5.7, z: -9 }, { x: 0, y: 0, z: 0 });
 
     requestAnimationFrame(loop);
 }
@@ -512,8 +527,8 @@ function foraDaPlataforma(barril) {
 
 // Loop de animação
 function loop() {
-    // Only update game if game is not paused or game over
-    if (window.gameState.isPaused || window.gameState.isGameOver) {
+    // Only update game if game is not paused, game over, or win
+    if (window.gameState.isPaused || window.gameState.isGameOver || window.gameState.isWin) {
         requestAnimationFrame(loop);
         renderer.render(cena, cameraAtual);
         return;
@@ -537,27 +552,79 @@ function loop() {
         const intersects = raycaster.intersectObjects(objetosColisao, true);
         const noChao = intersects.length > 0 && intersects[0].distance < 0.1;
 
-        console.log(objetoImportado.position.x);
+        // Get current platform info
+        let plataformaAtual = null;
+        if (intersects.length > 0) {
+            plataformaAtual = intersects[0].object.userData.plataformaInfo;
+        }
 
         if (!noChao) {
             velocidadeY += gravidade; // Aplica gravidade
+            podePular = false; // Cannot jump while in the air
         } else {
             if (pulando) {
                 pulando = false; // Reseta o estado de pulo ao tocar o chão
             }
             velocidadeY = 0; // Zera a velocidade vertical ao tocar o chão
+            podePular = true; // Reset jump ability when on ground
+            
+            // Snap to platform height
+            if (plataformaAtual) {
+                objetoImportado.position.y = plataformaAtual.y + 0.1; // Small offset to prevent floating
+            }
+
+            // Process pending jump if we just landed
+            if (puloPendente) {
+                puloPendente = false;
+                pulando = true;
+                podePular = false;
+                velocidadeY = forcaPulo;
+                ultimoPulo = relogio.getElapsedTime();
+            }
         }
 
-        if (teclasPressionadas[32] && !pulando && noChao) { // Barra de espaço (pulo)
-            pulando = true;
-            velocidadeY = forcaPulo; // Use the new jump force
+        // Handle jump input in the loop for consistent behavior
+        if (teclasPressionadas[32] && !teclasPressionadasAnterior[32]) { // Spacebar just pressed
+            const tempoAtual = relogio.getElapsedTime();
+            if (tempoAtual - ultimoPulo > 0.1) { // Minimum time between jumps
+                if (podePular && !pulando) {
+                    pulando = true;
+                    podePular = false;
+                    velocidadeY = forcaPulo;
+                    ultimoPulo = tempoAtual;
+                } else if (noChao) {
+                    // If we're on the ground but can't jump yet, queue the jump
+                    puloPendente = true;
+                }
+            }
         }
 
         // Atualiza a posição vertical do personagem
         objetoImportado.position.y += velocidadeY;
 
+        // Prevent falling below platforms
+        if (objetoImportado.position.y < -10) {
+            objetoImportado.position.y = -10;
+            velocidadeY = 0;
+            pulando = false;
+            podePular = true; // Reset jump ability when hitting bottom
+        }
+
+        // Check platform boundaries before horizontal movement
+        if (plataformaAtual) {
+            const novaPosicaoX = objetoImportado.position.x;
+            if (novaPosicaoX < plataformaAtual.xMin) {
+                objetoImportado.position.x = plataformaAtual.xMin;
+            } else if (novaPosicaoX > plataformaAtual.xMax) {
+                objetoImportado.position.x = plataformaAtual.xMax;
+            }
+        }
+
         // Movimentação baseada na câmera atual
         if (cameraAtual === camaraPerspectiva) {
+            // Use different movement speed based on whether Mario is in the air
+            const velocidadeAtual = noChao ? velocidadeMovimento : velocidadeMovimentoAr;
+
             // Movimentação na câmera perspectiva: W (frente) e S (trás)
             if (objetoImportado.rotation.y === -Math.PI / 2) {
                 if (teclasPressionadas[68]) { // D (esquerda)
@@ -597,34 +664,19 @@ function loop() {
                 }
             }
 
-            if (teclasPressionadas[17]) { // tecla CTRL
-                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
-                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
-                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
-                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
-                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
-                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5) ||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) &&
-                    pulando === false) {
-                    objetoImportado.position.y -= 3;
-                    objetoImportado.position.z += 1;
-                }
-                iniciarAnimacao();
-            }
-
             if (teclasPressionadas[87]) { // W (frente)
-                objetoImportado.position.x += velocidadeMovimento; // Use new movement speed
+                objetoImportado.position.x += velocidadeAtual;
                 objetoImportado.rotation.y = Math.PI / 2;
                 iniciarAnimacao();
             } else if (teclasPressionadas[83]) { // S (trás)
-                objetoImportado.position.x -= velocidadeMovimento; // Use new movement speed
+                objetoImportado.position.x -= velocidadeAtual;
                 objetoImportado.rotation.y = -Math.PI / 2;
                 iniciarAnimacao();
             }
         } else if (cameraAtual === camaraOrto) {
-            // Movimentação na câmara ortográfica: A (esquerda) e D (direita)
+            // Use different movement speed based on whether Mario is in the air
+            const velocidadeAtual = noChao ? velocidadeMovimento : velocidadeMovimentoAr;
+
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.rotation.y = Math.PI;
                 if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
@@ -658,11 +710,11 @@ function loop() {
                 }
                 iniciarAnimacao();
             } else if (teclasPressionadas[65]) { // A (esquerda)
-                objetoImportado.position.x -= velocidadeMovimento; // Use new movement speed
+                objetoImportado.position.x -= velocidadeAtual;
                 objetoImportado.rotation.y = -Math.PI / 2;
                 iniciarAnimacao();
             } else if (teclasPressionadas[68]) { // D (direita)
-                objetoImportado.position.x += velocidadeMovimento; // Use new movement speed
+                objetoImportado.position.x += velocidadeAtual;
                 objetoImportado.rotation.y = Math.PI / 2;
                 iniciarAnimacao();
             }
@@ -717,7 +769,7 @@ function loop() {
                         barril.userData.plataformaAtual += 1;
                         
                         // Alternate horizontal movement direction with reduced speed
-                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.08 : -0.08;
+                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
                     } else {
                         // Continue moving horizontally
                         barril.position.x += barril.userData.velocidade.x;
@@ -740,36 +792,60 @@ function loop() {
                     if (barril.position.x < -10 || barril.position.x > 12) {
                         barril.position.y -= 3;
                         barril.userData.plataformaAtual += 1;
-                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.08 : -0.08;
+                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
                     }
                 }
             }
-
-            // Check for collision with Mario
+            // Check for collision with Mario using bounding box intersection
             if (objetoImportado && !barrilColisao) {
-                const distancia = objetoImportado.position.distanceTo(barril.position);
-                
-                // Check if Mario is jumping over the barrel
-                if (objetoImportado.position.y > barril.position.y + 1 && 
-                    Math.abs(objetoImportado.position.x - barril.position.x) < 1.5 &&
-                    Math.abs(objetoImportado.position.z - barril.position.z) < 1.5) {
-                    window.gameState.score += 100;
-                    updateScoreDisplay();
-                    console.log("Score:", window.gameState.score);
-                }
-                
-                // Check for collision
-                if (distancia < 1.5) {
-                    barrilColisao = true;
-                    window.gameOver();
+                // Create bounding boxes for Mario and the barrel
+                const marioBox = new THREE.Box3().setFromObject(objetoImportado);
+                const barrilBox = new THREE.Box3().setFromObject(barril);
+
+                // Check if the bounding boxes intersect
+                if (marioBox.intersectsBox(barrilBox)) {
+                    // Check if Mario is jumping over the barrel
+                    if (
+                        objetoImportado.position.y > barril.position.y + 1 &&
+                        Math.abs(objetoImportado.position.x - barril.position.x) < 1.5 &&
+                        Math.abs(objetoImportado.position.z - barril.position.z) < 1.5
+                    ) {
+                        window.gameState.score += 100;
+                        updateScoreDisplay();
+                    } else {
+                        // Collision detected
+                        barrilColisao = true;
+                        window.gameOver();
+                    }
                 }
             }
         });
         
+        // Check if Mario has reached the win position (2, 7, -9.5)
+        if (objetoImportado) {
+            // Check if Mario is at position (2, 7, -9.5) with some tolerance
+            const marioPos = objetoImportado.position;
+            if (Math.abs(marioPos.x - 2) < 1.0 && 
+                Math.abs(marioPos.y - 7) < 1.0 && 
+                Math.abs(marioPos.z - (-9.5)) < 1.0) {
+                // Player has reached the win position
+                window.gameWin();
+            }
+            
+            // Also check proximity to Princess Peach as an alternative win condition
+            const distanceToPeach = objetoImportado.position.distanceTo(new THREE.Vector3(0, 7, -9.5));
+            if (distanceToPeach < 2.0) {
+                // Player has reached Princess Peach
+                window.gameWin();
+            }
+        }
 
         if (cameraAtual === camaraPerspectiva && objetoImportado && objetosColisao.length > 0) {
             atualizarCameraParaSeguirPersonagem(camaraPerspectiva, objetoImportado);
         }
+
+        // Update previous key states
+        teclasPressionadasAnterior = { ...teclasPressionadas };
     }
 
     renderer.render(cena, cameraAtual);
