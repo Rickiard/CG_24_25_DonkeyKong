@@ -508,32 +508,37 @@ function Start() {
         plataformas.push(plano);
     }
 
-    // Configuração da câmera perspectiva
+    // Configuração da câmara perspectiva
     camaraPerspectiva.position.set(0, 1, 5);
     camaraPerspectiva.lookAt(0, 0, 0);
 
-    // Configuração da câmera ortográfica
+    // Configuração da câmara ortográfica
     camaraOrto.position.set(0, 1, 5);
     camaraOrto.lookAt(0, 0, 0);
 
     // Luzes
-    var luzAmbiente = new THREE.AmbientLight(0xffffff, 0.6); // Adjusted ambient light intensity
+    var luzAmbiente = new THREE.AmbientLight(0xffffff, 0.5); // Slightly reduced ambient light for better contrast
     cena.add(luzAmbiente);
 
-    // Add multiple directional lights for better scene illumination
-    var luzDirecional1 = new THREE.DirectionalLight(0xffffff, 0.8);
-    luzDirecional1.position.set(5, 10, 7).normalize();
+    // Main directional light from front-right (matches camera perspective)
+    var luzDirecional1 = new THREE.DirectionalLight(0xffffff, 0.7);
+    luzDirecional1.position.set(5, 0, 8); // Positioned to illuminate the front of the game area
+    luzDirecional1.target.position.set(1, -1, 0); // Target the center of the game area
     cena.add(luzDirecional1);
+    cena.add(luzDirecional1.target);
 
+    // Secondary directional light from top-left (creates depth)
     var luzDirecional2 = new THREE.DirectionalLight(0xffffff, 0.4);
-    luzDirecional2.position.set(-5, 8, -7).normalize();
+    luzDirecional2.position.set(-8, 6, 4); // Positioned to create shadows and depth
+    luzDirecional2.target.position.set(0, -5, 0); // Target lower platforms
     cena.add(luzDirecional2);
+    cena.add(luzDirecional2.target);
+    
+    // Soft fill light from behind to prevent completely dark areas
+    var luzDirecional3 = new THREE.DirectionalLight(0xffffee, 0.2); // Slightly warm tint
+    luzDirecional3.position.set(0, 4, -5); // From behind
+    cena.add(luzDirecional3);
 
-    // Add a soft hemisphere light for better ambient illumination
-    var luzHemisferica = new THREE.HemisphereLight(0xffffbb, 0x080820, 0.5);
-    cena.add(luzHemisferica);
-
-    // Add the barrel at coordinates (13, -9, -3)
     carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -10, y: 5.7, z: -9 }, { x: 0, y: 0, z: 0 });
 
     requestAnimationFrame(loop);
