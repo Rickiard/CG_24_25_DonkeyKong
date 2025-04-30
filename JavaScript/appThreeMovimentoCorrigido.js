@@ -136,6 +136,25 @@ var barrisAtivos = [];
 // Variáveis para os mixers de animação
 var mixerPeach, mixerDonkeyKong;
 
+// Configuração das coordenadas z do barril por plataforma
+const barrilZPorPlataforma = {
+    '-10': -3.3,  // Primeiro plano (base)
+    '-7': -4.2,   // Segundo plano
+    '-4': -5.0,   // Terceiro plano
+    '-1': -5.9,   // Quarto plano
+    '2': -6.6,    // Quinto plano
+    '5': -8.4,    // Sexto plano
+    '8': -3.0     // Sétimo plano (topo)
+};
+
+// Função para atualizar a coordenada z do barril
+function atualizarZDoBarril(barril) {
+    const alturaAtual = Math.round(barril.position.y);
+    if (barrilZPorPlataforma[alturaAtual] !== undefined) {
+        barril.position.z = barrilZPorPlataforma[alturaAtual];
+    }
+}
+
 // Add TextureLoader
 const textureLoader = new THREE.TextureLoader();
 const marioTexture = textureLoader.load('./textures/mario_texture.png');  // Adjust path as needed
@@ -220,10 +239,10 @@ function lançarBarril() {
     if (!barrilImportado) return;
 
     const novoBarril = barrilImportado.clone();
-    novoBarril.position.set(-7, 5.25, -6.0); // Posição inicial com y=8
-    novoBarril.rotation.set(Math.PI/2, 0, 0); // Rotação para deitar o barril
-    novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0); // Reduced horizontal speed
-    novoBarril.userData.plataformaAtual = 0; // Contador para saber em qual plano está
+    novoBarril.position.set(-7, 5.25, barrilZPorPlataforma['8']); // Usar o z correto para a plataforma inicial
+    novoBarril.rotation.set(Math.PI / 2, 0, 0);
+    novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0);
+    novoBarril.userData.plataformaAtual = 0;
 
     novoBarril.traverse(child => {
         if (child.isMesh) {
@@ -757,19 +776,21 @@ function loop() {
                 // Se estiver no chão
                 if (laddersAtCurrentHeight.length > 0) {
                     // Randomly decide whether to fall down a ladder or continue moving
-                    if (Math.random() < 0.3) { // 30% chance to fall down a ladder
+                    if (Math.random() < 0.1) { // 10% chance to fall down a ladder
                         // Randomly choose one of the available ladders
                         const chosenLadder = laddersAtCurrentHeight[Math.floor(Math.random() * laddersAtCurrentHeight.length)];
-                        
+
                         // Move to the chosen ladder's position
                         barril.position.x = (chosenLadder.xMin + chosenLadder.xMax) / 2;
-                        
+
                         // Fall down (descida como antes)
                         barril.position.y -= 3;
+                        barril.position.z += 1.8;
                         barril.userData.plataformaAtual += 1;
-                        
+
                         // Alternate horizontal movement direction with reduced speed
                         barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
+                        console.log("Barril caiu na escada. Nova plataforma:", barril.userData.plataformaAtual, "Nova posição y:", barril.position.y);
                     } else {
                         // Continue moving horizontally
                         barril.position.x += barril.userData.velocidade.x;
@@ -787,10 +808,11 @@ function loop() {
                     let planoMaisProximo = alturasPlanos.reduce((prev, curr) => Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
                     let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
                     barril.position.y = planoMaisProximo + offset;
-                    
+
                     // Verifica se atingiu os limites da plataforma
                     if (barril.position.x < -10 || barril.position.x > 12) {
                         barril.position.y -= 3;
+                        barril.position.z += 1.8;
                         barril.userData.plataformaAtual += 1;
                         barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
                     }
@@ -819,6 +841,9 @@ function loop() {
                     }
                 }
             }
+
+            // Atualizar a coordenada z do barril baseado na altura atual
+            atualizarZDoBarril(barril);
         });
         
         // Check if Mario has reached the win position (2, 7, -9.5)
@@ -857,13 +882,20 @@ const offsetCameraPerspectiva = new THREE.Vector3(0, 1, 5); // 1 unidade acima, 
 function atualizarCameraParaSeguirPersonagem(camera, personagem) {
     const alturaOmbro = 1.6; // altura do ombro
     const distanciaAtras = 10.0; // distância atrás do personagem
-    const deslocamentoLateral = 5; // ombro esquerdo
+    let deslocamentoLateral = 5; // ombro esquerdo por padrão
+
+    // Verificar a direção do personagem com base na rotação
+    if (personagem.rotation.y === -Math.PI / 2) { // Mario olhando para trás
+        deslocamentoLateral = -5; // Alterar para o ombro direito
+    } else {
+        deslocamentoLateral = 5; // Voltar para o ombro esquerdo
+    }
 
     // Direção "para trás" na rotação do personagem
     const direcaoAtras = new THREE.Vector3(0, 0, -1).applyQuaternion(personagem.quaternion).normalize();
     const lateralEsquerda = new THREE.Vector3(-1, 0, 0).applyQuaternion(personagem.quaternion).normalize();
 
-    // Posição da câmera: atrás + para o lado (esquerda) + na altura do ombro
+    // Posição da câmera: atrás + para o lado (esquerda ou direita) + na altura do ombro
     const posicaoDesejada = personagem.position.clone()
         .add(direcaoAtras.multiplyScalar(distanciaAtras))
         .add(lateralEsquerda.multiplyScalar(deslocamentoLateral))
