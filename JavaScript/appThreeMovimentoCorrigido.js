@@ -540,7 +540,7 @@ function Start() {
 }
 
 function foraDaPlataforma(barril) {
-    return barril.position.x < -10 || barril.position.x > 12;
+    return barril.position.x <= -10 || barril.position.x >= 12;
 }
 
 
@@ -739,6 +739,18 @@ function loop() {
             }
         }
 
+        // Aplicar limites de paredes invisíveis em x = -10 e x = 12
+        if (objetoImportado) {
+            // Parede invisível em x = -10
+            if (objetoImportado.position.x < -10) {
+                objetoImportado.position.x = -10;
+            }
+            
+            // Parede invisível em x = 12
+            if (objetoImportado.position.x > 12) {
+                objetoImportado.position.x = 12;
+            }
+        }
 
         // Atualizar posição do barril
         atualizarBarril();
@@ -810,7 +822,12 @@ function loop() {
                     barril.position.y = planoMaisProximo + offset;
 
                     // Verifica se atingiu os limites da plataforma
-                    if (barril.position.x < -10 || barril.position.x > 12) {
+                    if (barril.position.x <= -10 || barril.position.x >= 12) {
+                        // Limitar a posição do barril às paredes invisíveis
+                        if (barril.position.x < -10) barril.position.x = -10;
+                        if (barril.position.x > 12) barril.position.x = 12;
+                        
+                        // Fazer o barril descer para a próxima plataforma
                         barril.position.y -= 3;
                         barril.position.z += 1.8;
                         barril.userData.plataformaAtual += 1;
