@@ -461,22 +461,27 @@ function atualizarBarril() {
             }
         }
 
-        // Verificar colisão com o Mario
+        // Check for collision with Mario using bounding box intersection
         if (objetoImportado && !barrilColisao) {
-            const distancia = objetoImportado.position.distanceTo(barrilImportado.position);
-            
-            // Check if Mario is jumping over the barrel
-            if (objetoImportado.position.y > barrilImportado.position.y + 1 && 
-                Math.abs(objetoImportado.position.x - barrilImportado.position.x) < 1.5 &&
-                Math.abs(objetoImportado.position.z - barrilImportado.position.z) < 1.5) {
-                window.gameState.score += 100;
-                updateScoreDisplay();
-            }
-            
-            // Check for collision
-            if (distancia < 1) {
-                barrilColisao = true;
-                window.gameOver();
+            // Create bounding boxes for Mario and the barrel
+            const marioBox = new THREE.Box3().setFromObject(objetoImportado);
+            const barrilBox = new THREE.Box3().setFromObject(barrilImportado);
+
+            // Check if the bounding boxes intersect
+            if (marioBox.intersectsBox(barrilBox)) {
+                console.log("Barrel collision detected!");
+                console.log("Mario position:", objetoImportado.position);
+                console.log("Barrel position:", barrilImportado.position);
+
+                // Check if Mario is jumping over the barrel with more forgiving conditions
+                if (objetoImportado.position.y > barrilImportado.position.y - 2 && // Increased from -1 to -2
+                    Math.abs(objetoImportado.position.x - barrilImportado.position.x) < 3 && // Increased from implicit 1.5 to 3
+                    Math.abs(objetoImportado.position.z - barrilImportado.position.z) < 3) { // Increased from implicit 1.5 to 3
+                    console.log("Scoring points!");
+                    window.gameState.score += 100;
+                    updateScoreDisplay();
+                    barrilImportado.userData.scored = true;
+                }
             }
         }
     }
@@ -533,7 +538,7 @@ function Start() {
     luzDirecional2.target.position.set(0, -5, 0); // Target lower platforms
     cena.add(luzDirecional2);
     cena.add(luzDirecional2.target);
-    
+
     // Soft fill light from behind to prevent completely dark areas
     var luzDirecional3 = new THREE.DirectionalLight(0xffffee, 0.2); // Slightly warm tint
     luzDirecional3.position.set(0, 4, -5); // From behind
@@ -591,7 +596,7 @@ function loop() {
             }
             velocidadeY = 0; // Zera a velocidade vertical ao tocar o chão
             podePular = true; // Reset jump ability when on ground
-            
+
             // Snap to platform height
             if (plataformaAtual) {
                 objetoImportado.position.y = plataformaAtual.y + 0.1; // Small offset to prevent floating
@@ -750,7 +755,7 @@ function loop() {
             if (objetoImportado.position.x < -10) {
                 objetoImportado.position.x = -10;
             }
-            
+
             // Parede invisível em x = 12
             if (objetoImportado.position.x > 12) {
                 objetoImportado.position.x = 12;
@@ -759,6 +764,35 @@ function loop() {
 
         // Atualizar posição do barril
         atualizarBarril();
+
+        // Check for scoring with all active barrels
+        if (objetoImportado && !barrilColisao && pulando) {
+            barrisAtivos.forEach((barril) => {
+                // Only check for scoring if we haven't scored for this barrel yet
+                if (!barril.userData.scored) {
+                    // Create bounding boxes for Mario and the barrel
+                    const marioBox = new THREE.Box3().setFromObject(objetoImportado);
+                    const barrilBox = new THREE.Box3().setFromObject(barril);
+
+                    // Check if the bounding boxes intersect
+                    if (marioBox.intersectsBox(barrilBox)) {
+                        console.log("Barrel collision detected!");
+                        console.log("Mario position:", objetoImportado.position);
+                        console.log("Barrel position:", barril.position);
+
+                        // Check if Mario is jumping over the barrel with more forgiving conditions
+                        if (objetoImportado.position.y > barril.position.y - 2 && // Increased from -1 to -2
+                            Math.abs(objetoImportado.position.x - barril.position.x) < 3 && // Increased from implicit 1.5 to 3
+                            Math.abs(objetoImportado.position.z - barril.position.z) < 3) { // Increased from implicit 1.5 to 3
+                            console.log("Scoring points!");
+                            window.gameState.score += 100;
+                            updateScoreDisplay();
+                            barril.userData.scored = true;
+                        }
+                    }
+                }
+            });
+        }
 
         barrisAtivos.forEach((barril, index) => {
             // Remove o barril se estiver muito abaixo (fora da cena)
@@ -807,7 +841,6 @@ function loop() {
 
                         // Alternate horizontal movement direction with reduced speed
                         barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
-                        console.log("Barril caiu na escada. Nova plataforma:", barril.userData.plataformaAtual, "Nova posição y:", barril.position.y);
                     } else {
                         // Continue moving horizontally
                         barril.position.x += barril.userData.velocidade.x;
@@ -831,7 +864,7 @@ function loop() {
                         // Limitar a posição do barril às paredes invisíveis
                         if (barril.position.x < -10) barril.position.x = -10;
                         if (barril.position.x > 12) barril.position.x = 12;
-                        
+
                         // Fazer o barril descer para a próxima plataforma
                         barril.position.y -= 3;
                         barril.position.z += 1.8;
@@ -840,24 +873,24 @@ function loop() {
                     }
                 }
             }
-            // Check for collision with Mario using bounding box intersection
+
+            // Check for collision with Mario
             if (objetoImportado && !barrilColisao) {
-                // Create bounding boxes for Mario and the barrel
                 const marioBox = new THREE.Box3().setFromObject(objetoImportado);
                 const barrilBox = new THREE.Box3().setFromObject(barril);
 
-                // Check if the bounding boxes intersect
+                // Make collision detection more precise
                 if (marioBox.intersectsBox(barrilBox)) {
-                    // Check if Mario is jumping over the barrel
-                    if (
-                        objetoImportado.position.y > barril.position.y + 1 &&
-                        Math.abs(objetoImportado.position.x - barril.position.x) < 1.5 &&
-                        Math.abs(objetoImportado.position.z - barril.position.z) < 1.5
-                    ) {
-                        window.gameState.score += 100;
-                        updateScoreDisplay();
-                    } else {
-                        // Collision detected
+                    // Calculate actual distance between Mario and barrel
+                    const distancia = objetoImportado.position.distanceTo(barril.position);
+
+                    // Only trigger collision if Mario is very close to the barrel
+                    if (distancia < 0.8 && !(pulando &&
+                        objetoImportado.position.y > barril.position.y - 2 &&
+                        Math.abs(objetoImportado.position.x - barril.position.x) < 3 &&
+                        Math.abs(objetoImportado.position.z - barril.position.z) < 3)) {
+                        console.log("Game Over - Collision with barrel!");
+                        console.log("Distance to barrel:", distancia);
                         barrilColisao = true;
                         window.gameOver();
                     }
@@ -867,18 +900,18 @@ function loop() {
             // Atualizar a coordenada z do barril baseado na altura atual
             atualizarZDoBarril(barril);
         });
-        
+
         // Check if Mario has reached the win position (2, 7, -9.5)
         if (objetoImportado) {
             // Check if Mario is at position (2, 7, -9.5) with some tolerance
             const marioPos = objetoImportado.position;
-            if (Math.abs(marioPos.x - 2) < 1.0 && 
-                Math.abs(marioPos.y - 7) < 1.0 && 
+            if (Math.abs(marioPos.x - 2) < 1.0 &&
+                Math.abs(marioPos.y - 7) < 1.0 &&
                 Math.abs(marioPos.z - (-9.5)) < 1.0) {
                 // Player has reached the win position
                 window.gameWin();
             }
-            
+
             // Also check proximity to Princess Peach as an alternative win condition
             const distanceToPeach = objetoImportado.position.distanceTo(new THREE.Vector3(0, 7, -9.5));
             if (distanceToPeach < 2.0) {

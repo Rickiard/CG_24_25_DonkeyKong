@@ -1,447 +1,425 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>
-    WebGL - Three.js
-  </title>
-  <style>
-    /* Base Styles */
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Arial', sans-serif;
-      background: #000;
-      overflow: hidden;
-    }
+    <title>
+        WebGL - Three.js
+    </title>
+    <style>
+        /* Base Styles */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background: #000;
+            overflow: hidden;
+        }
 
-    /* Score Display Styles */
-    #scoreDisplay {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      font-size: 2em;
-      color: #FFD700;
-      text-shadow: 0 0 10px rgba(255, 215, 0, 0.7),
-                   0 0 20px rgba(255, 215, 0, 0.5),
-                   0 0 30px rgba(255, 215, 0, 0.3);
-      z-index: 1000;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 10px 20px;
-      border-radius: 10px;
-      border: 2px solid #FFD700;
-    }
+        /* Score Display Styles */
+        #scoreDisplay {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-size: 2em;
+            color: #FFD700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.7), 0 0 20px rgba(255, 215, 0, 0.5), 0 0 30px rgba(255, 215, 0, 0.3);
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 2px solid #FFD700;
+        }
 
-    /* Menu Container Styles */
-    .menu-container {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.85);
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      color: white;
-      z-index: 1000;
-      backdrop-filter: blur(5px);
-      transition: all 0.3s ease;
-    }
+        /* Menu Container Styles */
+        .menu-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+        }
 
-    /* Menu Title Styles */
-    .menu-title {
-      font-size: 4.5em;
-      margin-bottom: 1.5em;
-      text-shadow: 0 0 10px rgba(255, 0, 0, 0.7),
-                   0 0 20px rgba(255, 0, 0, 0.5),
-                   0 0 30px rgba(255, 0, 0, 0.3);
-      letter-spacing: 3px;
-      animation: glow 2s ease-in-out infinite alternate;
-    }
+        /* Menu Title Styles */
+        .menu-title {
+            font-size: 4.5em;
+            margin-bottom: 1.5em;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.7), 0 0 20px rgba(255, 0, 0, 0.5), 0 0 30px rgba(255, 0, 0, 0.3);
+            letter-spacing: 3px;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
 
-    @keyframes glow {
-      from {
-        text-shadow: 0 0 10px rgba(255, 0, 0, 0.7),
-                     0 0 20px rgba(255, 0, 0, 0.5),
-                     0 0 30px rgba(255, 0, 0, 0.3);
-      }
-      to {
-        text-shadow: 0 0 15px rgba(255, 0, 0, 0.8),
-                     0 0 25px rgba(255, 0, 0, 0.6),
-                     0 0 35px rgba(255, 0, 0, 0.4);
-      }
-    }
+        @keyframes glow {
+            from {
+                text-shadow: 0 0 10px rgba(255, 0, 0, 0.7), 0 0 20px rgba(255, 0, 0, 0.5), 0 0 30px rgba(255, 0, 0, 0.3);
+            }
 
-    /* Button Styles */
-    .menu-button {
-      padding: 15px 40px;
-      margin: 15px;
-      font-size: 1.5em;
-      background: linear-gradient(45deg, #4CAF50, #45a049);
-      color: white;
-      border: none;
-      border-radius: 50px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-      position: relative;
-      overflow: hidden;
-      min-width: 200px;
-      text-align: center;
-    }
+            to {
+                text-shadow: 0 0 15px rgba(255, 0, 0, 0.8), 0 0 25px rgba(255, 0, 0, 0.6), 0 0 35px rgba(255, 0, 0, 0.4);
+            }
+        }
 
-    .menu-button:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 7px 20px rgba(0, 0, 0, 0.3);
-      background: linear-gradient(45deg, #45a049, #4CAF50);
-    }
+        /* Button Styles */
+        .menu-button {
+            padding: 15px 40px;
+            margin: 15px;
+            font-size: 1.5em;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+            min-width: 200px;
+            text-align: center;
+        }
 
-    .menu-button:active {
-      transform: translateY(1px);
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    }
+            .menu-button:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 7px 20px rgba(0, 0, 0, 0.3);
+                background: linear-gradient(45deg, #45a049, #4CAF50);
+            }
 
-    .menu-button::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-      transition: 0.5s;
-    }
+            .menu-button:active {
+                transform: translateY(1px);
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            }
 
-    .menu-button:hover::before {
-      transform: translateX(100%);
-    }
+            .menu-button::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+                transition: 0.5s;
+            }
 
-    /* Modal Styles */
-    .modal {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.9);
-      padding: 30px;
-      border-radius: 15px;
-      text-align: center;
-      z-index: 1001;
-      color: white;
-      box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
-      border: 1px solid rgba(255, 0, 0, 0.3);
-      backdrop-filter: blur(10px);
-    }
+            .menu-button:hover::before {
+                transform: translateX(100%);
+            }
 
-    .modal h2 {
-      color: #FF0000;
-      margin-bottom: 20px;
-      text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
-      font-size: 2em;
-    }
+        /* Modal Styles */
+        .modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 1001;
+            color: white;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
 
-    .modal p {
-      color: white;
-      margin: 15px 0;
-      font-size: 1.2em;
-      line-height: 1.5;
-    }
+            .modal h2 {
+                color: #FF0000;
+                margin-bottom: 20px;
+                text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+                font-size: 2em;
+            }
 
-    .modal-button {
-      padding: 12px 30px;
-      margin-top: 25px;
-      background: linear-gradient(45deg, #4CAF50, #45a049);
-      color: white;
-      border: none;
-      border-radius: 50px;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      font-size: 1.1em;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    }
+            .modal p {
+                color: white;
+                margin: 15px 0;
+                font-size: 1.2em;
+                line-height: 1.5;
+            }
 
-    .modal-button:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-      background: linear-gradient(45deg, #45a049, #4CAF50);
-    }
+        .modal-button {
+            padding: 12px 30px;
+            margin-top: 25px;
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.1em;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
 
-    /* Pause Menu Specific Styles */
-    #pauseMenu {
-      background: rgba(0, 0, 0, 0.9);
-    }
+            .modal-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+                background: linear-gradient(45deg, #45a049, #4CAF50);
+            }
 
-    #pauseMenu .menu-title {
-      font-size: 3.5em;
-      margin-bottom: 1em;
-      color: #FFA500;
-      text-shadow: 0 0 10px rgba(255, 165, 0, 0.7),
-                   0 0 20px rgba(255, 165, 0, 0.5),
-                   0 0 30px rgba(255, 165, 0, 0.3);
-      animation: glowPause 2s ease-in-out infinite alternate;
-    }
+        /* Pause Menu Specific Styles */
+        #pauseMenu {
+            background: rgba(0, 0, 0, 0.9);
+        }
 
-    @keyframes glowPause {
-      from {
-        text-shadow: 0 0 10px rgba(255, 165, 0, 0.7),
-                     0 0 20px rgba(255, 165, 0, 0.5),
-                     0 0 30px rgba(255, 165, 0, 0.3);
-      }
-      to {
-        text-shadow: 0 0 15px rgba(255, 165, 0, 0.8),
-                     0 0 25px rgba(255, 165, 0, 0.6),
-                     0 0 35px rgba(255, 165, 0, 0.4);
-      }
-    }
+            #pauseMenu .menu-title {
+                font-size: 3.5em;
+                margin-bottom: 1em;
+                color: #FFA500;
+                text-shadow: 0 0 10px rgba(255, 165, 0, 0.7), 0 0 20px rgba(255, 165, 0, 0.5), 0 0 30px rgba(255, 165, 0, 0.3);
+                animation: glowPause 2s ease-in-out infinite alternate;
+            }
 
-    #pauseMenu .menu-button {
-      background: linear-gradient(45deg, #2196F3, #1976D2);
-      min-width: 180px;
-    }
+        @keyframes glowPause {
+            from {
+                text-shadow: 0 0 10px rgba(255, 165, 0, 0.7), 0 0 20px rgba(255, 165, 0, 0.5), 0 0 30px rgba(255, 165, 0, 0.3);
+            }
 
-    #pauseMenu .menu-button:hover {
-      background: linear-gradient(45deg, #1976D2, #2196F3);
-    }
+            to {
+                text-shadow: 0 0 15px rgba(255, 165, 0, 0.8), 0 0 25px rgba(255, 165, 0, 0.6), 0 0 35px rgba(255, 165, 0, 0.4);
+            }
+        }
 
-    /* Game Over Menu Specific Styles */
-    #gameOverMenu {
-      background: rgba(0, 0, 0, 0.9);
-    }
+        #pauseMenu .menu-button {
+            background: linear-gradient(45deg, #2196F3, #1976D2);
+            min-width: 180px;
+        }
 
-    #gameOverMenu .menu-title {
-      font-size: 3.5em;
-      margin-bottom: 1em;
-      color: #FF0000;
-      text-shadow: 0 0 10px rgba(255, 0, 0, 0.7),
-                   0 0 20px rgba(255, 0, 0, 0.5),
-                   0 0 30px rgba(255, 0, 0, 0.3);
-      animation: glowGameOver 2s ease-in-out infinite alternate;
-    }
+            #pauseMenu .menu-button:hover {
+                background: linear-gradient(45deg, #1976D2, #2196F3);
+            }
 
-    @keyframes glowGameOver {
-      from {
-        text-shadow: 0 0 10px rgba(255, 0, 0, 0.7),
-                     0 0 20px rgba(255, 0, 0, 0.5),
-                     0 0 30px rgba(255, 0, 0, 0.3);
-      }
-      to {
-        text-shadow: 0 0 15px rgba(255, 0, 0, 0.8),
-                     0 0 25px rgba(255, 0, 0, 0.6),
-                     0 0 35px rgba(255, 0, 0, 0.4);
-      }
-    }
+        /* Game Over Menu Specific Styles */
+        #gameOverMenu {
+            background: rgba(0, 0, 0, 0.9);
+        }
 
-    #gameOverMenu .menu-button {
-      background: linear-gradient(45deg, #F44336, #D32F2F);
-      min-width: 180px;
-    }
+            #gameOverMenu .menu-title {
+                font-size: 3.5em;
+                margin-bottom: 1em;
+                color: #FF0000;
+                text-shadow: 0 0 10px rgba(255, 0, 0, 0.7), 0 0 20px rgba(255, 0, 0, 0.5), 0 0 30px rgba(255, 0, 0, 0.3);
+                animation: glowGameOver 2s ease-in-out infinite alternate;
+            }
 
-    #gameOverMenu .menu-button:hover {
-      background: linear-gradient(45deg, #D32F2F, #F44336);
-    }
+        @keyframes glowGameOver {
+            from {
+                text-shadow: 0 0 10px rgba(255, 0, 0, 0.7), 0 0 20px rgba(255, 0, 0, 0.5), 0 0 30px rgba(255, 0, 0, 0.3);
+            }
 
-    .score-display {
-      font-size: 2.5em;
-      color: #FFD700;
-      margin: 20px 0;
-      text-shadow: 0 0 10px rgba(255, 215, 0, 0.7),
-                   0 0 20px rgba(255, 215, 0, 0.5),
-                   0 0 30px rgba(255, 215, 0, 0.3);
-      animation: glowScore 2s ease-in-out infinite alternate;
-    }
+            to {
+                text-shadow: 0 0 15px rgba(255, 0, 0, 0.8), 0 0 25px rgba(255, 0, 0, 0.6), 0 0 35px rgba(255, 0, 0, 0.4);
+            }
+        }
 
-    @keyframes glowScore {
-      from {
-        text-shadow: 0 0 10px rgba(255, 215, 0, 0.7),
-                     0 0 20px rgba(255, 215, 0, 0.5),
-                     0 0 30px rgba(255, 215, 0, 0.3);
-      }
-      to {
-        text-shadow: 0 0 15px rgba(255, 215, 0, 0.8),
-                     0 0 25px rgba(255, 215, 0, 0.6),
-                     0 0 35px rgba(255, 215, 0, 0.4);
-      }
-    }
+        #gameOverMenu .menu-button {
+            background: linear-gradient(45deg, #F44336, #D32F2F);
+            min-width: 180px;
+        }
 
-    .hidden {
-      display: none;
-    }
-  </style>
+            #gameOverMenu .menu-button:hover {
+                background: linear-gradient(45deg, #D32F2F, #F44336);
+            }
+
+        .score-display {
+            font-size: 2.5em;
+            color: #FFD700;
+            margin: 20px 0;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.7), 0 0 20px rgba(255, 215, 0, 0.5), 0 0 30px rgba(255, 215, 0, 0.3);
+            animation: glowScore 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glowScore {
+            from {
+                text-shadow: 0 0 10px rgba(255, 215, 0, 0.7), 0 0 20px rgba(255, 215, 0, 0.5), 0 0 30px rgba(255, 215, 0, 0.3);
+            }
+
+            to {
+                text-shadow: 0 0 15px rgba(255, 215, 0, 0.8), 0 0 25px rgba(255, 215, 0, 0.6), 0 0 35px rgba(255, 215, 0, 0.4);
+            }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
 </head>
 <body>
-  <!-- Score Display -->
-  <div id="scoreDisplay">Score: 0</div>
+    <!-- Score Display -->
+    <div id="scoreDisplay">Score: 0</div>
 
-  <!-- Main Menu Container -->
-  <div id="mainMenu" class="menu-container">
-    <h1 class="menu-title">DONKEY KONG</h1>
-    <button id="startButton" class="menu-button">START GAME</button>
-    <button id="instructionsButton" class="menu-button">INSTRUCTIONS</button>
-    <button id="creditsButton" class="menu-button">CREDITS</button>
-  </div>
+    <!-- Main Menu Container -->
+    <div id="mainMenu" class="menu-container">
+        <h1 class="menu-title">DONKEY KONG</h1>
+        <button id="startButton" class="menu-button">START GAME</button>
+        <button id="instructionsButton" class="menu-button">INSTRUCTIONS</button>
+        <button id="creditsButton" class="menu-button">CREDITS</button>
+    </div>
 
-  <!-- Pause Menu Container -->
-  <div id="pauseMenu" class="menu-container hidden">
-    <h1 class="menu-title">GAME PAUSED</h1>
-    <button id="resumeButton" class="menu-button">RESUME GAME</button>
-    <button id="restartButton" class="menu-button">RESTART GAME</button>
-    <button id="mainMenuButton" class="menu-button">MAIN MENU</button>
-  </div>
+    <!-- Pause Menu Container -->
+    <div id="pauseMenu" class="menu-container hidden">
+        <h1 class="menu-title">GAME PAUSED</h1>
+        <button id="resumeButton" class="menu-button">RESUME GAME</button>
+        <button id="restartButton" class="menu-button">RESTART GAME</button>
+        <button id="mainMenuButton" class="menu-button">MAIN MENU</button>
+    </div>
 
-  <!-- Game Over Menu Container -->
-  <div id="gameOverMenu" class="menu-container hidden">
-    <h1 class="menu-title">GAME OVER</h1>
-    <div id="finalScore" class="score-display">Score: 0</div>
-    <button id="tryAgainButton" class="menu-button">TRY AGAIN</button>
-    <button id="gameOverMainMenuButton" class="menu-button">MAIN MENU</button>
-  </div>
+    <!-- Game Over Menu Container -->
+    <div id="gameOverMenu" class="menu-container hidden">
+        <h1 class="menu-title">GAME OVER</h1>
+        <div id="finalScore" class="score-display">Score: 0</div>
+        <button id="tryAgainButton" class="menu-button">TRY AGAIN</button>
+        <button id="gameOverMainMenuButton" class="menu-button">MAIN MENU</button>
+    </div>
 
-  <!-- Win Menu Container -->
-  <div id="winMenu" class="menu-container hidden">
-    <h1 class="menu-title" style="color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.7), 0 0 20px rgba(255, 215, 0, 0.5), 0 0 30px rgba(255, 215, 0, 0.3);">YOU WIN!</h1>
-    <div id="winScore" class="score-display">Score: 0</div>
-    <button id="playAgainButton" class="menu-button" style="background: linear-gradient(45deg, #FFD700, #FFA500);">PLAY AGAIN</button>
-    <button id="winMainMenuButton" class="menu-button" style="background: linear-gradient(45deg, #FFD700, #FFA500);">MAIN MENU</button>
-  </div>
+    <!-- Win Menu Container -->
+    <div id="winMenu" class="menu-container hidden">
+        <h1 class="menu-title" style="color: #FFD700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.7), 0 0 20px rgba(255, 215, 0, 0.5), 0 0 30px rgba(255, 215, 0, 0.3);">YOU WIN!</h1>
+        <div id="winScore" class="score-display">Score: 0</div>
+        <button id="playAgainButton" class="menu-button" style="background: linear-gradient(45deg, #FFD700, #FFA500);">PLAY AGAIN</button>
+        <button id="winMainMenuButton" class="menu-button" style="background: linear-gradient(45deg, #FFD700, #FFA500);">MAIN MENU</button>
+    </div>
 
-  <!-- Instructions Modal -->
-  <div id="instructionsModal" class="modal hidden">
-    <h2>INSTRUCTIONS</h2>
-    <p>Use WASD to move Mario</p>
-    <p>Press SPACE to jump</p>
-    <p>Press C to switch cameras</p>
-    <p>Press ESC to pause the game</p>
-    <p>Avoid the barrels or you'll lose!</p>
-    <p>Find the barrel near the starting position and test the collision.</p>
-    <p>Reach Princess Peach to win!</p>
-    <button class="modal-button" onclick="closeModal('instructionsModal')">CLOSE</button>
-  </div>
+    <!-- Instructions Modal -->
+    <div id="instructionsModal" class="modal hidden">
+        <h2>INSTRUCTIONS</h2>
+        <p>Use WASD to move Mario</p>
+        <p>Press SPACE to jump</p>
+        <p>Press C to switch cameras</p>
+        <p>Press ESC to pause the game</p>
+        <p>Avoid the barrels or you'll lose!</p>
+        <p>Find the barrel near the starting position and test the collision.</p>
+        <p>Reach Princess Peach to win!</p>
+        <button class="modal-button" onclick="closeModal('instructionsModal')">CLOSE</button>
+    </div>
 
-  <!-- Credits Modal -->
-  <div id="creditsModal" class="modal hidden">
-    <h2>CREDITS</h2>
-    <p>Game developed using Three.js</p>
-    <p>Original Donkey Kong by Nintendo</p>
-    <p>Created for educational purposes</p>
-    <button class="modal-button" onclick="closeModal('creditsModal')">CLOSE</button>
-  </div>
+    <!-- Credits Modal -->
+    <div id="creditsModal" class="modal hidden">
+        <h2>CREDITS</h2>
+        <p>Game developed using Three.js</p>
+        <p>Original Donkey Kong by Nintendo</p>
+        <p>Created for educational purposes</p>
+        <button class="modal-button" onclick="closeModal('creditsModal')">CLOSE</button>
+    </div>
 
-  <!-- Como alguns browsers não suportam nativamente a importação dinâmica (importmaps),
-       temos que importar este script de forma a garantir que a importação de bibliotecas
-       externas de forma dinâmica -->
-  <script async="" src="https://unpkg.com/es-module-shims@0.0.10/dist/es-module-shims.js"></script>
+    <!-- Como alguns browsers não suportam nativamente a importação dinâmica (importmaps),
+         temos que importar este script de forma a garantir que a importação de bibliotecas
+         externas de forma dinâmica -->
+    <script async="" src="https://unpkg.com/es-module-shims@0.0.10/dist/es-module-shims.js"></script>
 
-  <!-- Aqui especificamos as Bibliotecas externas a serem utilizadas pela nossa aplicação -->
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.173.0/build/three.module.js",
-        "FBXLoader": "https://unpkg.com/three@0.173.0/examples/jsm/loaders/FBXLoader.js",
-        "PointerLockControls": "https://unpkg.com/three@0.174.0/examples/jsm/controls/PointerLockControls.js"
+    <!-- Aqui especificamos as Bibliotecas externas a serem utilizadas pela nossa aplicação -->
+    <script type="importmap">
+        {
+          "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.173.0/build/three.module.js",
+            "FBXLoader": "https://unpkg.com/three@0.173.0/examples/jsm/loaders/FBXLoader.js",
+            "PointerLockControls": "https://unpkg.com/three@0.174.0/examples/jsm/controls/PointerLockControls.js"
+            }
         }
-    }
-  </script>
+    </script>
 
-  <!-- Menu Script -->
-  <script>
-    // Menu functionality
-    document.getElementById('startButton').addEventListener('click', function() {
-      document.getElementById('mainMenu').classList.add('hidden');
-      if (typeof startGame === 'function') {
-        startGame();
-      }
-    });
+    <!-- Menu Script -->
+    <script>
+        // Menu functionality
+        document.getElementById('startButton').addEventListener('click', function () {
+            document.getElementById('mainMenu').classList.add('hidden');
+            if (typeof startGame === 'function') {
+                startGame();
+            }
+        });
 
-    document.getElementById('resumeButton').addEventListener('click', function() {
-      document.getElementById('pauseMenu').classList.add('hidden');
-      if (typeof resumeGame === 'function') {
-        resumeGame();
-      }
-    });
-
-    document.getElementById('restartButton').addEventListener('click', function() {
-      if (typeof restartGame === 'function') {
-        restartGame();
-      }
-    });
-
-    document.getElementById('mainMenuButton').addEventListener('click', function() {
-      document.getElementById('pauseMenu').classList.add('hidden');
-      document.getElementById('mainMenu').classList.remove('hidden');
-      // Don't pause the game when returning to main menu
-      // Just reset the player position
-      if (typeof restartGame === 'function') {
-        restartGame();
-      }
-    });
-
-    document.getElementById('tryAgainButton').addEventListener('click', function() {
-      if (typeof restartGame === 'function') {
-        restartGame();
-      }
-    });
-
-    document.getElementById('gameOverMainMenuButton').addEventListener('click', function() {
-      document.getElementById('gameOverMenu').classList.add('hidden');
-      document.getElementById('mainMenu').classList.remove('hidden');
-      // Reset the player position when returning to main menu
-      if (typeof restartGame === 'function') {
-        restartGame();
-      }
-    });
-
-    // Win menu buttons
-    document.getElementById('playAgainButton').addEventListener('click', function() {
-      document.getElementById('winMenu').classList.add('hidden');
-      if (typeof restartGame === 'function') {
-        restartGame();
-      }
-    });
-
-    document.getElementById('winMainMenuButton').addEventListener('click', function() {
-      document.getElementById('winMenu').classList.add('hidden');
-      document.getElementById('mainMenu').classList.remove('hidden');
-      // Reset the player position when returning to main menu
-      if (typeof restartGame === 'function') {
-        restartGame();
-      }
-    });
-
-    document.getElementById('instructionsButton').addEventListener('click', function() {
-      document.getElementById('instructionsModal').classList.remove('hidden');
-    });
-
-    document.getElementById('creditsButton').addEventListener('click', function() {
-      document.getElementById('creditsModal').classList.remove('hidden');
-    });
-
-    function closeModal(modalId) {
-      document.getElementById(modalId).classList.add('hidden');
-    }
-
-    // ESC key handler
-    document.addEventListener('keydown', function(event) {
-      if (event.key === 'Escape') {
-        if (document.getElementById('mainMenu').classList.contains('hidden')) {
-          const pauseMenu = document.getElementById('pauseMenu');
-          pauseMenu.classList.toggle('hidden');
-          
-          if (pauseMenu.classList.contains('hidden')) {
+        document.getElementById('resumeButton').addEventListener('click', function () {
+            document.getElementById('pauseMenu').classList.add('hidden');
             if (typeof resumeGame === 'function') {
-              resumeGame();
+                resumeGame();
             }
-          } else {
-            if (typeof pauseGame === 'function') {
-              pauseGame();
-            }
-          }
-        }
-      }
-    });
-  </script>
+        });
 
-  <!-- Game Script -->
-  <script type="module" src="./JavaScript/appThreeMovimentoCorrigido.js"></script>
+        document.getElementById('restartButton').addEventListener('click', function () {
+            if (typeof restartGame === 'function') {
+                restartGame();
+            }
+        });
+
+        document.getElementById('mainMenuButton').addEventListener('click', function () {
+            document.getElementById('pauseMenu').classList.add('hidden');
+            document.getElementById('mainMenu').classList.remove('hidden');
+            // Don't pause the game when returning to main menu
+            // Just reset the player position
+            if (typeof restartGame === 'function') {
+                restartGame();
+            }
+        });
+
+        document.getElementById('tryAgainButton').addEventListener('click', function () {
+            if (typeof restartGame === 'function') {
+                restartGame();
+            }
+        });
+
+        document.getElementById('gameOverMainMenuButton').addEventListener('click', function () {
+            document.getElementById('gameOverMenu').classList.add('hidden');
+            document.getElementById('mainMenu').classList.remove('hidden');
+            // Reset the player position when returning to main menu
+            if (typeof restartGame === 'function') {
+                restartGame();
+            }
+        });
+
+        // Win menu buttons
+        document.getElementById('playAgainButton').addEventListener('click', function () {
+            document.getElementById('winMenu').classList.add('hidden');
+            if (typeof restartGame === 'function') {
+                restartGame();
+            }
+        });
+
+        document.getElementById('winMainMenuButton').addEventListener('click', function () {
+            document.getElementById('winMenu').classList.add('hidden');
+            document.getElementById('mainMenu').classList.remove('hidden');
+            // Reset the player position when returning to main menu
+            if (typeof restartGame === 'function') {
+                restartGame();
+            }
+        });
+
+        document.getElementById('instructionsButton').addEventListener('click', function () {
+            document.getElementById('instructionsModal').classList.remove('hidden');
+        });
+
+        document.getElementById('creditsButton').addEventListener('click', function () {
+            document.getElementById('creditsModal').classList.remove('hidden');
+        });
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        // ESC key handler
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                if (document.getElementById('mainMenu').classList.contains('hidden')) {
+                    const pauseMenu = document.getElementById('pauseMenu');
+                    pauseMenu.classList.toggle('hidden');
+
+                    if (pauseMenu.classList.contains('hidden')) {
+                        if (typeof resumeGame === 'function') {
+                            resumeGame();
+                        }
+                    } else {
+                        if (typeof pauseGame === 'function') {
+                            pauseGame();
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+
+    <!-- Game Script -->
+    <script type="module" src="./JavaScript/appThreeMovimentoCorrigido.js"></script>
 </body>
 </html>
