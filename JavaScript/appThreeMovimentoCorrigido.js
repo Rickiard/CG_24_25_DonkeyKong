@@ -72,8 +72,31 @@ window.stopAllMusic = function () {
     }
 };
 
-// Function to initialize audio context
-function initializeAudio() {
+// Function to load a single audio file asynchronously
+function loadAudioAsync(audioLoader, audioPath, audioObject, volume, loop = false, name) {
+    return new Promise((resolve, reject) => {
+        audioLoader.load(
+            audioPath,
+            function (buffer) {
+                audioObject.setBuffer(buffer);
+                audioObject.setVolume(volume);
+                if (loop) {
+                    audioObject.setLoop(true);
+                }
+                console.log(`${name} loaded successfully`);
+                resolve(true);
+            },
+            undefined,
+            function (error) {
+                console.error(`Error loading ${name}:`, error);
+                reject(error);
+            }
+        );
+    });
+}
+
+// Function to initialize audio context asynchronously
+async function initializeAudio() {
     if (!window.audioInitialized) {
         try {
             // Create new audio context
@@ -85,72 +108,24 @@ function initializeAudio() {
 
             // Load audio files
             const audioLoader = new THREE.AudioLoader();
-
-            // Load jump sound
-            audioLoader.load(
-                './Objetos/Mario Jump Sound.mp3',
-                function (buffer) {
-                    jumpSound.setBuffer(buffer);
-                    jumpSound.setVolume(0.5);
-                    console.log('Jump Sound loaded successfully');
-                },
-                undefined,
-                function (error) {
-                    console.error('Error loading Jump Sound:', error);
-                }
-            );
-
-            // Load ending theme
-            audioLoader.load(
-                './Objetos/Ending Theme.mp3',
-                function (buffer) {
-                    endingTheme.setBuffer(buffer);
-                    endingTheme.setVolume(0.3);
-                    endingTheme.setLoop(true);
-                    console.log('Ending Theme loaded successfully');
-                },
-                undefined,
-                function (error) {
-                    console.error('Error loading Ending Theme:', error);
-                }
-            );
-
-            // Load stage theme
-            audioLoader.load(
-                './Objetos/Stage Theme.mp3',
-                function (buffer) {
-                    window.stageTheme.setBuffer(buffer);
-                    window.stageTheme.setVolume(1.0);
-                    window.stageTheme.setLoop(true);
-                    console.log('Stage Theme loaded successfully');
-                },
-                undefined,
-                function (error) {
-                    console.error('Error loading Stage Theme:', error);
-                }
-            );
-
-            // Load title theme
-            audioLoader.load(
-                './Objetos/Title Theme.mp3',
-                function (buffer) {
-                    window.titleTheme.setBuffer(buffer);
-                    window.titleTheme.setVolume(1.0);
-                    window.titleTheme.setLoop(true);
-                    console.log('Title Theme loaded successfully');
-                },
-                undefined,
-                function (error) {
-                    console.error('Error loading Title Theme:', error);
-                }
-            );
+            
+            // Load all audio files asynchronously
+            await Promise.all([
+                loadAudioAsync(audioLoader, './audio/Mario Jump Sound.mp3', jumpSound, 0.5, false, 'Jump Sound'),
+                loadAudioAsync(audioLoader, './audio/Ending Theme.mp3', endingTheme, 0.3, true, 'Ending Theme'),
+                loadAudioAsync(audioLoader, './audio/Stage Theme.mp3', window.stageTheme, 1.0, true, 'Stage Theme'),
+                loadAudioAsync(audioLoader, './audio/Title Theme.mp3', window.titleTheme, 1.0, true, 'Title Theme')
+            ]);
 
             window.audioInitialized = true;
             console.log('Audio system initialized successfully');
+            return true;
         } catch (error) {
             console.error('Error initializing audio system:', error);
+            return false;
         }
     }
+    return window.audioInitialized;
 }
 
 // Add event listeners for user interaction
@@ -194,8 +169,13 @@ function updateScoreDisplay() {
 // Global functions for menu control
 window.startGame = async function () {
     if (!window.gameState.isInitialized) {
-        Start();
+        // Mostrar indicador de carregamento ou mensagem
+        console.log("Inicializando o jogo e carregando recursos...");
+        
+        // Aguardar a inicialização assíncrona
+        await Start();
         window.gameState.isInitialized = true;
+        console.log("Jogo inicializado com sucesso!");
     }
     window.gameState.isPaused = false;
     window.gameState.isGameOver = false;
@@ -737,13 +717,15 @@ function atualizarBarril() {
     }
 }
 
-// Função principal
-function Start() {
+// Função principal - agora assíncrona
+async function Start() {
     // Add audio listener to the camera
     camaraPerspectiva.add(audioListener);
 
-    // Initialize audio context
-    initializeAudio();
+    // Initialize audio context asynchronously and wait for it to complete
+    console.log("Carregando áudios...");
+    await initializeAudio();
+    console.log("Áudios carregados com sucesso!");
 
     // Retornar a câmera à posição original
     camaraPerspectiva.position.set(0, 1, 5);
