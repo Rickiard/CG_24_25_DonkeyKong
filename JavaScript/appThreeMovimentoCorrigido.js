@@ -12,13 +12,208 @@ window.gameState = {
     score: 0
 };
 
+// Audio setup
+let audioListener = null;
+let jumpSound = null;
+let endingTheme = null;
+window.stageTheme = null;
+window.titleTheme = null;
+window.audioInitialized = false;
+window.audioContextStarted = false;
+
+// Function to ensure audio context is started
+async function ensureAudioContext() {
+    if (!window.audioContextStarted && audioListener && audioListener.context.state === 'suspended') {
+        try {
+            await audioListener.context.resume();
+            window.audioContextStarted = true;
+            console.log('Audio context resumed successfully');
+            return true;
+        } catch (error) {
+            console.error('Error resuming audio context:', error);
+            return false;
+        }
+    }
+    return window.audioContextStarted;
+}
+
+// Function to safely play audio
+async function safePlayAudio(audio, name) {
+    if (!audio) return;
+
+    try {
+        await ensureAudioContext();
+        if (!audio.isPlaying) {
+            audio.play();
+            console.log(`${name} started playing`);
+        }
+    } catch (error) {
+        console.error(`Error playing ${name}:`, error);
+    }
+}
+
+// Function to stop all music - make it globally accessible
+window.stopAllMusic = function () {
+    try {
+        if (endingTheme && endingTheme.isPlaying) {
+            endingTheme.stop();
+            console.log('Ending Theme stopped');
+        }
+        if (window.stageTheme && window.stageTheme.isPlaying) {
+            window.stageTheme.stop();
+            console.log('Stage Theme stopped');
+        }
+        if (window.titleTheme && window.titleTheme.isPlaying) {
+            window.titleTheme.stop();
+            console.log('Title Theme stopped');
+        }
+    } catch (error) {
+        console.error('Error stopping music:', error);
+    }
+};
+
+// Function to initialize audio context
+function initializeAudio() {
+    if (!window.audioInitialized) {
+        try {
+            // Create new audio context
+            audioListener = new THREE.AudioListener();
+            jumpSound = new THREE.Audio(audioListener);
+            endingTheme = new THREE.Audio(audioListener);
+            window.stageTheme = new THREE.Audio(audioListener);
+            window.titleTheme = new THREE.Audio(audioListener);
+
+            // Load audio files
+            const audioLoader = new THREE.AudioLoader();
+
+            // Load jump sound
+            audioLoader.load(
+                './Objetos/Mario Jump Sound.mp3',
+                function (buffer) {
+                    jumpSound.setBuffer(buffer);
+                    jumpSound.setVolume(0.5);
+                    console.log('Jump Sound loaded successfully');
+                },
+                undefined,
+                function (error) {
+                    console.error('Error loading Jump Sound:', error);
+                }
+            );
+
+            // Load ending theme
+            audioLoader.load(
+                './Objetos/Ending Theme.mp3',
+                function (buffer) {
+                    endingTheme.setBuffer(buffer);
+                    endingTheme.setVolume(0.3);
+                    endingTheme.setLoop(true);
+                    console.log('Ending Theme loaded successfully');
+                },
+                undefined,
+                function (error) {
+                    console.error('Error loading Ending Theme:', error);
+                }
+            );
+
+            // Load stage theme
+            audioLoader.load(
+                './Objetos/Stage Theme.mp3',
+                function (buffer) {
+                    window.stageTheme.setBuffer(buffer);
+                    window.stageTheme.setVolume(1.0);
+                    window.stageTheme.setLoop(true);
+                    console.log('Stage Theme loaded successfully');
+
+                    // Tocar a música "Stage Theme" automaticamente após o carregamento
+                    try {
+                        window.stageTheme.play();
+                        console.log('Stage Theme started playing automatically');
+                    } catch (error) {
+                        console.error('Error playing Stage Theme:', error);
+                    }
+                },
+                undefined,
+                function (error) {
+                    console.error('Error loading Stage Theme:', error);
+                }
+            );
+
+
+            // Load title theme
+            audioLoader.load(
+                './Objetos/Title Theme.mp3',
+                function (buffer) {
+                    window.titleTheme.setBuffer(buffer);
+                    window.titleTheme.setVolume(1.0);
+                    window.titleTheme.setLoop(true);
+                    console.log('Title Theme loaded successfully');
+                },
+                undefined,
+                function (error) {
+                    console.error('Error loading Title Theme:', error);
+                }
+            );
+
+            window.audioInitialized = true;
+            console.log('Audio system initialized successfully');
+        } catch (error) {
+            console.error('Error initializing audio system:', error);
+        }
+    }
+}
+
+// Add event listeners for user interaction
+document.addEventListener('click', async function () {
+    await ensureAudioContext();
+    if (window.stageTheme && !window.stageTheme.isPlaying) {
+        await safePlayAudio(window.stageTheme, 'Stage Theme');
+    }
+}, { once: true });
+
+document.addEventListener('keydown', async function () {
+    await ensureAudioContext();
+    if (window.stageTheme && !window.stageTheme.isPlaying) {
+        await safePlayAudio(window.stageTheme, 'Stage Theme');
+    }
+}, { once: true });
+
+document.addEventListener('touchstart', async function () {
+    await ensureAudioContext();
+    if (window.stageTheme && !window.stageTheme.isPlaying) {
+        await safePlayAudio(window.stageTheme, 'Stage Theme');
+    }
+}, { once: true });
+
+// Add event listener for the start button
+// Add event listener for the start button
+document.addEventListener('DOMContentLoaded', function () {
+    initializeAudio();
+
+    const soundButton = document.getElementById('soundButton');
+
+    soundButton.addEventListener('click', async function () {
+        try {
+            await ensureAudioContext(); // Garante que o AudioContext seja iniciado
+            if (window.stageTheme && !window.stageTheme.isPlaying) {
+                window.stageTheme.play();
+                console.log('Stage Theme started playing');
+            }
+            soundButton.style.display = 'none'; // Esconde o botão após ativar o som
+        } catch (error) {
+            console.error('Error starting audio:', error);
+        }
+    });
+});
+
+
+
 // Function to update score display
 function updateScoreDisplay() {
     document.getElementById('scoreDisplay').textContent = `Score: ${window.gameState.score}`;
 }
 
 // Global functions for menu control
-window.startGame = function () {
+window.startGame = async function () {
     if (!window.gameState.isInitialized) {
         Start();
         window.gameState.isInitialized = true;
@@ -30,10 +225,15 @@ window.startGame = function () {
     updateScoreDisplay();
     document.getElementById('gameOverMenu').classList.add('hidden');
     document.getElementById('winMenu').classList.add('hidden');
+
+    // Stop Stage Theme and play Title Theme
+    window.stopAllMusic();
+    await safePlayAudio(window.titleTheme, 'Title Theme');
+
     loop();
 };
 
-window.pauseGame = function () {
+window.pauseMenu = function () {
     window.gameState.isPaused = true;
     if (objetoImportado) {
         window.gameState.originalPosition = objetoImportado.position.clone();
@@ -44,7 +244,7 @@ window.resumeGame = function () {
     window.gameState.isPaused = false;
 };
 
-window.restartGame = function () {
+window.restartGame = async function () {
     // Reset Mario's position and rotation
     if (objetoImportado) {
         objetoImportado.position.set(-10, -9.7, -3.0);
@@ -63,6 +263,13 @@ window.restartGame = function () {
     barrisAtivos.forEach(barril => cena.remove(barril));
     barrisAtivos = [];
 
+    // Stop Ending Theme and play Title Theme
+    if (endingTheme && endingTheme.isPlaying) {
+        endingTheme.stop();
+        console.log('Ending Theme stopped in restartGame');
+    }
+    await safePlayAudio(window.titleTheme, 'Title Theme');
+
     // Hide menus
     document.getElementById('pauseMenu').classList.add('hidden');
     document.getElementById('gameOverMenu').classList.add('hidden');
@@ -76,12 +283,44 @@ window.gameOver = function () {
     window.gameState.isGameOver = true;
     document.getElementById('gameOverMenu').classList.remove('hidden');
     document.getElementById('finalScore').textContent = `Score: ${window.gameState.score}`;
+
+    // Play ending theme
+    if (endingTheme && !endingTheme.isPlaying) {
+        try {
+            endingTheme.play();
+            console.log('Ending Theme started playing in gameOver');
+        } catch (error) {
+            console.error('Error playing Ending Theme in gameOver:', error);
+        }
+    }
 };
 
 window.gameWin = function () {
     window.gameState.isWin = true;
     document.getElementById('winMenu').classList.remove('hidden');
     document.getElementById('winScore').textContent = `Score: ${window.gameState.score}`;
+};
+
+// Add function to return to main menu
+window.returnToMainMenu = async function () {
+    // Stop any playing music first
+    window.stopAllMusic();
+
+    // Reset game state
+    window.gameState.isPaused = false;
+    window.gameState.isGameOver = false;
+    window.gameState.isWin = false;
+    window.gameState.score = 0;
+    updateScoreDisplay();
+
+    // Hide all menus except main menu
+    document.getElementById('pauseMenu').classList.add('hidden');
+    document.getElementById('gameOverMenu').classList.add('hidden');
+    document.getElementById('winMenu').classList.add('hidden');
+    document.getElementById('mainMenu').classList.remove('hidden');
+
+    // Play stage theme
+    await safePlayAudio(window.stageTheme, 'Stage Theme');
 };
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -171,8 +410,6 @@ const posicoesEscadas = [
     { xMin: 9.8, xMax: 10.2, y: 5 },   // Quinto plano
     { xMin: 3.8, xMax: 4.2, y: 8 }     // Sexto plano
 ];
-
-
 
 // Carregador FBX
 var importer = new FBXLoader();
@@ -489,6 +726,12 @@ function atualizarBarril() {
 
 // Função principal
 function Start() {
+    // Add audio listener to the camera
+    camaraPerspectiva.add(audioListener);
+
+    // Initialize audio context
+    initializeAudio();
+
     // Retornar a câmera à posição original
     camaraPerspectiva.position.set(0, 1, 5);
     camaraPerspectiva.lookAt(0, 0, 0);
@@ -522,26 +765,26 @@ function Start() {
     camaraOrto.lookAt(0, 0, 0);
 
     // Luzes
-    var luzAmbiente = new THREE.AmbientLight(0xffffff, 0.5); // Slightly reduced ambient light for better contrast
+    var luzAmbiente = new THREE.AmbientLight(0xffffff, 0.5);
     cena.add(luzAmbiente);
 
-    // Main directional light from front-right (matches camera perspective)
+    // Main directional light from front-right
     var luzDirecional1 = new THREE.DirectionalLight(0xffffff, 0.7);
-    luzDirecional1.position.set(5, 0, 8); // Positioned to illuminate the front of the game area
-    luzDirecional1.target.position.set(1, -1, 0); // Target the center of the game area
+    luzDirecional1.position.set(5, 0, 8);
+    luzDirecional1.target.position.set(1, -1, 0);
     cena.add(luzDirecional1);
     cena.add(luzDirecional1.target);
 
-    // Secondary directional light from top-left (creates depth)
+    // Secondary directional light from top-left
     var luzDirecional2 = new THREE.DirectionalLight(0xffffff, 0.4);
-    luzDirecional2.position.set(-8, 6, 4); // Positioned to create shadows and depth
-    luzDirecional2.target.position.set(0, -5, 0); // Target lower platforms
+    luzDirecional2.position.set(-8, 6, 4);
+    luzDirecional2.target.position.set(0, -5, 0);
     cena.add(luzDirecional2);
     cena.add(luzDirecional2.target);
 
-    // Soft fill light from behind to prevent completely dark areas
-    var luzDirecional3 = new THREE.DirectionalLight(0xffffee, 0.2); // Slightly warm tint
-    luzDirecional3.position.set(0, 4, -5); // From behind
+    // Soft fill light from behind
+    var luzDirecional3 = new THREE.DirectionalLight(0xffffee, 0.2);
+    luzDirecional3.position.set(0, 4, -5);
     cena.add(luzDirecional3);
 
     carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -10, y: 5.7, z: -9 }, { x: 0, y: 0, z: 0 });
@@ -621,6 +864,10 @@ function loop() {
                     podePular = false;
                     velocidadeY = forcaPulo;
                     ultimoPulo = tempoAtual;
+                    // Play jump sound
+                    if (jumpSound && !jumpSound.isPlaying) {
+                        jumpSound.play();
+                    }
                 } else if (noChao) {
                     // If we're on the ground but can't jump yet, queue the jump
                     puloPendente = true;
@@ -892,6 +1139,22 @@ function loop() {
                         console.log("Game Over - Collision with barrel!");
                         console.log("Distance to barrel:", distancia);
                         barrilColisao = true;
+
+                        // Stop Title Theme and play Ending Theme
+                        if (window.titleTheme && window.titleTheme.isPlaying) {
+                            window.titleTheme.stop();
+                            console.log('Title Theme stopped on collision');
+                        }
+
+                        // Play ending theme before game over
+                        if (endingTheme && !endingTheme.isPlaying) {
+                            try {
+                                endingTheme.play();
+                                console.log('Ending Theme started playing on collision');
+                            } catch (error) {
+                                console.error('Error playing Ending Theme on collision:', error);
+                            }
+                        }
                         window.gameOver();
                     }
                 }

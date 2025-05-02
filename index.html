@@ -160,6 +160,32 @@
                 background: linear-gradient(45deg, #45a049, #4CAF50);
             }
 
+        .sound-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            background-color: #FFD700;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.2s ease;
+        }
+
+            .sound-button:hover {
+                transform: scale(1.1);
+            }
+
+            .sound-button:active {
+                transform: scale(0.9);
+            }
         /* Pause Menu Specific Styles */
         #pauseMenu {
             background: rgba(0, 0, 0, 0.9);
@@ -246,6 +272,7 @@
             display: none;
         }
     </style>
+
 </head>
 <body>
     <!-- Score Display -->
@@ -257,6 +284,9 @@
         <button id="startButton" class="menu-button">START GAME</button>
         <button id="instructionsButton" class="menu-button">INSTRUCTIONS</button>
         <button id="creditsButton" class="menu-button">CREDITS</button>
+        <button id="soundButton" class="sound-button">
+            🔊
+        </button>
     </div>
 
     <!-- Pause Menu Container -->
@@ -363,11 +393,24 @@
         document.getElementById('gameOverMainMenuButton').addEventListener('click', function () {
             document.getElementById('gameOverMenu').classList.add('hidden');
             document.getElementById('mainMenu').classList.remove('hidden');
+
             // Reset the player position when returning to main menu
             if (typeof restartGame === 'function') {
                 restartGame();
             }
+
+            // Stop all music and play the stage theme
+            stopAllMusic();
+            if (audioInitialized && stageTheme && !stageTheme.isPlaying) {
+                try {
+                    stageTheme.play();
+                    console.log('Stage Theme started playing from Game Over Main Menu');
+                } catch (error) {
+                    console.error('Error playing Stage Theme from Game Over Main Menu:', error);
+                }
+            }
         });
+
 
         // Win menu buttons
         document.getElementById('playAgainButton').addEventListener('click', function () {
