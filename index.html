@@ -271,12 +271,64 @@
         .hidden {
             display: none;
         }
+
+        /* Loading Screen Styles */
+        #loadingScreen {
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 2000;
+        }
+
+        #loadingScreen .menu-title {
+            font-size: 3.5em;
+            margin-bottom: 1em;
+            color: #4CAF50;
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.7), 0 0 20px rgba(76, 175, 80, 0.5), 0 0 30px rgba(76, 175, 80, 0.3);
+            animation: glowLoading 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glowLoading {
+            from {
+                text-shadow: 0 0 10px rgba(76, 175, 80, 0.7), 0 0 20px rgba(76, 175, 80, 0.5), 0 0 30px rgba(76, 175, 80, 0.3);
+            }
+            to {
+                text-shadow: 0 0 15px rgba(76, 175, 80, 0.8), 0 0 25px rgba(76, 175, 80, 0.6), 0 0 35px rgba(76, 175, 80, 0.4);
+            }
+        }
+
+        .loading-spinner {
+            width: 80px;
+            height: 80px;
+            border: 8px solid rgba(76, 175, 80, 0.3);
+            border-radius: 50%;
+            border-top: 8px solid #4CAF50;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 30px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #loadingProgress {
+            font-size: 1.5em;
+            color: white;
+            margin-top: 20px;
+            text-align: center;
+        }
     </style>
 
 </head>
 <body>
     <!-- Score Display -->
     <div id="scoreDisplay">Score: 0</div>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="menu-container hidden">
+        <h1 class="menu-title">LOADING GAME</h1>
+        <div class="loading-spinner"></div>
+        <div id="loadingProgress">Carregando recursos...</div>
+    </div>
 
     <!-- Main Menu Container -->
     <div id="mainMenu" class="menu-container">

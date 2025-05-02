@@ -75,6 +75,11 @@ window.stopAllMusic = function () {
 // Function to load a single audio file asynchronously
 function loadAudioAsync(audioLoader, audioPath, audioObject, volume, loop = false, name) {
     return new Promise((resolve, reject) => {
+        // Atualizar a mensagem de progresso
+        if (document.getElementById('loadingProgress')) {
+            document.getElementById('loadingProgress').textContent = `Carregando ${name}...`;
+        }
+        
         audioLoader.load(
             audioPath,
             function (buffer) {
@@ -86,7 +91,14 @@ function loadAudioAsync(audioLoader, audioPath, audioObject, volume, loop = fals
                 console.log(`${name} loaded successfully`);
                 resolve(true);
             },
-            undefined,
+            // Função de progresso (opcional)
+            function(xhr) {
+                if (xhr.lengthComputable && document.getElementById('loadingProgress')) {
+                    const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
+                    document.getElementById('loadingProgress').textContent = 
+                        `Carregando ${name}... ${percentComplete}%`;
+                }
+            },
             function (error) {
                 console.error(`Error loading ${name}:`, error);
                 reject(error);
@@ -99,6 +111,11 @@ function loadAudioAsync(audioLoader, audioPath, audioObject, volume, loop = fals
 async function initializeAudio() {
     if (!window.audioInitialized) {
         try {
+            // Atualizar a mensagem de progresso
+            if (document.getElementById('loadingProgress')) {
+                document.getElementById('loadingProgress').textContent = "Inicializando sistema de áudio...";
+            }
+            
             // Create new audio context
             audioListener = new THREE.AudioListener();
             jumpSound = new THREE.Audio(audioListener);
@@ -110,18 +127,47 @@ async function initializeAudio() {
             const audioLoader = new THREE.AudioLoader();
             
             // Load all audio files asynchronously
-            await Promise.all([
-                loadAudioAsync(audioLoader, './audio/Mario Jump Sound.mp3', jumpSound, 0.5, false, 'Jump Sound'),
-                loadAudioAsync(audioLoader, './audio/Ending Theme.mp3', endingTheme, 0.3, true, 'Ending Theme'),
-                loadAudioAsync(audioLoader, './audio/Stage Theme.mp3', window.stageTheme, 1.0, true, 'Stage Theme'),
-                loadAudioAsync(audioLoader, './audio/Title Theme.mp3', window.titleTheme, 1.0, true, 'Title Theme')
-            ]);
+            const audioFiles = [
+                { path: './audio/Mario Jump Sound.mp3', audio: jumpSound, volume: 0.5, loop: false, name: 'Jump Sound' },
+                { path: './audio/Ending Theme.mp3', audio: endingTheme, volume: 0.3, loop: true, name: 'Ending Theme' },
+                { path: './audio/Stage Theme.mp3', audio: window.stageTheme, volume: 1.0, loop: true, name: 'Stage Theme' },
+                { path: './audio/Title Theme.mp3', audio: window.titleTheme, volume: 1.0, loop: true, name: 'Title Theme' }
+            ];
+            
+            // Carregar cada arquivo de áudio sequencialmente para melhor feedback visual
+            for (let i = 0; i < audioFiles.length; i++) {
+                const file = audioFiles[i];
+                await loadAudioAsync(audioLoader, file.path, file.audio, file.volume, file.loop, file.name);
+                
+                // Atualizar o progresso geral
+                if (document.getElementById('loadingProgress')) {
+                    const percentComplete = Math.round(((i + 1) / audioFiles.length) * 100);
+                    document.getElementById('loadingProgress').textContent = 
+                        `Carregando áudios... ${percentComplete}%`;
+                }
+            }
+            
+            // Atualizar a mensagem final
+            if (document.getElementById('loadingProgress')) {
+                document.getElementById('loadingProgress').textContent = "Todos os áudios carregados com sucesso!";
+            }
 
             window.audioInitialized = true;
             console.log('Audio system initialized successfully');
+            
+            // Pequena pausa para mostrar a mensagem de conclusão
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
             return true;
         } catch (error) {
             console.error('Error initializing audio system:', error);
+            
+            // Mostrar mensagem de erro
+            if (document.getElementById('loadingProgress')) {
+                document.getElementById('loadingProgress').textContent = 
+                    "Erro ao carregar áudios. Tente novamente.";
+            }
+            
             return false;
         }
     }
@@ -169,13 +215,26 @@ function updateScoreDisplay() {
 // Global functions for menu control
 window.startGame = async function () {
     if (!window.gameState.isInitialized) {
-        // Mostrar indicador de carregamento ou mensagem
+        // Mostrar tela de loading
+        document.getElementById('mainMenu').classList.add('hidden');
+        document.getElementById('loadingScreen').classList.remove('hidden');
+        document.getElementById('loadingProgress').textContent = "Carregando recursos de áudio...";
         console.log("Inicializando o jogo e carregando recursos...");
         
-        // Aguardar a inicialização assíncrona
-        await Start();
-        window.gameState.isInitialized = true;
-        console.log("Jogo inicializado com sucesso!");
+        // Pequeno atraso para garantir que a tela de loading seja exibida
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        try {
+            // Aguardar a inicialização assíncrona
+            await Start();
+            window.gameState.isInitialized = true;
+            console.log("Jogo inicializado com sucesso!");
+        } catch (error) {
+            console.error("Erro ao inicializar o jogo:", error);
+        } finally {
+            // Esconder a tela de loading
+            document.getElementById('loadingScreen').classList.add('hidden');
+        }
     }
     window.gameState.isPaused = false;
     window.gameState.isGameOver = false;
