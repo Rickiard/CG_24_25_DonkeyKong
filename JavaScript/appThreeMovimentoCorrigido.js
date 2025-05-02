@@ -123,21 +123,12 @@ function initializeAudio() {
                     window.stageTheme.setVolume(1.0);
                     window.stageTheme.setLoop(true);
                     console.log('Stage Theme loaded successfully');
-
-                    // Tocar a música "Stage Theme" automaticamente após o carregamento
-                    try {
-                        window.stageTheme.play();
-                        console.log('Stage Theme started playing automatically');
-                    } catch (error) {
-                        console.error('Error playing Stage Theme:', error);
-                    }
                 },
                 undefined,
                 function (error) {
                     console.error('Error loading Stage Theme:', error);
                 }
             );
-
 
             // Load title theme
             audioLoader.load(
@@ -165,26 +156,16 @@ function initializeAudio() {
 // Add event listeners for user interaction
 document.addEventListener('click', async function () {
     await ensureAudioContext();
-    if (window.stageTheme && !window.stageTheme.isPlaying) {
-        await safePlayAudio(window.stageTheme, 'Stage Theme');
-    }
 }, { once: true });
 
 document.addEventListener('keydown', async function () {
     await ensureAudioContext();
-    if (window.stageTheme && !window.stageTheme.isPlaying) {
-        await safePlayAudio(window.stageTheme, 'Stage Theme');
-    }
 }, { once: true });
 
 document.addEventListener('touchstart', async function () {
     await ensureAudioContext();
-    if (window.stageTheme && !window.stageTheme.isPlaying) {
-        await safePlayAudio(window.stageTheme, 'Stage Theme');
-    }
 }, { once: true });
 
-// Add event listener for the start button
 // Add event listener for the start button
 document.addEventListener('DOMContentLoaded', function () {
     initializeAudio();
@@ -196,7 +177,7 @@ document.addEventListener('DOMContentLoaded', function () {
             await ensureAudioContext(); // Garante que o AudioContext seja iniciado
             if (window.stageTheme && !window.stageTheme.isPlaying) {
                 window.stageTheme.play();
-                console.log('Stage Theme started playing');
+                console.log('Stage Theme started playing from sound button');
             }
             soundButton.style.display = 'none'; // Esconde o botão após ativar o som
         } catch (error) {
@@ -204,8 +185,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 });
-
-
 
 // Function to update score display
 function updateScoreDisplay() {
@@ -226,8 +205,31 @@ window.startGame = async function () {
     document.getElementById('gameOverMenu').classList.add('hidden');
     document.getElementById('winMenu').classList.add('hidden');
 
-    // Stop Stage Theme and play Title Theme
+    // Stop all music first
     window.stopAllMusic();
+
+    // Explicitly stop stage theme if it's playing
+    if (window.stageTheme && window.stageTheme.isPlaying) {
+        window.stageTheme.stop();
+        console.log('Stage Theme stopped in startGame');
+    }
+
+    // Explicitly stop title theme if it's playing
+    if (window.titleTheme && window.titleTheme.isPlaying) {
+        window.titleTheme.stop();
+        console.log('Title Theme stopped in startGame');
+    }
+
+    // Explicitly stop ending theme if it's playing
+    if (endingTheme && endingTheme.isPlaying) {
+        endingTheme.stop();
+        console.log('Ending Theme stopped in startGame');
+    }
+
+    // Wait a brief moment to ensure all music has stopped
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Now play the title theme
     await safePlayAudio(window.titleTheme, 'Title Theme');
 
     loop();
@@ -249,6 +251,17 @@ window.restartGame = async function () {
     if (objetoImportado) {
         objetoImportado.position.set(-10, -9.7, -3.0);
         objetoImportado.rotation.set(0, Math.PI / 2, 0);
+
+        // Reset Mario's texture back to normal
+        const marioTexture = textureLoader.load('./textures/mario_texture.png');
+        objetoImportado.traverse(function (child) {
+            if (child.isMesh) {
+                child.material = new THREE.MeshPhongMaterial({
+                    map: marioTexture,
+                    side: THREE.DoubleSide
+                });
+            }
+        });
     }
 
     // Reset game state
@@ -1178,6 +1191,40 @@ function loop() {
             // Also check proximity to Princess Peach as an alternative win condition
             const distanceToPeach = objetoImportado.position.distanceTo(new THREE.Vector3(0, 7, -9.5));
             if (distanceToPeach < 2.0) {
+                // Stop current theme and play ending theme
+                if (window.stageTheme && window.stageTheme.isPlaying) {
+                    window.stageTheme.stop();
+                    console.log('Stage Theme stopped on Peach collision');
+                }
+                if (window.titleTheme && window.titleTheme.isPlaying) {
+                    window.titleTheme.stop();
+                    console.log('Title Theme stopped on Peach collision');
+                }
+
+                // Play ending theme
+                if (endingTheme && !endingTheme.isPlaying) {
+                    try {
+                        endingTheme.play();
+                        console.log('Ending Theme started playing on Peach collision');
+                    } catch (error) {
+                        console.error('Error playing Ending Theme on Peach collision:', error);
+                    }
+                }
+
+                // Change Mario to dead sprite
+                if (objetoImportado) {
+                    // Load dead Mario texture
+                    const deadMarioTexture = textureLoader.load('./textures/mario_dead_texture.png');
+                    objetoImportado.traverse(function (child) {
+                        if (child.isMesh) {
+                            child.material = new THREE.MeshPhongMaterial({
+                                map: deadMarioTexture,
+                                side: THREE.DoubleSide
+                            });
+                        }
+                    });
+                }
+
                 // Player has reached Princess Peach
                 window.gameWin();
             }
@@ -1260,3 +1307,73 @@ function criarChaoInvisivel(x, y, z) {
 
     return chao;
 }
+
+// Win menu buttons
+document.getElementById('playAgainButton').addEventListener('click', function () {
+    document.getElementById('winMenu').classList.add('hidden');
+    if (typeof restartGame === 'function') {
+        restartGame();
+    }
+});
+
+document.getElementById('winMainMenuButton').addEventListener('click', function () {
+    document.getElementById('winMenu').classList.add('hidden');
+    document.getElementById('mainMenu').classList.remove('hidden');
+
+    // Stop all music including title theme
+    window.stopAllMusic();
+    if (window.titleTheme && window.titleTheme.isPlaying) {
+        window.titleTheme.stop();
+        console.log('Title Theme stopped in winMainMenuButton');
+    }
+
+    // Play stage theme first
+    if (audioInitialized && stageTheme && !stageTheme.isPlaying) {
+        try {
+            stageTheme.play();
+            console.log('Stage Theme started playing from Win Main Menu');
+        } catch (error) {
+            console.error('Error playing Stage Theme from Win Main Menu:', error);
+        }
+    }
+
+    // Reset the player position when returning to main menu
+    if (typeof restartGame === 'function') {
+        // Call restartGame without the audio part
+        window.gameState.isPaused = false;
+        window.gameState.isGameOver = false;
+        window.gameState.isWin = false;
+        window.gameState.score = 0;
+        updateScoreDisplay();
+
+        // Reset barrel collisions and remove active barrels
+        barrilColisao = false;
+        barrisAtivos.forEach(barril => cena.remove(barril));
+        barrisAtivos = [];
+
+        // Reset Mario's position and rotation
+        if (objetoImportado) {
+            objetoImportado.position.set(-10, -9.7, -3.0);
+            objetoImportado.rotation.set(0, Math.PI / 2, 0);
+
+            // Reset Mario's texture back to normal
+            const marioTexture = textureLoader.load('./textures/mario_texture.png');
+            objetoImportado.traverse(function (child) {
+                if (child.isMesh) {
+                    child.material = new THREE.MeshPhongMaterial({
+                        map: marioTexture,
+                        side: THREE.DoubleSide
+                    });
+                }
+            });
+        }
+
+        // Hide menus
+        document.getElementById('pauseMenu').classList.add('hidden');
+        document.getElementById('gameOverMenu').classList.add('hidden');
+        document.getElementById('winMenu').classList.add('hidden');
+
+        // Restart the game loop
+        loop();
+    }
+});
