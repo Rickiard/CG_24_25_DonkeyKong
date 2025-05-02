@@ -172,19 +172,25 @@
             border-radius: 50%;
             cursor: pointer;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            z-index: 1000;
+            z-index: 2000; /* Aumentado para ficar acima de todos os menus */
             display: flex;
             justify-content: center;
             align-items: center;
-            transition: transform 0.2s ease;
+            transition: all 0.2s ease;
         }
 
             .sound-button:hover {
                 transform: scale(1.1);
+                background-color: #FFC107;
             }
 
             .sound-button:active {
                 transform: scale(0.9);
+            }
+            
+            /* Estilo para quando o áudio estiver mutado */
+            .sound-button.muted {
+                background-color: #F44336;
             }
         /* Pause Menu Specific Styles */
         #pauseMenu {
@@ -322,6 +328,9 @@
 <body>
     <!-- Score Display -->
     <div id="scoreDisplay">Score: 0</div>
+    
+    <!-- Sound Button - Sempre visível -->
+    <button id="soundButton" class="sound-button">🔊</button>
 
     <!-- Loading Screen -->
     <div id="loadingScreen" class="menu-container hidden">
@@ -336,9 +345,8 @@
         <button id="startButton" class="menu-button">START GAME</button>
         <button id="instructionsButton" class="menu-button">INSTRUCTIONS</button>
         <button id="creditsButton" class="menu-button">CREDITS</button>
-        <button id="soundButton" class="sound-button">
-            🔊
-        </button>
+        <!-- Botão de som agora está fora do menu para ficar sempre visível -->
+        
     </div>
 
     <!-- Pause Menu Container -->
@@ -427,12 +435,8 @@
         });
 
         document.getElementById('mainMenuButton').addEventListener('click', function () {
-            document.getElementById('pauseMenu').classList.add('hidden');
-            document.getElementById('mainMenu').classList.remove('hidden');
-            // Don't pause the game when returning to main menu
-            // Just reset the player position
-            if (typeof restartGame === 'function') {
-                restartGame();
+            if (typeof returnToMainMenu === 'function') {
+                returnToMainMenu();
             }
         });
 
@@ -443,23 +447,8 @@
         });
 
         document.getElementById('gameOverMainMenuButton').addEventListener('click', function () {
-            document.getElementById('gameOverMenu').classList.add('hidden');
-            document.getElementById('mainMenu').classList.remove('hidden');
-
-            // Reset the player position when returning to main menu
-            if (typeof restartGame === 'function') {
-                restartGame();
-            }
-
-            // Stop all music and play the stage theme
-            stopAllMusic();
-            if (audioInitialized && stageTheme && !stageTheme.isPlaying) {
-                try {
-                    stageTheme.play();
-                    console.log('Stage Theme started playing from Game Over Main Menu');
-                } catch (error) {
-                    console.error('Error playing Stage Theme from Game Over Main Menu:', error);
-                }
+            if (typeof returnToMainMenu === 'function') {
+                returnToMainMenu();
             }
         });
 

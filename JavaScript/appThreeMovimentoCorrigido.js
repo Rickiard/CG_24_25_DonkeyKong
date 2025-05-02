@@ -6,6 +6,7 @@ import { PointerLockControls } from 'PointerLockControls';
 window.gameState = {
     isPaused: false,
     isInitialized: false,
+    isInMainMenu: true, // Começa no menu principal
     originalPosition: null,
     isGameOver: false,
     isWin: false,
@@ -20,6 +21,7 @@ window.stageTheme = null;
 window.titleTheme = null;
 window.audioInitialized = false;
 window.audioContextStarted = false;
+window.isMuted = false; // Flag para controlar o estado de mute
 
 // Function to ensure audio context is started
 async function ensureAudioContext() {
@@ -44,8 +46,16 @@ async function safePlayAudio(audio, name) {
     try {
         await ensureAudioContext();
         if (!audio.isPlaying) {
-            audio.play();
-            console.log(`${name} started playing`);
+            // Se o áudio estiver mutado, definir o volume para 0 antes de tocar
+            if (window.isMuted) {
+                const originalVolume = audio.getVolume();
+                audio.setVolume(0);
+                audio.play();
+                console.log(`${name} started playing (muted)`);
+            } else {
+                audio.play();
+                console.log(`${name} started playing`);
+            }
         }
     } catch (error) {
         console.error(`Error playing ${name}:`, error);
@@ -69,6 +79,56 @@ window.stopAllMusic = function () {
         }
     } catch (error) {
         console.error('Error stopping music:', error);
+    }
+};
+
+// Function to mute all audio
+window.muteAudio = function() {
+    if (!window.isMuted) {
+        try {
+            // Mutar todos os sons diretamente
+            if (jumpSound) jumpSound.setVolume(0);
+            if (endingTheme) endingTheme.setVolume(0);
+            if (window.stageTheme) window.stageTheme.setVolume(0);
+            if (window.titleTheme) window.titleTheme.setVolume(0);
+            
+            window.isMuted = true;
+            console.log('Audio muted');
+            
+            // Atualizar o ícone e a classe do botão
+            const soundButton = document.getElementById('soundButton');
+            if (soundButton) {
+                soundButton.innerHTML = '🔇';
+                soundButton.classList.add('muted');
+            }
+        } catch (error) {
+            console.error('Error muting audio:', error);
+        }
+    }
+};
+
+// Function to unmute all audio
+window.unmuteAudio = function() {
+    if (window.isMuted) {
+        try {
+            // Restaurar volumes originais
+            if (jumpSound) jumpSound.setVolume(0.5);
+            if (endingTheme) endingTheme.setVolume(0.3);
+            if (window.stageTheme) window.stageTheme.setVolume(1.0);
+            if (window.titleTheme) window.titleTheme.setVolume(1.0);
+            
+            window.isMuted = false;
+            console.log('Audio unmuted');
+            
+            // Atualizar o ícone e a classe do botão
+            const soundButton = document.getElementById('soundButton');
+            if (soundButton) {
+                soundButton.innerHTML = '🔊';
+                soundButton.classList.remove('muted');
+            }
+        } catch (error) {
+            console.error('Error unmuting audio:', error);
+        }
     }
 };
 
@@ -188,23 +248,39 @@ document.addEventListener('touchstart', async function () {
 }, { once: true });
 
 // Add event listener for the start button
-document.addEventListener('DOMContentLoaded', function () {
-    initializeAudio();
+document.addEventListener('DOMContentLoaded', async function () {
+    // Inicializar áudio primeiro
+    await initializeAudio();
+    console.log("Áudio inicializado no carregamento da página");
 
     const soundButton = document.getElementById('soundButton');
 
     soundButton.addEventListener('click', async function () {
         try {
             await ensureAudioContext(); // Garante que o AudioContext seja iniciado
-            if (window.stageTheme && !window.stageTheme.isPlaying) {
-                window.stageTheme.play();
-                console.log('Stage Theme started playing from sound button');
+            
+            // Toggle mute/unmute
+            if (window.isMuted) {
+                window.unmuteAudio();
+            } else {
+                window.muteAudio();
             }
-            soundButton.style.display = 'none'; // Esconde o botão após ativar o som
         } catch (error) {
-            console.error('Error starting audio:', error);
+            console.error('Error toggling audio:', error);
         }
     });
+    
+    // Iniciar a música do menu principal automaticamente após inicialização
+    try {
+        await ensureAudioContext();
+        // Tocar a música do menu principal
+        if (window.titleTheme && !window.titleTheme.isPlaying) {
+            window.titleTheme.play();
+            console.log('Title Theme started playing on page load');
+        }
+    } catch (error) {
+        console.error('Error starting title theme on page load:', error);
+    }
 });
 
 // Function to update score display
@@ -214,29 +290,59 @@ function updateScoreDisplay() {
 
 // Global functions for menu control
 window.startGame = async function () {
-    if (!window.gameState.isInitialized) {
-        // Mostrar tela de loading
-        document.getElementById('mainMenu').classList.add('hidden');
-        document.getElementById('loadingScreen').classList.remove('hidden');
-        document.getElementById('loadingProgress').textContent = "Carregando recursos de áudio...";
-        console.log("Inicializando o jogo e carregando recursos...");
-        
-        // Pequeno atraso para garantir que a tela de loading seja exibida
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        try {
-            // Aguardar a inicialização assíncrona
-            await Start();
-            window.gameState.isInitialized = true;
-            console.log("Jogo inicializado com sucesso!");
-        } catch (error) {
-            console.error("Erro ao inicializar o jogo:", error);
-        } finally {
-            // Esconder a tela de loading
-            document.getElementById('loadingScreen').classList.add('hidden');
+    console.log("Iniciando novo jogo a partir do menu principal");
+    
+    // Mostrar tela de loading
+    document.getElementById('mainMenu').classList.add('hidden');
+    document.getElementById('loadingScreen').classList.remove('hidden');
+    document.getElementById('loadingProgress').textContent = "Carregando recursos de áudio...";
+    
+    // Pequeno atraso para garantir que a tela de loading seja exibida
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    try {
+        // Limpar barris existentes
+        if (barrisAtivos && barrisAtivos.length > 0) {
+            console.log("Removendo barris existentes:", barrisAtivos.length);
+            barrisAtivos.forEach(barril => cena.remove(barril));
+            barrisAtivos = [];
         }
+        barrilColisao = false;
+        
+        // Forçar reinicialização completa do jogo
+        window.gameState.isInitialized = false;
+        
+        // Aguardar a inicialização assíncrona
+        await Start();
+        window.gameState.isInitialized = true;
+        console.log("Jogo inicializado com sucesso!");
+        
+        // Garantir que o Mario esteja na posição correta
+        if (objetoImportado) {
+            console.log("Reposicionando Mario na função startGame");
+            objetoImportado.position.set(-10, -9.7, -3.0);
+            objetoImportado.rotation.set(0, Math.PI / 2, 0);
+            
+            // Reset Mario's texture back to normal
+            const marioTexture = textureLoader.load('./textures/mario_texture.png');
+            objetoImportado.traverse(function (child) {
+                if (child.isMesh) {
+                    child.material = new THREE.MeshPhongMaterial({
+                        map: marioTexture,
+                        side: THREE.DoubleSide
+                    });
+                }
+            });
+        }
+    } catch (error) {
+        console.error("Erro ao inicializar o jogo:", error);
+    } finally {
+        // Esconder a tela de loading
+        document.getElementById('loadingScreen').classList.add('hidden');
     }
+
     window.gameState.isPaused = false;
+    window.gameState.isInMainMenu = false;
     window.gameState.isGameOver = false;
     window.gameState.isWin = false;
     window.gameState.score = 0;
@@ -247,31 +353,16 @@ window.startGame = async function () {
     // Stop all music first
     window.stopAllMusic();
 
-    // Explicitly stop stage theme if it's playing
-    if (window.stageTheme && window.stageTheme.isPlaying) {
-        window.stageTheme.stop();
-        console.log('Stage Theme stopped in startGame');
-    }
-
-    // Explicitly stop title theme if it's playing
-    if (window.titleTheme && window.titleTheme.isPlaying) {
-        window.titleTheme.stop();
-        console.log('Title Theme stopped in startGame');
-    }
-
-    // Explicitly stop ending theme if it's playing
-    if (endingTheme && endingTheme.isPlaying) {
-        endingTheme.stop();
-        console.log('Ending Theme stopped in startGame');
-    }
-
     // Wait a brief moment to ensure all music has stopped
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Now play the title theme
-    await safePlayAudio(window.titleTheme, 'Title Theme');
+    // Now play the stage theme
+    await safePlayAudio(window.stageTheme, 'Stage Theme');
 
-    loop();
+    // Garantir que o loop de animação esteja ativo
+    animationLoopActive = true;
+    requestAnimationFrame(loop);
+    console.log("Loop de animação iniciado para o jogo");
 };
 
 window.pauseMenu = function () {
@@ -305,6 +396,7 @@ window.restartGame = async function () {
 
     // Reset game state
     window.gameState.isPaused = false;
+    window.gameState.isInMainMenu = false;
     window.gameState.isGameOver = false;
     window.gameState.isWin = false;
     window.gameState.score = 0;
@@ -315,54 +407,74 @@ window.restartGame = async function () {
     barrisAtivos.forEach(barril => cena.remove(barril));
     barrisAtivos = [];
 
-    // Stop Ending Theme and play Title Theme
-    if (endingTheme && endingTheme.isPlaying) {
-        endingTheme.stop();
-        console.log('Ending Theme stopped in restartGame');
-    }
-    await safePlayAudio(window.titleTheme, 'Title Theme');
+    // Stop all music first
+    window.stopAllMusic();
+    
+    // Wait a brief moment to ensure all music has stopped
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Now play the stage theme
+    await safePlayAudio(window.stageTheme, 'Stage Theme');
 
     // Hide menus
     document.getElementById('pauseMenu').classList.add('hidden');
     document.getElementById('gameOverMenu').classList.add('hidden');
     document.getElementById('winMenu').classList.add('hidden');
 
-    // Restart the game loop
-    loop();
+    // Garantir que o loop de animação esteja ativo
+    animationLoopActive = true;
+    requestAnimationFrame(loop);
+    console.log("Loop de animação reiniciado para o jogo");
 };
 
-window.gameOver = function () {
+window.gameOver = async function () {
     window.gameState.isGameOver = true;
     document.getElementById('gameOverMenu').classList.remove('hidden');
     document.getElementById('finalScore').textContent = `Score: ${window.gameState.score}`;
 
+    // Stop all music first
+    window.stopAllMusic();
+    
+    // Wait a brief moment to ensure all music has stopped
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     // Play ending theme
-    if (endingTheme && !endingTheme.isPlaying) {
-        try {
-            endingTheme.play();
-            console.log('Ending Theme started playing in gameOver');
-        } catch (error) {
-            console.error('Error playing Ending Theme in gameOver:', error);
-        }
-    }
+    await safePlayAudio(endingTheme, 'Ending Theme');
 };
 
-window.gameWin = function () {
+window.gameWin = async function () {
     window.gameState.isWin = true;
     document.getElementById('winMenu').classList.remove('hidden');
     document.getElementById('winScore').textContent = `Score: ${window.gameState.score}`;
+    
+    // Stop all music first
+    window.stopAllMusic();
+    
+    // Wait a brief moment to ensure all music has stopped
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Play ending theme
+    await safePlayAudio(endingTheme, 'Ending Theme');
 };
 
 // Add function to return to main menu
 window.returnToMainMenu = async function () {
+    console.log("Retornando ao menu principal");
+    
     // Stop any playing music first
     window.stopAllMusic();
 
-    // Reset game state
-    window.gameState.isPaused = false;
+    // Parar o loop de animação atual
+    animationLoopActive = false;
+    
+    // Definir flags de estado
+    window.gameState.isPaused = true;
+    window.gameState.isInMainMenu = true;
     window.gameState.isGameOver = false;
     window.gameState.isWin = false;
     window.gameState.score = 0;
+    // Forçar reinicialização do jogo na próxima vez que START GAME for clicado
+    window.gameState.isInitialized = false;
     updateScoreDisplay();
 
     // Hide all menus except main menu
@@ -371,8 +483,13 @@ window.returnToMainMenu = async function () {
     document.getElementById('winMenu').classList.add('hidden');
     document.getElementById('mainMenu').classList.remove('hidden');
 
-    // Play stage theme
-    await safePlayAudio(window.stageTheme, 'Stage Theme');
+    // Play title theme instead of stage theme
+    await safePlayAudio(window.titleTheme, 'Title Theme');
+    
+    // Reiniciar o loop de animação para o menu
+    animationLoopActive = true;
+    requestAnimationFrame(loop);
+    console.log("Loop de animação reiniciado para o menu principal");
 };
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -778,6 +895,8 @@ function atualizarBarril() {
 
 // Função principal - agora assíncrona
 async function Start() {
+    console.log("Iniciando função Start() para reiniciar o jogo completamente");
+    
     // Add audio listener to the camera
     camaraPerspectiva.add(audioListener);
 
@@ -789,6 +908,13 @@ async function Start() {
     // Retornar a câmera à posição original
     camaraPerspectiva.position.set(0, 1, 5);
     camaraPerspectiva.lookAt(0, 0, 0);
+    
+    // Reposicionar Mario se ele já existir
+    if (objetoImportado) {
+        console.log("Reposicionando Mario na função Start()");
+        objetoImportado.position.set(-10, -9.7, -3.0);
+        objetoImportado.rotation.set(0, Math.PI / 2, 0);
+    }
 
     // Create platforms with specific boundaries
     const plataformasInfo = [
@@ -852,7 +978,22 @@ function foraDaPlataforma(barril) {
 
 
 // Loop de animação
+// Variável para controlar se o loop de animação está ativo
+let animationLoopActive = true;
+
 function loop() {
+    // Se não estiver ativo, não continua o loop
+    if (!animationLoopActive) {
+        return;
+    }
+    
+    // Se estiver no menu principal, não atualiza o jogo, mas continua renderizando
+    if (window.gameState.isInMainMenu) {
+        renderer.render(cena, cameraAtual);
+        requestAnimationFrame(loop);
+        return;
+    }
+    
     // Only update game if game is not paused, game over, or win
     if (window.gameState.isPaused || window.gameState.isGameOver || window.gameState.isWin) {
         requestAnimationFrame(loop);
