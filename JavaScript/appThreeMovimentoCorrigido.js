@@ -82,6 +82,97 @@ window.stopAllMusic = function () {
     }
 };
 
+// Variáveis para armazenar o estado do áudio quando pausado
+let audioState = {
+    stageTheme: { wasPaused: false, time: 0 },
+    titleTheme: { wasPaused: false, time: 0 },
+    endingTheme: { wasPaused: false, time: 0 }
+};
+
+// Função para pausar o áudio atual
+window.pauseAudio = function() {
+    try {
+        console.log("Tentando pausar todos os áudios...");
+        
+        // Pausar Stage Theme
+        if (window.stageTheme && window.stageTheme.isPlaying) {
+            audioState.stageTheme.wasPaused = true;
+            // Forçar a parada do áudio para garantir que ele pare
+            window.stageTheme.stop();
+            console.log('Stage Theme parado com sucesso');
+        } else {
+            audioState.stageTheme.wasPaused = false;
+        }
+        
+        // Pausar Title Theme
+        if (window.titleTheme && window.titleTheme.isPlaying) {
+            audioState.titleTheme.wasPaused = true;
+            // Forçar a parada do áudio para garantir que ele pare
+            window.titleTheme.stop();
+            console.log('Title Theme parado com sucesso');
+        } else {
+            audioState.titleTheme.wasPaused = false;
+        }
+        
+        // Pausar Ending Theme
+        if (endingTheme && endingTheme.isPlaying) {
+            audioState.endingTheme.wasPaused = true;
+            // Forçar a parada do áudio para garantir que ele pare
+            endingTheme.stop();
+            console.log('Ending Theme parado com sucesso');
+        } else {
+            audioState.endingTheme.wasPaused = false;
+        }
+        
+        // Verificar se todos os áudios foram pausados
+        if (window.stageTheme) console.log("Stage Theme isPlaying:", window.stageTheme.isPlaying);
+        if (window.titleTheme) console.log("Title Theme isPlaying:", window.titleTheme.isPlaying);
+        if (endingTheme) console.log("Ending Theme isPlaying:", endingTheme.isPlaying);
+        
+    } catch (error) {
+        console.error('Erro ao pausar áudio:', error);
+    }
+};
+
+// Função para retomar o áudio pausado
+window.resumeAudio = function() {
+    try {
+        console.log("Tentando retomar os áudios pausados...");
+        
+        // Retomar Stage Theme
+        if (audioState.stageTheme.wasPaused && window.stageTheme) {
+            // Garantir que o áudio seja tocado novamente
+            window.stageTheme.play();
+            console.log('Stage Theme retomado');
+            audioState.stageTheme.wasPaused = false;
+        }
+        
+        // Retomar Title Theme
+        if (audioState.titleTheme.wasPaused && window.titleTheme) {
+            // Garantir que o áudio seja tocado novamente
+            window.titleTheme.play();
+            console.log('Title Theme retomado');
+            audioState.titleTheme.wasPaused = false;
+        }
+        
+        // Retomar Ending Theme
+        if (audioState.endingTheme.wasPaused && endingTheme) {
+            // Garantir que o áudio seja tocado novamente
+            endingTheme.play();
+            console.log('Ending Theme retomado');
+            audioState.endingTheme.wasPaused = false;
+        }
+        
+        // Verificar se todos os áudios foram retomados
+        if (window.stageTheme) console.log("Stage Theme isPlaying:", window.stageTheme.isPlaying);
+        if (window.titleTheme) console.log("Title Theme isPlaying:", window.titleTheme.isPlaying);
+        if (endingTheme) console.log("Ending Theme isPlaying:", endingTheme.isPlaying);
+        
+    } catch (error) {
+        console.error('Erro ao retomar áudio:', error);
+    }
+};
+
 // Function to mute all audio
 window.muteAudio = function() {
     if (!window.isMuted) {
@@ -178,10 +269,19 @@ async function initializeAudio() {
             
             // Create new audio context
             audioListener = new THREE.AudioListener();
+            
+            // Criar objetos de áudio com controle de reprodução
             jumpSound = new THREE.Audio(audioListener);
+            jumpSound.hasPlaybackControl = true;
+            
             endingTheme = new THREE.Audio(audioListener);
+            endingTheme.hasPlaybackControl = true;
+            
             window.stageTheme = new THREE.Audio(audioListener);
+            window.stageTheme.hasPlaybackControl = true;
+            
             window.titleTheme = new THREE.Audio(audioListener);
+            window.titleTheme.hasPlaybackControl = true;
 
             // Load audio files
             const audioLoader = new THREE.AudioLoader();
@@ -365,15 +465,158 @@ window.startGame = async function () {
     console.log("Loop de animação iniciado para o jogo");
 };
 
+// Variáveis para armazenar o estado das animações e luzes
+let animationStates = {
+    donkeyKong: { wasPaused: false },
+    peach: { wasPaused: false },
+    barris: [],
+    luzes: []
+};
+
 window.pauseMenu = function () {
+    console.log("Pausando o jogo");
+    
+    // Definir o estado do jogo como pausado
     window.gameState.isPaused = true;
+    
+    // Mostrar o menu de pausa
+    document.getElementById('pauseMenu').classList.remove('hidden');
+    
+    // Salvar a posição original do Mario
     if (objetoImportado) {
         window.gameState.originalPosition = objetoImportado.position.clone();
+        // Garantir que o Mario não se mova
+        teclasPressionadas = {}; // Limpar todas as teclas pressionadas
     }
+    
+    // PAUSAR TODAS AS ANIMAÇÕES
+    
+    // Pausar a animação do Mario
+    if (mixerAnimacao) {
+        mixerAnimacao.timeScale = 0;
+        if (animacaoAtual) {
+            animacaoAtual.paused = true;
+        }
+        console.log("Mario pausado");
+    }
+    
+    // Pausar a animação do Donkey Kong
+    if (mixerDonkeyKong) {
+        mixerDonkeyKong.timeScale = 0;
+        console.log("Donkey Kong pausado");
+    }
+    
+    // Pausar a animação da Peach
+    if (mixerPeach) {
+        mixerPeach.timeScale = 0;
+        console.log("Peach pausada");
+    }
+    
+    // Pausar todos os barris
+    if (barrisAtivos && barrisAtivos.length > 0) {
+        barrisAtivos.forEach(barril => {
+            if (barril.userData.velocidade) {
+                // Guardar a velocidade original
+                barril.userData.velocidadeOriginal = { ...barril.userData.velocidade };
+                
+                // Zerar a velocidade
+                barril.userData.velocidade.x = 0;
+                barril.userData.velocidade.y = 0;
+                barril.userData.velocidade.z = 0;
+            }
+        });
+        console.log(`${barrisAtivos.length} barris pausados`);
+    }
+    
+    // Salvar e fixar a intensidade das luzes
+    animationStates.luzes = [];
+    cena.traverse(function(objeto) {
+        if (objeto.isLight) {
+            // Salvar a intensidade original
+            animationStates.luzes.push({
+                luz: objeto,
+                intensidade: objeto.intensity
+            });
+            
+            // Fixar a intensidade para evitar mudanças
+            objeto.userData.intensidadeOriginal = objeto.intensity;
+        }
+    });
+    console.log(`${animationStates.luzes.length} luzes pausadas`);
+    
+    // Pausar o áudio
+    window.pauseAudio();
+    
+    // Pausar o relógio do jogo para que o delta time seja zero
+    relogio.stop();
+    
+    console.log("Jogo completamente pausado");
 };
 
 window.resumeGame = function () {
+    console.log("Retomando o jogo");
+    
+    // Esconder o menu de pausa
+    document.getElementById('pauseMenu').classList.add('hidden');
+    
+    // RETOMAR TODAS AS ANIMAÇÕES
+    
+    // Retomar a animação do Mario
+    if (mixerAnimacao) {
+        mixerAnimacao.timeScale = 1;
+        if (animacaoAtual) {
+            animacaoAtual.paused = false;
+        }
+        console.log("Mario retomado");
+    }
+    
+    // Retomar a animação do Donkey Kong
+    if (mixerDonkeyKong) {
+        mixerDonkeyKong.timeScale = 1;
+        console.log("Donkey Kong retomado");
+    }
+    
+    // Retomar a animação da Peach
+    if (mixerPeach) {
+        mixerPeach.timeScale = 1;
+        console.log("Peach retomada");
+    }
+    
+    // Retomar todos os barris
+    if (barrisAtivos && barrisAtivos.length > 0) {
+        barrisAtivos.forEach(barril => {
+            if (barril.userData.velocidadeOriginal) {
+                // Restaurar a velocidade original
+                barril.userData.velocidade = { ...barril.userData.velocidadeOriginal };
+                delete barril.userData.velocidadeOriginal;
+            }
+        });
+        console.log(`${barrisAtivos.length} barris retomados`);
+    }
+    
+    // Restaurar a intensidade das luzes
+    if (animationStates.luzes.length > 0) {
+        animationStates.luzes.forEach(estado => {
+            if (estado.luz && estado.luz.userData.intensidadeOriginal !== undefined) {
+                // Restaurar a intensidade original
+                estado.luz.intensity = estado.luz.userData.intensidadeOriginal;
+                delete estado.luz.userData.intensidadeOriginal;
+            }
+        });
+        console.log(`${animationStates.luzes.length} luzes retomadas`);
+        animationStates.luzes = [];
+    }
+    
+    // Retomar o áudio
+    window.resumeAudio();
+    
+    // Retomar o relógio do jogo
+    relogio.start();
+    
+    // Definir o estado do jogo como não pausado (deve ser o último para garantir que tudo esteja pronto)
     window.gameState.isPaused = false;
+    
+    console.log("Jogo completamente retomado");
 };
 
 window.restartGame = async function () {
@@ -790,10 +1033,27 @@ cena.add(skybox);
 
 // Eventos de teclado
 document.addEventListener("keydown", function (event) {
+    // Verificar se a tecla ESC foi pressionada para pausar/retomar o jogo
+    if (event.key === 'Escape') {
+        // Não pausar se estiver no menu principal, game over ou vitória
+        if (window.gameState.isInMainMenu || window.gameState.isGameOver || window.gameState.isWin) {
+            return;
+        }
+        
+        // Alternar entre pausado e não pausado
+        if (window.gameState.isPaused) {
+            window.resumeGame();
+        } else {
+            window.pauseMenu();
+        }
+        return;
+    }
+    
     // Don't process game controls if any menu is visible
     if (!document.getElementById('mainMenu').classList.contains('hidden') ||
         !document.getElementById('pauseMenu').classList.contains('hidden') ||
-        !document.getElementById('gameOverMenu').classList.contains('hidden')) {
+        !document.getElementById('gameOverMenu').classList.contains('hidden') ||
+        !document.getElementById('winMenu').classList.contains('hidden')) {
         return;
     }
 
@@ -994,10 +1254,11 @@ function loop() {
         return;
     }
     
-    // Only update game if game is not paused, game over, or win
+    // Se o jogo estiver pausado, game over ou vitória, apenas renderiza a cena sem atualizações
     if (window.gameState.isPaused || window.gameState.isGameOver || window.gameState.isWin) {
-        requestAnimationFrame(loop);
+        // Não atualiza nada, apenas renderiza o estado atual
         renderer.render(cena, cameraAtual);
+        requestAnimationFrame(loop);
         return;
     }
 
