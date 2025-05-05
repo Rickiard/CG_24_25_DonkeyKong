@@ -723,10 +723,8 @@ function atualizarBarril() {
                 console.log("Mario position:", objetoImportado.position);
                 console.log("Barrel position:", barrilImportado.position);
 
-                // Check if Mario is jumping over the barrel with more forgiving conditions
-                if (objetoImportado.position.y > barrilImportado.position.y - 2 && // Increased from -1 to -2
-                    Math.abs(objetoImportado.position.x - barrilImportado.position.x) < 3 && // Increased from implicit 1.5 to 3
-                    Math.abs(objetoImportado.position.z - barrilImportado.position.z) < 3) { // Increased from implicit 1.5 to 3
+                // Check if Mario is above the barrel (only vertical check)
+                if (objetoImportado.position.y > barrilImportado.position.y + 100) { // Mario is above the barrel with a large range
                     console.log("Scoring points!");
                     window.gameState.score += 100;
                     updateScoreDisplay();
@@ -1026,33 +1024,38 @@ function loop() {
         atualizarBarril();
 
         // Check for scoring with all active barrels
-        if (objetoImportado && !barrilColisao && pulando) {
+        if (objetoImportado && !barrilColisao) {
             barrisAtivos.forEach((barril) => {
-                // Only check for scoring if we haven't scored for this barrel yet
+                // Verifica se o jogador está acima do barril dentro de um range vertical e horizontal
                 if (!barril.userData.scored) {
-                    // Create bounding boxes for Mario and the barrel
-                    const marioBox = new THREE.Box3().setFromObject(objetoImportado);
-                    const barrilBox = new THREE.Box3().setFromObject(barril);
+                    const marioPos = objetoImportado.position;
+                    const barrilPos = barril.position;
 
-                    // Check if the bounding boxes intersect
-                    if (marioBox.intersectsBox(barrilBox)) {
-                        console.log("Barrel collision detected!");
-                        console.log("Mario position:", objetoImportado.position);
-                        console.log("Barrel position:", barril.position);
+                    // Define os ranges de proximidade
+                    const rangeVertical = 0.5 // Range vertical de 2 unidades acima do barril
+                    const rangeHorizontal = 1; // Range horizontal de 3 unidades (x e z)
 
-                        // Check if Mario is jumping over the barrel with more forgiving conditions
-                        if (objetoImportado.position.y > barril.position.y - 2 && // Increased from -1 to -2
-                            Math.abs(objetoImportado.position.x - barril.position.x) < 3 && // Increased from implicit 1.5 to 3
-                            Math.abs(objetoImportado.position.z - barril.position.z) < 3) { // Increased from implicit 1.5 to 3
-                            console.log("Scoring points!");
-                            window.gameState.score += 100;
-                            updateScoreDisplay();
-                            barril.userData.scored = true;
-                        }
+                    // Verifica se Mario está acima do barril e próximo horizontalmente
+                    const estaAcima = marioPos.y > barrilPos.y + rangeVertical;
+                    const estaProximoHorizontalmente =
+                        Math.abs(marioPos.x - barrilPos.x) <= rangeHorizontal &&
+                        Math.abs(marioPos.z - barrilPos.z) <= rangeHorizontal;
+
+                    // Verifica se Mario está realmente próximo o suficiente para pontuar
+                    const distancia = marioPos.distanceTo(barrilPos);
+                    const distanciaMaxima = 2; // Distância máxima para pontuar
+
+                    if (estaAcima && estaProximoHorizontalmente && distancia <= distanciaMaxima) {
+                        console.log("Mario está acima e próximo do barril! Ganhando pontos...");
+                        window.gameState.score += 100; // Adiciona 100 pontos
+                        updateScoreDisplay();
+                        barril.userData.scored = true; // Marca o barril como já pontuado
                     }
                 }
             });
         }
+
+
 
         barrisAtivos.forEach((barril, index) => {
             // Remove o barril se estiver muito abaixo (fora da cena)
