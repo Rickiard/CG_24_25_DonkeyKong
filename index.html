@@ -36,14 +36,13 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: #000000; /* Fundo totalmente preto */
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             color: white;
             z-index: 1000;
-            backdrop-filter: blur(5px);
             transition: all 0.3s ease;
         }
 
@@ -116,15 +115,14 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: #000000;
             padding: 30px;
             border-radius: 15px;
             text-align: center;
             z-index: 1001;
             color: white;
             box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
-            border: 1px solid rgba(255, 0, 0, 0.3);
-            backdrop-filter: blur(10px);
+            border: 1px solid #FF0000;
         }
 
             .modal h2 {
@@ -172,23 +170,29 @@
             border-radius: 50%;
             cursor: pointer;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            z-index: 1000;
+            z-index: 2000; /* Aumentado para ficar acima de todos os menus */
             display: flex;
             justify-content: center;
             align-items: center;
-            transition: transform 0.2s ease;
+            transition: all 0.2s ease;
         }
 
             .sound-button:hover {
                 transform: scale(1.1);
+                background-color: #FFC107;
             }
 
             .sound-button:active {
                 transform: scale(0.9);
             }
+            
+            /* Estilo para quando o áudio estiver mutado */
+            .sound-button.muted {
+                background-color: #F44336;
+            }
         /* Pause Menu Specific Styles */
         #pauseMenu {
-            background: rgba(0, 0, 0, 0.9);
+            background: #000000;
         }
 
             #pauseMenu .menu-title {
@@ -220,7 +224,12 @@
 
         /* Game Over Menu Specific Styles */
         #gameOverMenu {
-            background: rgba(0, 0, 0, 0.9);
+            background: #000000;
+        }
+        
+        /* Win Menu Specific Styles */
+        #winMenu {
+            background: #000000;
         }
 
             #gameOverMenu .menu-title {
@@ -271,12 +280,67 @@
         .hidden {
             display: none;
         }
+
+        /* Loading Screen Styles */
+        #loadingScreen {
+            background: #000000;
+            z-index: 2000;
+        }
+
+        #loadingScreen .menu-title {
+            font-size: 3.5em;
+            margin-bottom: 1em;
+            color: #4CAF50;
+            text-shadow: 0 0 10px rgba(76, 175, 80, 0.7), 0 0 20px rgba(76, 175, 80, 0.5), 0 0 30px rgba(76, 175, 80, 0.3);
+            animation: glowLoading 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glowLoading {
+            from {
+                text-shadow: 0 0 10px rgba(76, 175, 80, 0.7), 0 0 20px rgba(76, 175, 80, 0.5), 0 0 30px rgba(76, 175, 80, 0.3);
+            }
+            to {
+                text-shadow: 0 0 15px rgba(76, 175, 80, 0.8), 0 0 25px rgba(76, 175, 80, 0.6), 0 0 35px rgba(76, 175, 80, 0.4);
+            }
+        }
+
+        .loading-spinner {
+            width: 80px;
+            height: 80px;
+            border: 8px solid rgba(76, 175, 80, 0.3);
+            border-radius: 50%;
+            border-top: 8px solid #4CAF50;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 30px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #loadingProgress {
+            font-size: 1.5em;
+            color: white;
+            margin-top: 20px;
+            text-align: center;
+        }
     </style>
 
 </head>
 <body>
     <!-- Score Display -->
     <div id="scoreDisplay">Score: 0</div>
+    
+    <!-- Sound Button - Sempre visível -->
+    <button id="soundButton" class="sound-button">🔊</button>
+
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="menu-container hidden">
+        <h1 class="menu-title">LOADING GAME</h1>
+        <div class="loading-spinner"></div>
+        <div id="loadingProgress">Carregando recursos...</div>
+    </div>
 
     <!-- Main Menu Container -->
     <div id="mainMenu" class="menu-container">
@@ -284,9 +348,8 @@
         <button id="startButton" class="menu-button">START GAME</button>
         <button id="instructionsButton" class="menu-button">INSTRUCTIONS</button>
         <button id="creditsButton" class="menu-button">CREDITS</button>
-        <button id="soundButton" class="sound-button">
-            🔊
-        </button>
+        <!-- Botão de som agora está fora do menu para ficar sempre visível -->
+        
     </div>
 
     <!-- Pause Menu Container -->
@@ -375,12 +438,8 @@
         });
 
         document.getElementById('mainMenuButton').addEventListener('click', function () {
-            document.getElementById('pauseMenu').classList.add('hidden');
-            document.getElementById('mainMenu').classList.remove('hidden');
-            // Don't pause the game when returning to main menu
-            // Just reset the player position
-            if (typeof restartGame === 'function') {
-                restartGame();
+            if (typeof returnToMainMenu === 'function') {
+                returnToMainMenu();
             }
         });
 
@@ -391,23 +450,8 @@
         });
 
         document.getElementById('gameOverMainMenuButton').addEventListener('click', function () {
-            document.getElementById('gameOverMenu').classList.add('hidden');
-            document.getElementById('mainMenu').classList.remove('hidden');
-
-            // Reset the player position when returning to main menu
-            if (typeof restartGame === 'function') {
-                restartGame();
-            }
-
-            // Stop all music and play the stage theme
-            stopAllMusic();
-            if (audioInitialized && stageTheme && !stageTheme.isPlaying) {
-                try {
-                    stageTheme.play();
-                    console.log('Stage Theme started playing from Game Over Main Menu');
-                } catch (error) {
-                    console.error('Error playing Stage Theme from Game Over Main Menu:', error);
-                }
+            if (typeof returnToMainMenu === 'function') {
+                returnToMainMenu();
             }
         });
 
