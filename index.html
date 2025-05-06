@@ -280,6 +280,31 @@
         .hidden {
             display: none;
         }
+        
+        /* Countdown Timer Styles */
+        .countdown-timer {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 8em;
+            color: #FFD700;
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.8), 0 0 25px rgba(255, 215, 0, 0.6), 0 0 35px rgba(255, 215, 0, 0.4);
+            z-index: 1500;
+            font-weight: bold;
+            animation: countdownPulse 1s infinite alternate;
+        }
+        
+        @keyframes countdownPulse {
+            from {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+            to {
+                transform: translate(-50%, -50%) scale(1.1);
+                opacity: 0.8;
+            }
+        }
 
         /* Loading Screen Styles */
         #loadingScreen {
@@ -331,6 +356,9 @@
 <body>
     <!-- Score Display -->
     <div id="scoreDisplay">Score: 0</div>
+    
+    <!-- Countdown Timer -->
+    <div id="countdownTimer" class="countdown-timer hidden">3</div>
     
     <!-- Sound Button - Sempre visível -->
     <button id="soundButton" class="sound-button">🔊</button>

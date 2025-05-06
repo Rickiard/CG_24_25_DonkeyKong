@@ -554,69 +554,95 @@ window.pauseMenu = function () {
 };
 
 window.resumeGame = function () {
-    console.log("Retomando o jogo");
+    console.log("Preparando para retomar o jogo");
     
     // Esconder o menu de pausa
     document.getElementById('pauseMenu').classList.add('hidden');
     
-    // RETOMAR TODAS AS ANIMAÇÕES
+    // Mostrar o contador de despause
+    const countdownTimer = document.getElementById('countdownTimer');
+    countdownTimer.textContent = "3";
+    countdownTimer.classList.remove('hidden');
     
-    // Retomar a animação do Mario
-    if (mixerAnimacao) {
-        mixerAnimacao.timeScale = 1;
-        if (animacaoAtual) {
-            animacaoAtual.paused = false;
+    // Iniciar a contagem regressiva
+    let countdown = 3;
+    
+    const countdownInterval = setInterval(function() {
+        countdown--;
+        
+        if (countdown > 0) {
+            // Atualizar o texto do contador
+            countdownTimer.textContent = countdown.toString();
+        } else if (countdown === 0) {
+            // Mostrar "GO!"
+            countdownTimer.textContent = "GO!";
+            countdownTimer.style.color = "#4CAF50"; // Verde
+        } else {
+            // Limpar o intervalo e esconder o contador
+            clearInterval(countdownInterval);
+            countdownTimer.classList.add('hidden');
+            countdownTimer.style.color = "#FFD700"; // Restaurar cor original
+            
+            // RETOMAR TODAS AS ANIMAÇÕES
+            
+            // Retomar a animação do Mario
+            if (mixerAnimacao) {
+                mixerAnimacao.timeScale = 1;
+                if (animacaoAtual) {
+                    animacaoAtual.paused = false;
+                }
+                console.log("Mario retomado");
+            }
+            
+            // Retomar a animação do Donkey Kong
+            if (mixerDonkeyKong) {
+                mixerDonkeyKong.timeScale = 1;
+                console.log("Donkey Kong retomado");
+            }
+            
+            // Retomar a animação da Peach
+            if (mixerPeach) {
+                mixerPeach.timeScale = 1;
+                console.log("Peach retomada");
+            }
+            
+            // Retomar todos os barris
+            if (barrisAtivos && barrisAtivos.length > 0) {
+                barrisAtivos.forEach(barril => {
+                    if (barril.userData.velocidadeOriginal) {
+                        // Restaurar a velocidade original
+                        barril.userData.velocidade = { ...barril.userData.velocidadeOriginal };
+                        delete barril.userData.velocidadeOriginal;
+                    }
+                });
+                console.log(`${barrisAtivos.length} barris retomados`);
+            }
+            
+            // Restaurar a intensidade das luzes
+            if (animationStates.luzes.length > 0) {
+                animationStates.luzes.forEach(estado => {
+                    if (estado.luz && estado.luz.userData.intensidadeOriginal !== undefined) {
+                        // Restaurar a intensidade original
+                        estado.luz.intensity = estado.luz.userData.intensidadeOriginal;
+                        delete estado.luz.userData.intensidadeOriginal;
+                    }
+                });
+                console.log(`${animationStates.luzes.length} luzes retomadas`);
+                animationStates.luzes = [];
+            }
+            
+            // Retomar o áudio
+            window.resumeAudio();
+            
+            // Retomar o relógio do jogo
+            relogio.start();
+            
+            // Definir o estado do jogo como não pausado (deve ser o último para garantir que tudo esteja pronto)
+            window.gameState.isPaused = false;
+            
+            console.log("Jogo completamente retomado");
         }
-        console.log("Mario retomado");
-    }
-    
-    // Retomar a animação do Donkey Kong
-    if (mixerDonkeyKong) {
-        mixerDonkeyKong.timeScale = 1;
-        console.log("Donkey Kong retomado");
-    }
-    
-    // Retomar a animação da Peach
-    if (mixerPeach) {
-        mixerPeach.timeScale = 1;
-        console.log("Peach retomada");
-    }
-    
-    // Retomar todos os barris
-    if (barrisAtivos && barrisAtivos.length > 0) {
-        barrisAtivos.forEach(barril => {
-            if (barril.userData.velocidadeOriginal) {
-                // Restaurar a velocidade original
-                barril.userData.velocidade = { ...barril.userData.velocidadeOriginal };
-                delete barril.userData.velocidadeOriginal;
-            }
-        });
-        console.log(`${barrisAtivos.length} barris retomados`);
-    }
-    
-    // Restaurar a intensidade das luzes
-    if (animationStates.luzes.length > 0) {
-        animationStates.luzes.forEach(estado => {
-            if (estado.luz && estado.luz.userData.intensidadeOriginal !== undefined) {
-                // Restaurar a intensidade original
-                estado.luz.intensity = estado.luz.userData.intensidadeOriginal;
-                delete estado.luz.userData.intensidadeOriginal;
-            }
-        });
-        console.log(`${animationStates.luzes.length} luzes retomadas`);
-        animationStates.luzes = [];
-    }
-    
-    // Retomar o áudio
-    window.resumeAudio();
-    
-    // Retomar o relógio do jogo
-    relogio.start();
-    
-    // Definir o estado do jogo como não pausado (deve ser o último para garantir que tudo esteja pronto)
-    window.gameState.isPaused = false;
-    
-    console.log("Jogo completamente retomado");
+    }, 1000);
 };
 
 window.restartGame = async function () {
