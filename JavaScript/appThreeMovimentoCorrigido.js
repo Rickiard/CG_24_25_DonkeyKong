@@ -29,7 +29,6 @@ async function ensureAudioContext() {
         try {
             await audioListener.context.resume();
             window.audioContextStarted = true;
-            console.log('Audio context resumed successfully');
             return true;
         } catch (error) {
             console.error('Error resuming audio context:', error);
@@ -51,10 +50,8 @@ async function safePlayAudio(audio, name) {
                 const originalVolume = audio.getVolume();
                 audio.setVolume(0);
                 audio.play();
-                console.log(`${name} started playing (muted)`);
             } else {
                 audio.play();
-                console.log(`${name} started playing`);
             }
         }
     } catch (error) {
@@ -67,15 +64,12 @@ window.stopAllMusic = function () {
     try {
         if (endingTheme && endingTheme.isPlaying) {
             endingTheme.stop();
-            console.log('Ending Theme stopped');
         }
         if (window.stageTheme && window.stageTheme.isPlaying) {
             window.stageTheme.stop();
-            console.log('Stage Theme stopped');
         }
         if (window.titleTheme && window.titleTheme.isPlaying) {
             window.titleTheme.stop();
-            console.log('Title Theme stopped');
         }
     } catch (error) {
         console.error('Error stopping music:', error);
@@ -90,91 +84,81 @@ let audioState = {
 };
 
 // Função para pausar o áudio atual
-window.pauseAudio = function() {
+window.pauseAudio = function () {
     try {
-        console.log("Tentando pausar todos os áudios...");
-        
         // Pausar Stage Theme
         if (window.stageTheme && window.stageTheme.isPlaying) {
             audioState.stageTheme.wasPaused = true;
             // Forçar a parada do áudio para garantir que ele pare
             window.stageTheme.stop();
-            console.log('Stage Theme parado com sucesso');
         } else {
             audioState.stageTheme.wasPaused = false;
         }
-        
+
         // Pausar Title Theme
         if (window.titleTheme && window.titleTheme.isPlaying) {
             audioState.titleTheme.wasPaused = true;
             // Forçar a parada do áudio para garantir que ele pare
             window.titleTheme.stop();
-            console.log('Title Theme parado com sucesso');
         } else {
             audioState.titleTheme.wasPaused = false;
         }
-        
+
         // Pausar Ending Theme
         if (endingTheme && endingTheme.isPlaying) {
             audioState.endingTheme.wasPaused = true;
             // Forçar a parada do áudio para garantir que ele pare
             endingTheme.stop();
-            console.log('Ending Theme parado com sucesso');
         } else {
             audioState.endingTheme.wasPaused = false;
         }
-        
+
         // Verificar se todos os áudios foram pausados
         if (window.stageTheme) console.log("Stage Theme isPlaying:", window.stageTheme.isPlaying);
         if (window.titleTheme) console.log("Title Theme isPlaying:", window.titleTheme.isPlaying);
         if (endingTheme) console.log("Ending Theme isPlaying:", endingTheme.isPlaying);
-        
+
     } catch (error) {
         console.error('Erro ao pausar áudio:', error);
     }
 };
 
 // Função para retomar o áudio pausado
-window.resumeAudio = function() {
+window.resumeAudio = function () {
     try {
-        console.log("Tentando retomar os áudios pausados...");
-        
         // Retomar Stage Theme
         if (audioState.stageTheme.wasPaused && window.stageTheme) {
             // Garantir que o áudio seja tocado novamente
             window.stageTheme.play();
-            console.log('Stage Theme retomado');
             audioState.stageTheme.wasPaused = false;
         }
-        
+
         // Retomar Title Theme
         if (audioState.titleTheme.wasPaused && window.titleTheme) {
             // Garantir que o áudio seja tocado novamente
             window.titleTheme.play();
-            console.log('Title Theme retomado');
             audioState.titleTheme.wasPaused = false;
         }
-        
+
         // Retomar Ending Theme
         if (audioState.endingTheme.wasPaused && endingTheme) {
             // Garantir que o áudio seja tocado novamente
             endingTheme.play();
-            console.log('Ending Theme retomado');
             audioState.endingTheme.wasPaused = false;
         }
-        
+
         // Verificar se todos os áudios foram retomados
         if (window.stageTheme) console.log("Stage Theme isPlaying:", window.stageTheme.isPlaying);
         if (window.titleTheme) console.log("Title Theme isPlaying:", window.titleTheme.isPlaying);
         if (endingTheme) console.log("Ending Theme isPlaying:", endingTheme.isPlaying);
-        
+
     } catch (error) {
         console.error('Erro ao retomar áudio:', error);
     }
 };
 
 // Function to mute all audio
-window.muteAudio = function() {
+window.muteAudio = function () {
     if (!window.isMuted) {
         try {
             // Mutar todos os sons diretamente
@@ -182,10 +166,8 @@ window.muteAudio = function() {
             if (endingTheme) endingTheme.setVolume(0);
             if (window.stageTheme) window.stageTheme.setVolume(0);
             if (window.titleTheme) window.titleTheme.setVolume(0);
-            
+
             window.isMuted = true;
-            console.log('Audio muted');
-            
             // Atualizar o ícone e a classe do botão
             const soundButton = document.getElementById('soundButton');
             if (soundButton) {
@@ -199,7 +181,7 @@ window.muteAudio = function() {
 };
 
 // Function to unmute all audio
-window.unmuteAudio = function() {
+window.unmuteAudio = function () {
     if (window.isMuted) {
         try {
             // Restaurar volumes originais
@@ -207,10 +189,8 @@ window.unmuteAudio = function() {
             if (endingTheme) endingTheme.setVolume(0.3);
             if (window.stageTheme) window.stageTheme.setVolume(1.0);
             if (window.titleTheme) window.titleTheme.setVolume(1.0);
-            
+
             window.isMuted = false;
-            console.log('Audio unmuted');
-            
             // Atualizar o ícone e a classe do botão
             const soundButton = document.getElementById('soundButton');
             if (soundButton) {
@@ -230,7 +210,7 @@ function loadAudioAsync(audioLoader, audioPath, audioObject, volume, loop = fals
         if (document.getElementById('loadingProgress')) {
             document.getElementById('loadingProgress').textContent = `Carregando ${name}...`;
         }
-        
+
         audioLoader.load(
             audioPath,
             function (buffer) {
@@ -239,14 +219,13 @@ function loadAudioAsync(audioLoader, audioPath, audioObject, volume, loop = fals
                 if (loop) {
                     audioObject.setLoop(true);
                 }
-                console.log(`${name} loaded successfully`);
                 resolve(true);
             },
             // Função de progresso (opcional)
-            function(xhr) {
+            function (xhr) {
                 if (xhr.lengthComputable && document.getElementById('loadingProgress')) {
                     const percentComplete = Math.round((xhr.loaded / xhr.total) * 100);
-                    document.getElementById('loadingProgress').textContent = 
+                    document.getElementById('loadingProgress').textContent =
                         `Carregando ${name}... ${percentComplete}%`;
                 }
             },
@@ -266,26 +245,26 @@ async function initializeAudio() {
             if (document.getElementById('loadingProgress')) {
                 document.getElementById('loadingProgress').textContent = "Inicializando sistema de áudio...";
             }
-            
+
             // Create new audio context
             audioListener = new THREE.AudioListener();
-            
+
             // Criar objetos de áudio com controle de reprodução
             jumpSound = new THREE.Audio(audioListener);
             jumpSound.hasPlaybackControl = true;
-            
+
             endingTheme = new THREE.Audio(audioListener);
             endingTheme.hasPlaybackControl = true;
-            
+
             window.stageTheme = new THREE.Audio(audioListener);
             window.stageTheme.hasPlaybackControl = true;
-            
+
             window.titleTheme = new THREE.Audio(audioListener);
             window.titleTheme.hasPlaybackControl = true;
 
             // Load audio files
             const audioLoader = new THREE.AudioLoader();
-            
+
             // Load all audio files asynchronously
             const audioFiles = [
                 { path: './audio/Mario Jump Sound.mp3', audio: jumpSound, volume: 0.5, loop: false, name: 'Jump Sound' },
@@ -293,41 +272,39 @@ async function initializeAudio() {
                 { path: './audio/Stage Theme.mp3', audio: window.stageTheme, volume: 1.0, loop: true, name: 'Stage Theme' },
                 { path: './audio/Title Theme.mp3', audio: window.titleTheme, volume: 1.0, loop: true, name: 'Title Theme' }
             ];
-            
+
             // Carregar cada arquivo de áudio sequencialmente para melhor feedback visual
             for (let i = 0; i < audioFiles.length; i++) {
                 const file = audioFiles[i];
                 await loadAudioAsync(audioLoader, file.path, file.audio, file.volume, file.loop, file.name);
-                
+
                 // Atualizar o progresso geral
                 if (document.getElementById('loadingProgress')) {
                     const percentComplete = Math.round(((i + 1) / audioFiles.length) * 100);
-                    document.getElementById('loadingProgress').textContent = 
+                    document.getElementById('loadingProgress').textContent =
                         `Carregando áudios... ${percentComplete}%`;
                 }
             }
-            
+
             // Atualizar a mensagem final
             if (document.getElementById('loadingProgress')) {
                 document.getElementById('loadingProgress').textContent = "Todos os áudios carregados com sucesso!";
             }
 
             window.audioInitialized = true;
-            console.log('Audio system initialized successfully');
-            
             // Pequena pausa para mostrar a mensagem de conclusão
             await new Promise(resolve => setTimeout(resolve, 500));
-            
+
             return true;
         } catch (error) {
             console.error('Error initializing audio system:', error);
-            
+
             // Mostrar mensagem de erro
             if (document.getElementById('loadingProgress')) {
-                document.getElementById('loadingProgress').textContent = 
+                document.getElementById('loadingProgress').textContent =
                     "Erro ao carregar áudios. Tente novamente.";
             }
-            
+
             return false;
         }
     }
@@ -351,14 +328,12 @@ document.addEventListener('touchstart', async function () {
 document.addEventListener('DOMContentLoaded', async function () {
     // Inicializar áudio primeiro
     await initializeAudio();
-    console.log("Áudio inicializado no carregamento da página");
-
     const soundButton = document.getElementById('soundButton');
 
     soundButton.addEventListener('click', async function () {
         try {
             await ensureAudioContext(); // Garante que o AudioContext seja iniciado
-            
+
             // Toggle mute/unmute
             if (window.isMuted) {
                 window.unmuteAudio();
@@ -369,14 +344,13 @@ document.addEventListener('DOMContentLoaded', async function () {
             console.error('Error toggling audio:', error);
         }
     });
-    
+
     // Iniciar a música do menu principal automaticamente após inicialização
     try {
         await ensureAudioContext();
         // Tocar a música do menu principal
         if (window.titleTheme && !window.titleTheme.isPlaying) {
             window.titleTheme.play();
-            console.log('Title Theme started playing on page load');
         }
     } catch (error) {
         console.error('Error starting title theme on page load:', error);
@@ -390,39 +364,33 @@ function updateScoreDisplay() {
 
 // Global functions for menu control
 window.startGame = async function () {
-    console.log("Iniciando novo jogo a partir do menu principal");
-    
     // Mostrar tela de loading
     document.getElementById('mainMenu').classList.add('hidden');
     document.getElementById('loadingScreen').classList.remove('hidden');
     document.getElementById('loadingProgress').textContent = "Carregando recursos de áudio...";
-    
+
     // Pequeno atraso para garantir que a tela de loading seja exibida
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     try {
         // Limpar barris existentes
         if (barrisAtivos && barrisAtivos.length > 0) {
-            console.log("Removendo barris existentes:", barrisAtivos.length);
             barrisAtivos.forEach(barril => cena.remove(barril));
             barrisAtivos = [];
         }
         barrilColisao = false;
-        
+
         // Forçar reinicialização completa do jogo
         window.gameState.isInitialized = false;
-        
+
         // Aguardar a inicialização assíncrona
         await Start();
         window.gameState.isInitialized = true;
-        console.log("Jogo inicializado com sucesso!");
-        
         // Garantir que o Mario esteja na posição correta
         if (objetoImportado) {
-            console.log("Reposicionando Mario na função startGame");
             objetoImportado.position.set(-10, -9.7, -3.0);
             objetoImportado.rotation.set(0, Math.PI / 2, 0);
-            
+
             // Reset Mario's texture back to normal
             const marioTexture = textureLoader.load('./textures/mario_texture.png');
             objetoImportado.traverse(function (child) {
@@ -462,7 +430,6 @@ window.startGame = async function () {
     // Garantir que o loop de animação esteja ativo
     animationLoopActive = true;
     requestAnimationFrame(loop);
-    console.log("Loop de animação iniciado para o jogo");
 };
 
 // Variáveis para armazenar o estado das animações e luzes
@@ -474,102 +441,90 @@ let animationStates = {
 };
 
 window.pauseMenu = function () {
-    console.log("Pausando o jogo");
-    
     // Definir o estado do jogo como pausado
     window.gameState.isPaused = true;
-    
+
     // Mostrar o menu de pausa
     document.getElementById('pauseMenu').classList.remove('hidden');
-    
+
     // Salvar a posição original do Mario
     if (objetoImportado) {
         window.gameState.originalPosition = objetoImportado.position.clone();
         // Garantir que o Mario não se mova
         teclasPressionadas = {}; // Limpar todas as teclas pressionadas
     }
-    
+
     // PAUSAR TODAS AS ANIMAÇÕES
-    
+
     // Pausar a animação do Mario
     if (mixerAnimacao) {
         mixerAnimacao.timeScale = 0;
         if (animacaoAtual) {
             animacaoAtual.paused = true;
         }
-        console.log("Mario pausado");
     }
-    
+
     // Pausar a animação do Donkey Kong
     if (mixerDonkeyKong) {
         mixerDonkeyKong.timeScale = 0;
-        console.log("Donkey Kong pausado");
     }
-    
+
     // Pausar a animação da Peach
     if (mixerPeach) {
         mixerPeach.timeScale = 0;
-        console.log("Peach pausada");
     }
-    
+
     // Pausar todos os barris
     if (barrisAtivos && barrisAtivos.length > 0) {
         barrisAtivos.forEach(barril => {
             if (barril.userData.velocidade) {
                 // Guardar a velocidade original
                 barril.userData.velocidadeOriginal = { ...barril.userData.velocidade };
-                
+
                 // Zerar a velocidade
                 barril.userData.velocidade.x = 0;
                 barril.userData.velocidade.y = 0;
                 barril.userData.velocidade.z = 0;
             }
         });
-        console.log(`${barrisAtivos.length} barris pausados`);
     }
-    
+
     // Salvar e fixar a intensidade das luzes
     animationStates.luzes = [];
-    cena.traverse(function(objeto) {
+    cena.traverse(function (objeto) {
         if (objeto.isLight) {
             // Salvar a intensidade original
             animationStates.luzes.push({
                 luz: objeto,
                 intensidade: objeto.intensity
             });
-            
+
             // Fixar a intensidade para evitar mudanças
             objeto.userData.intensidadeOriginal = objeto.intensity;
         }
     });
-    console.log(`${animationStates.luzes.length} luzes pausadas`);
-    
     // Pausar o áudio
     window.pauseAudio();
-    
+
     // Pausar o relógio do jogo para que o delta time seja zero
     relogio.stop();
-    
-    console.log("Jogo completamente pausado");
 };
 
 window.resumeGame = function () {
-    console.log("Preparando para retomar o jogo");
-    
     // Esconder o menu de pausa
     document.getElementById('pauseMenu').classList.add('hidden');
-    
+
     // Mostrar o contador de despause
     const countdownTimer = document.getElementById('countdownTimer');
     countdownTimer.textContent = "3";
     countdownTimer.classList.remove('hidden');
-    
+
     // Iniciar a contagem regressiva
     let countdown = 3;
-    
-    const countdownInterval = setInterval(function() {
+
+    const countdownInterval = setInterval(function () {
         countdown--;
-        
+
         if (countdown > 0) {
             // Atualizar o texto do contador
             countdownTimer.textContent = countdown.toString();
@@ -582,30 +537,27 @@ window.resumeGame = function () {
             clearInterval(countdownInterval);
             countdownTimer.classList.add('hidden');
             countdownTimer.style.color = "#FFD700"; // Restaurar cor original
-            
+
             // RETOMAR TODAS AS ANIMAÇÕES
-            
+
             // Retomar a animação do Mario
             if (mixerAnimacao) {
                 mixerAnimacao.timeScale = 1;
                 if (animacaoAtual) {
                     animacaoAtual.paused = false;
                 }
-                console.log("Mario retomado");
             }
-            
+
             // Retomar a animação do Donkey Kong
             if (mixerDonkeyKong) {
                 mixerDonkeyKong.timeScale = 1;
-                console.log("Donkey Kong retomado");
             }
-            
+
             // Retomar a animação da Peach
             if (mixerPeach) {
                 mixerPeach.timeScale = 1;
-                console.log("Peach retomada");
             }
-            
+
             // Retomar todos os barris
             if (barrisAtivos && barrisAtivos.length > 0) {
                 barrisAtivos.forEach(barril => {
@@ -615,9 +567,8 @@ window.resumeGame = function () {
                         delete barril.userData.velocidadeOriginal;
                     }
                 });
-                console.log(`${barrisAtivos.length} barris retomados`);
             }
-            
+
             // Restaurar a intensidade das luzes
             if (animationStates.luzes.length > 0) {
                 animationStates.luzes.forEach(estado => {
@@ -627,20 +578,17 @@ window.resumeGame = function () {
                         delete estado.luz.userData.intensidadeOriginal;
                     }
                 });
-                console.log(`${animationStates.luzes.length} luzes retomadas`);
                 animationStates.luzes = [];
             }
-            
+
             // Retomar o áudio
             window.resumeAudio();
-            
+
             // Retomar o relógio do jogo
             relogio.start();
-            
+
             // Definir o estado do jogo como não pausado (deve ser o último para garantir que tudo esteja pronto)
             window.gameState.isPaused = false;
-            
-            console.log("Jogo completamente retomado");
         }
     }, 1000);
 };
@@ -678,10 +626,10 @@ window.restartGame = async function () {
 
     // Stop all music first
     window.stopAllMusic();
-    
+
     // Wait a brief moment to ensure all music has stopped
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     // Now play the stage theme
     await safePlayAudio(window.stageTheme, 'Stage Theme');
 
@@ -693,7 +641,6 @@ window.restartGame = async function () {
     // Garantir que o loop de animação esteja ativo
     animationLoopActive = true;
     requestAnimationFrame(loop);
-    console.log("Loop de animação reiniciado para o jogo");
 };
 
 window.gameOver = async function () {
@@ -703,7 +650,7 @@ window.gameOver = async function () {
 
     // Stop all music first
     window.stopAllMusic();
-    
+
     // Wait a brief moment to ensure all music has stopped
     await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -715,10 +662,10 @@ window.gameWin = async function () {
     window.gameState.isWin = true;
     document.getElementById('winMenu').classList.remove('hidden');
     document.getElementById('winScore').textContent = `Score: ${window.gameState.score}`;
-    
+
     // Stop all music first
     window.stopAllMusic();
-    
+
     // Wait a brief moment to ensure all music has stopped
     await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -728,14 +675,12 @@ window.gameWin = async function () {
 
 // Add function to return to main menu
 window.returnToMainMenu = async function () {
-    console.log("Retornando ao menu principal");
-    
     // Stop any playing music first
     window.stopAllMusic();
 
     // Parar o loop de animação atual
     animationLoopActive = false;
-    
+
     // Definir flags de estado
     window.gameState.isPaused = true;
     window.gameState.isInMainMenu = true;
@@ -754,11 +699,10 @@ window.returnToMainMenu = async function () {
 
     // Play title theme instead of stage theme
     await safePlayAudio(window.titleTheme, 'Title Theme');
-    
+
     // Reiniciar o loop de animação para o menu
     animationLoopActive = true;
     requestAnimationFrame(loop);
-    console.log("Loop de animação reiniciado para o menu principal");
 };
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -1065,7 +1009,7 @@ document.addEventListener("keydown", function (event) {
         if (window.gameState.isInMainMenu || window.gameState.isGameOver || window.gameState.isWin) {
             return;
         }
-        
+
         // Alternar entre pausado e não pausado
         if (window.gameState.isPaused) {
             window.resumeGame();
@@ -1074,7 +1018,7 @@ document.addEventListener("keydown", function (event) {
         }
         return;
     }
-    
+
     // Don't process game controls if any menu is visible
     if (!document.getElementById('mainMenu').classList.contains('hidden') ||
         !document.getElementById('pauseMenu').classList.contains('hidden') ||
@@ -1161,13 +1105,9 @@ function atualizarBarril() {
 
             // Check if the bounding boxes intersect
             if (marioBox.intersectsBox(barrilBox)) {
-                console.log("Barrel collision detected!");
                 console.log("Mario position:", objetoImportado.position);
-                console.log("Barrel position:", barrilImportado.position);
-
                 // Check if Mario is above the barrel (only vertical check)
                 if (objetoImportado.position.y > barrilImportado.position.y + 100) { // Mario is above the barrel with a large range
-                    console.log("Scoring points!");
                     window.gameState.score += 100;
                     updateScoreDisplay();
                     barrilImportado.userData.scored = true;
@@ -1179,23 +1119,17 @@ function atualizarBarril() {
 
 // Função principal - agora assíncrona
 async function Start() {
-    console.log("Iniciando função Start() para reiniciar o jogo completamente");
-    
     // Add audio listener to the camera
     camaraPerspectiva.add(audioListener);
 
     // Initialize audio context asynchronously and wait for it to complete
-    console.log("Carregando áudios...");
     await initializeAudio();
-    console.log("Áudios carregados com sucesso!");
-
     // Retornar a câmera à posição original
     camaraPerspectiva.position.set(0, 1, 5);
     camaraPerspectiva.lookAt(0, 0, 0);
-    
+
     // Reposicionar Mario se ele já existir
     if (objetoImportado) {
-        console.log("Reposicionando Mario na função Start()");
         objetoImportado.position.set(-10, -9.7, -3.0);
         objetoImportado.rotation.set(0, Math.PI / 2, 0);
     }
@@ -1270,14 +1204,14 @@ function loop() {
     if (!animationLoopActive) {
         return;
     }
-    
+
     // Se estiver no menu principal, não atualiza o jogo, mas continua renderizando
     if (window.gameState.isInMainMenu) {
         renderer.render(cena, cameraAtual);
         requestAnimationFrame(loop);
         return;
     }
-    
+
     // Se o jogo estiver pausado, game over ou vitória, apenas renderiza a cena sem atualizações
     if (window.gameState.isPaused || window.gameState.isGameOver || window.gameState.isWin) {
         // Não atualiza nada, apenas renderiza o estado atual
@@ -1515,7 +1449,6 @@ function loop() {
                     const distanciaMaxima = 2; // Distância máxima para pontuar
 
                     if (estaAcima && estaProximoHorizontalmente && distancia <= distanciaMaxima) {
-                        console.log("Mario está acima e próximo do barril! Ganhando pontos...");
                         window.gameState.score += 100; // Adiciona 100 pontos
                         updateScoreDisplay();
                         barril.userData.scored = true; // Marca o barril como já pontuado
@@ -1621,21 +1554,18 @@ function loop() {
                         objetoImportado.position.y > barril.position.y - 2 &&
                         Math.abs(objetoImportado.position.x - barril.position.x) < 3 &&
                         Math.abs(objetoImportado.position.z - barril.position.z) < 3)) {
-                        console.log("Game Over - Collision with barrel!");
                         console.log("Distance to barrel:", distancia);
                         barrilColisao = true;
 
                         // Stop Title Theme and play Ending Theme
                         if (window.titleTheme && window.titleTheme.isPlaying) {
                             window.titleTheme.stop();
-                            console.log('Title Theme stopped on collision');
                         }
 
                         // Play ending theme before game over
                         if (endingTheme && !endingTheme.isPlaying) {
                             try {
                                 endingTheme.play();
-                                console.log('Ending Theme started playing on collision');
                             } catch (error) {
                                 console.error('Error playing Ending Theme on collision:', error);
                             }
@@ -1666,18 +1596,15 @@ function loop() {
                 // Stop current theme and play ending theme
                 if (window.stageTheme && window.stageTheme.isPlaying) {
                     window.stageTheme.stop();
-                    console.log('Stage Theme stopped on Peach collision');
                 }
                 if (window.titleTheme && window.titleTheme.isPlaying) {
                     window.titleTheme.stop();
-                    console.log('Title Theme stopped on Peach collision');
                 }
 
                 // Play ending theme
                 if (endingTheme && !endingTheme.isPlaying) {
                     try {
                         endingTheme.play();
-                        console.log('Ending Theme started playing on Peach collision');
                     } catch (error) {
                         console.error('Error playing Ending Theme on Peach collision:', error);
                     }
@@ -1796,14 +1723,12 @@ document.getElementById('winMainMenuButton').addEventListener('click', function 
     window.stopAllMusic();
     if (window.titleTheme && window.titleTheme.isPlaying) {
         window.titleTheme.stop();
-        console.log('Title Theme stopped in winMainMenuButton');
     }
 
     // Play stage theme first
     if (audioInitialized && stageTheme && !stageTheme.isPlaying) {
         try {
             stageTheme.play();
-            console.log('Stage Theme started playing from Win Main Menu');
         } catch (error) {
             console.error('Error playing Stage Theme from Win Main Menu:', error);
         }
