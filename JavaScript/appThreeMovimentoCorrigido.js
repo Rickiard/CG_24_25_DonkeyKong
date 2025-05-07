@@ -817,7 +817,6 @@ carregarObjetoFBX(
     { x: -10, y: -9.7, z: -3.0 },
     { x: 0, y: Math.PI / 2, z: 0 },
     function (object) {
-
         // Contagem de meshes para debug
         let contadorMeshes = 0;
 
@@ -825,26 +824,45 @@ carregarObjetoFBX(
         object.traverse(function (child) {
             if (child.isMesh) {
                 contadorMeshes++;
-
-                // Criar material com a textura
                 const materialTexturizado = new THREE.MeshPhongMaterial({
                     map: marioTexture,
                     side: THREE.DoubleSide
                 });
-
-                // Aplicar o material
                 child.material = materialTexturizado;
             }
         });
 
-
-        // Remover a esfera verde já que agora temos textura
         objetoImportado = object;
-        if (object.animations.length > 0) {
+        if (object.animations && object.animations.length > 0) {
             mixerAnimacao = new THREE.AnimationMixer(object);
-            // Start with idle animation (assuming it's the first animation)
-            animacaoAtual = mixerAnimacao.clipAction(object.animations[3]);
-            animacaoAtual.play();
+            
+            // Log available animations for debugging
+            console.log('Available animations:', object.animations.length);
+            object.animations.forEach((anim, index) => {
+                console.log(`Animation ${index}:`, anim.name || 'Unnamed');
+            });
+
+            try {
+                // Find idle and running animations by name or fallback to indices
+                let idleAnim = object.animations.find(a => a.name && a.name.toLowerCase().includes('idle')) || object.animations[3];
+                let runningAnim = object.animations.find(a => a.name && a.name.toLowerCase().includes('run')) || object.animations[7];
+
+                if (idleAnim) {
+                    animacaoAtual = mixerAnimacao.clipAction(idleAnim);
+                    animacaoAtual.play();
+                } else {
+                    console.warn('No idle animation found, using first available animation');
+                    animacaoAtual = mixerAnimacao.clipAction(object.animations[0]);
+                    animacaoAtual.play();
+                }
+
+                // Store running animation for later use
+                object.userData.runningAnimation = runningAnim;
+            } catch (error) {
+                console.error('Error setting up animations:', error);
+            }
+        } else {
+            console.warn('No animations found in the model');
         }
         objetosColisao.push(object);
     }
@@ -1044,15 +1062,25 @@ document.addEventListener("keyup", function (event) {
 
 // Funções de animação
 function iniciarAnimacao() {
-    if (!andando && mixerAnimacao && objetoImportado.animations.length > 1) {
-        // Stop current animation
-        if (animacaoAtual) {
-            animacaoAtual.stop();
+    if (!andando && mixerAnimacao && objetoImportado) {
+        try {
+            // Stop current animation
+            if (animacaoAtual) {
+                animacaoAtual.stop();
+            }
+            
+            // Get running animation from stored animations or fall back to index 7
+            let runningAnim = objetoImportado.userData.runningAnimation || objetoImportado.animations[7];
+            if (runningAnim) {
+                animacaoAtual = mixerAnimacao.clipAction(runningAnim);
+                animacaoAtual.play();
+                andando = true;
+            } else {
+                console.warn('No running animation found');
+            }
+        } catch (error) {
+            console.error('Error switching to running animation:', error);
         }
-        // Start running animation (assuming it's the second animation)
-        animacaoAtual = mixerAnimacao.clipAction(objetoImportado.animations[7]);
-        animacaoAtual.play();
-        andando = true;
     }
 
     // Adicionar o barril à cena quando a animação do personagem começar
@@ -1062,15 +1090,25 @@ function iniciarAnimacao() {
 }
 
 function pararAnimacao() {
-    if (andando && mixerAnimacao && objetoImportado.animations.length > 0) {
-        // Stop current animation
-        if (animacaoAtual) {
-            animacaoAtual.stop();
+    if (andando && mixerAnimacao && objetoImportado) {
+        try {
+            // Stop current animation
+            if (animacaoAtual) {
+                animacaoAtual.stop();
+            }
+            
+            // Find idle animation by name or fall back to index 3
+            let idleAnim = objetoImportado.animations.find(a => a.name && a.name.toLowerCase().includes('idle')) || objetoImportado.animations[3];
+            if (idleAnim) {
+                animacaoAtual = mixerAnimacao.clipAction(idleAnim);
+                animacaoAtual.play();
+                andando = false;
+            } else {
+                console.warn('No idle animation found');
+            }
+        } catch (error) {
+            console.error('Error switching to idle animation:', error);
         }
-        // Start idle animation (assuming it's the first animation)
-        animacaoAtual = mixerAnimacao.clipAction(objetoImportado.animations[3]);
-        animacaoAtual.play();
-        andando = false;
     }
 }
 
