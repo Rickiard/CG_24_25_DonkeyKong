@@ -17,6 +17,7 @@ window.gameState = {
 let audioListener = null;
 let jumpSound = null;
 let endingTheme = null;
+let deadMarioSound = null; // Novo áudio para game over
 window.stageTheme = null;
 window.titleTheme = null;
 window.audioInitialized = false;
@@ -164,6 +165,7 @@ window.muteAudio = function () {
             // Mutar todos os sons diretamente
             if (jumpSound) jumpSound.setVolume(0);
             if (endingTheme) endingTheme.setVolume(0);
+            if (deadMarioSound) deadMarioSound.setVolume(0);
             if (window.stageTheme) window.stageTheme.setVolume(0);
             if (window.titleTheme) window.titleTheme.setVolume(0);
 
@@ -187,6 +189,7 @@ window.unmuteAudio = function () {
             // Restaurar volumes originais
             if (jumpSound) jumpSound.setVolume(0.5);
             if (endingTheme) endingTheme.setVolume(0.3);
+            if (deadMarioSound) deadMarioSound.setVolume(0.5);
             if (window.stageTheme) window.stageTheme.setVolume(1.0);
             if (window.titleTheme) window.titleTheme.setVolume(1.0);
 
@@ -256,6 +259,9 @@ async function initializeAudio() {
             endingTheme = new THREE.Audio(audioListener);
             endingTheme.hasPlaybackControl = true;
 
+            deadMarioSound = new THREE.Audio(audioListener);
+            deadMarioSound.hasPlaybackControl = true;
+
             window.stageTheme = new THREE.Audio(audioListener);
             window.stageTheme.hasPlaybackControl = true;
 
@@ -268,6 +274,7 @@ async function initializeAudio() {
             // Load all audio files asynchronously
             const audioFiles = [
                 { path: './audio/Mario Jump Sound.mp3', audio: jumpSound, volume: 0.5, loop: false, name: 'Jump Sound' },
+                { path: './audio/Dead Mario.mp3', audio: deadMarioSound, volume: 0.5, loop: false, name: 'Dead Mario Sound' },
                 { path: './audio/Ending Theme.mp3', audio: endingTheme, volume: 0.3, loop: true, name: 'Ending Theme' },
                 { path: './audio/Stage Theme.mp3', audio: window.stageTheme, volume: 1.0, loop: true, name: 'Stage Theme' },
                 { path: './audio/Title Theme.mp3', audio: window.titleTheme, volume: 1.0, loop: true, name: 'Title Theme' }
@@ -654,8 +661,8 @@ window.gameOver = async function () {
     // Wait a brief moment to ensure all music has stopped
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Play ending theme
-    await safePlayAudio(endingTheme, 'Ending Theme');
+    // Play Dead Mario sound instead of ending theme
+    await safePlayAudio(deadMarioSound, 'Dead Mario Sound');
 };
 
 window.gameWin = async function () {
@@ -1557,19 +1564,13 @@ function loop() {
                         console.log("Distance to barrel:", distancia);
                         barrilColisao = true;
 
-                        // Stop Title Theme and play Ending Theme
-                        if (window.titleTheme && window.titleTheme.isPlaying) {
-                            window.titleTheme.stop();
-                        }
+                        // Stop all music first
+                        window.stopAllMusic();
 
-                        // Play ending theme before game over
-                        if (endingTheme && !endingTheme.isPlaying) {
-                            try {
-                                endingTheme.play();
-                            } catch (error) {
-                                console.error('Error playing Ending Theme on collision:', error);
-                            }
-                        }
+                        // Play Dead Mario sound
+                        safePlayAudio(deadMarioSound, 'Dead Mario Sound');
+
+                        // Show game over screen
                         window.gameOver();
                     }
                 }
