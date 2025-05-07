@@ -113,12 +113,6 @@ window.pauseAudio = function () {
         } else {
             audioState.endingTheme.wasPaused = false;
         }
-
-        // Verificar se todos os áudios foram pausados
-        if (window.stageTheme) console.log("Stage Theme isPlaying:", window.stageTheme.isPlaying);
-        if (window.titleTheme) console.log("Title Theme isPlaying:", window.titleTheme.isPlaying);
-        if (endingTheme) console.log("Ending Theme isPlaying:", endingTheme.isPlaying);
-
     } catch (error) {
         console.error('Erro ao pausar áudio:', error);
     }
@@ -147,11 +141,6 @@ window.resumeAudio = function () {
             endingTheme.play();
             audioState.endingTheme.wasPaused = false;
         }
-
-        // Verificar se todos os áudios foram retomados
-        if (window.stageTheme) console.log("Stage Theme isPlaying:", window.stageTheme.isPlaying);
-        if (window.titleTheme) console.log("Title Theme isPlaying:", window.titleTheme.isPlaying);
-        if (endingTheme) console.log("Ending Theme isPlaying:", endingTheme.isPlaying);
 
     } catch (error) {
         console.error('Erro ao retomar áudio:', error);
@@ -1112,7 +1101,6 @@ function atualizarBarril() {
 
             // Check if the bounding boxes intersect
             if (marioBox.intersectsBox(barrilBox)) {
-                console.log("Mario position:", objetoImportado.position);
                 // Check if Mario is above the barrel (only vertical check)
                 if (objetoImportado.position.y > barrilImportado.position.y + 100) { // Mario is above the barrel with a large range
                     window.gameState.score += 100;
@@ -1561,7 +1549,6 @@ function loop() {
                         objetoImportado.position.y > barril.position.y - 2 &&
                         Math.abs(objetoImportado.position.x - barril.position.x) < 3 &&
                         Math.abs(objetoImportado.position.z - barril.position.z) < 3)) {
-                        console.log("Distance to barrel:", distancia);
                         barrilColisao = true;
 
                         // Stop all music first
