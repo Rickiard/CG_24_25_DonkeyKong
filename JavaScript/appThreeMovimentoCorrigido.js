@@ -17,6 +17,7 @@ window.gameState = {
 let audioListener = null;
 let jumpSound = null;
 let endingTheme = null;
+let deadMarioSound = null; // Novo áudio para game over
 window.stageTheme = null;
 window.titleTheme = null;
 window.audioInitialized = false;
@@ -153,6 +154,7 @@ window.muteAudio = function () {
             // Mutar todos os sons diretamente
             if (jumpSound) jumpSound.setVolume(0);
             if (endingTheme) endingTheme.setVolume(0);
+            if (deadMarioSound) deadMarioSound.setVolume(0);
             if (window.stageTheme) window.stageTheme.setVolume(0);
             if (window.titleTheme) window.titleTheme.setVolume(0);
 
@@ -176,6 +178,7 @@ window.unmuteAudio = function () {
             // Restaurar volumes originais
             if (jumpSound) jumpSound.setVolume(0.5);
             if (endingTheme) endingTheme.setVolume(0.3);
+            if (deadMarioSound) deadMarioSound.setVolume(0.5);
             if (window.stageTheme) window.stageTheme.setVolume(1.0);
             if (window.titleTheme) window.titleTheme.setVolume(1.0);
 
@@ -245,6 +248,9 @@ async function initializeAudio() {
             endingTheme = new THREE.Audio(audioListener);
             endingTheme.hasPlaybackControl = true;
 
+            deadMarioSound = new THREE.Audio(audioListener);
+            deadMarioSound.hasPlaybackControl = true;
+
             window.stageTheme = new THREE.Audio(audioListener);
             window.stageTheme.hasPlaybackControl = true;
 
@@ -257,6 +263,7 @@ async function initializeAudio() {
             // Load all audio files asynchronously
             const audioFiles = [
                 { path: './audio/Mario Jump Sound.mp3', audio: jumpSound, volume: 0.5, loop: false, name: 'Jump Sound' },
+                { path: './audio/Dead Mario.mp3', audio: deadMarioSound, volume: 0.5, loop: false, name: 'Dead Mario Sound' },
                 { path: './audio/Ending Theme.mp3', audio: endingTheme, volume: 0.3, loop: true, name: 'Ending Theme' },
                 { path: './audio/Stage Theme.mp3', audio: window.stageTheme, volume: 1.0, loop: true, name: 'Stage Theme' },
                 { path: './audio/Title Theme.mp3', audio: window.titleTheme, volume: 1.0, loop: true, name: 'Title Theme' }
@@ -643,8 +650,8 @@ window.gameOver = async function () {
     // Wait a brief moment to ensure all music has stopped
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Play ending theme
-    await safePlayAudio(endingTheme, 'Ending Theme');
+    // Play Dead Mario sound instead of ending theme
+    await safePlayAudio(deadMarioSound, 'Dead Mario Sound');
 };
 
 window.gameWin = async function () {
@@ -810,7 +817,6 @@ carregarObjetoFBX(
     { x: -10, y: -9.7, z: -3.0 },
     { x: 0, y: Math.PI / 2, z: 0 },
     function (object) {
-
         // Contagem de meshes para debug
         let contadorMeshes = 0;
 
@@ -818,26 +824,45 @@ carregarObjetoFBX(
         object.traverse(function (child) {
             if (child.isMesh) {
                 contadorMeshes++;
-
-                // Criar material com a textura
                 const materialTexturizado = new THREE.MeshPhongMaterial({
                     map: marioTexture,
                     side: THREE.DoubleSide
                 });
-
-                // Aplicar o material
                 child.material = materialTexturizado;
             }
         });
 
-
-        // Remover a esfera verde já que agora temos textura
         objetoImportado = object;
-        if (object.animations.length > 0) {
+        if (object.animations && object.animations.length > 0) {
             mixerAnimacao = new THREE.AnimationMixer(object);
-            // Start with idle animation (assuming it's the first animation)
-            animacaoAtual = mixerAnimacao.clipAction(object.animations[3]);
-            animacaoAtual.play();
+            
+            // Log available animations for debugging
+            console.log('Available animations:', object.animations.length);
+            object.animations.forEach((anim, index) => {
+                console.log(`Animation ${index}:`, anim.name || 'Unnamed');
+            });
+
+            try {
+                // Find idle and running animations by name or fallback to indices
+                let idleAnim = object.animations.find(a => a.name && a.name.toLowerCase().includes('idle')) || object.animations[3];
+                let runningAnim = object.animations.find(a => a.name && a.name.toLowerCase().includes('run')) || object.animations[7];
+
+                if (idleAnim) {
+                    animacaoAtual = mixerAnimacao.clipAction(idleAnim);
+                    animacaoAtual.play();
+                } else {
+                    console.warn('No idle animation found, using first available animation');
+                    animacaoAtual = mixerAnimacao.clipAction(object.animations[0]);
+                    animacaoAtual.play();
+                }
+
+                // Store running animation for later use
+                object.userData.runningAnimation = runningAnim;
+            } catch (error) {
+                console.error('Error setting up animations:', error);
+            }
+        } else {
+            console.warn('No animations found in the model');
         }
         objetosColisao.push(object);
     }
@@ -1037,15 +1062,25 @@ document.addEventListener("keyup", function (event) {
 
 // Funções de animação
 function iniciarAnimacao() {
-    if (!andando && mixerAnimacao && objetoImportado.animations.length > 1) {
-        // Stop current animation
-        if (animacaoAtual) {
-            animacaoAtual.stop();
+    if (!andando && mixerAnimacao && objetoImportado) {
+        try {
+            // Stop current animation
+            if (animacaoAtual) {
+                animacaoAtual.stop();
+            }
+            
+            // Get running animation from stored animations or fall back to index 7
+            let runningAnim = objetoImportado.userData.runningAnimation || objetoImportado.animations[7];
+            if (runningAnim) {
+                animacaoAtual = mixerAnimacao.clipAction(runningAnim);
+                animacaoAtual.play();
+                andando = true;
+            } else {
+                console.warn('No running animation found');
+            }
+        } catch (error) {
+            console.error('Error switching to running animation:', error);
         }
-        // Start running animation (assuming it's the second animation)
-        animacaoAtual = mixerAnimacao.clipAction(objetoImportado.animations[7]);
-        animacaoAtual.play();
-        andando = true;
     }
 
     // Adicionar o barril à cena quando a animação do personagem começar
@@ -1055,15 +1090,25 @@ function iniciarAnimacao() {
 }
 
 function pararAnimacao() {
-    if (andando && mixerAnimacao && objetoImportado.animations.length > 0) {
-        // Stop current animation
-        if (animacaoAtual) {
-            animacaoAtual.stop();
+    if (andando && mixerAnimacao && objetoImportado) {
+        try {
+            // Stop current animation
+            if (animacaoAtual) {
+                animacaoAtual.stop();
+            }
+            
+            // Find idle animation by name or fall back to index 3
+            let idleAnim = objetoImportado.animations.find(a => a.name && a.name.toLowerCase().includes('idle')) || objetoImportado.animations[3];
+            if (idleAnim) {
+                animacaoAtual = mixerAnimacao.clipAction(idleAnim);
+                animacaoAtual.play();
+                andando = false;
+            } else {
+                console.warn('No idle animation found');
+            }
+        } catch (error) {
+            console.error('Error switching to idle animation:', error);
         }
-        // Start idle animation (assuming it's the first animation)
-        animacaoAtual = mixerAnimacao.clipAction(objetoImportado.animations[3]);
-        animacaoAtual.play();
-        andando = false;
     }
 }
 
@@ -1544,19 +1589,13 @@ function loop() {
                         Math.abs(objetoImportado.position.z - barril.position.z) < 3)) {
                         barrilColisao = true;
 
-                        // Stop Title Theme and play Ending Theme
-                        if (window.titleTheme && window.titleTheme.isPlaying) {
-                            window.titleTheme.stop();
-                        }
+                        // Stop all music first
+                        window.stopAllMusic();
 
-                        // Play ending theme before game over
-                        if (endingTheme && !endingTheme.isPlaying) {
-                            try {
-                                endingTheme.play();
-                            } catch (error) {
-                                console.error('Error playing Ending Theme on collision:', error);
-                            }
-                        }
+                        // Play Dead Mario sound
+                        safePlayAudio(deadMarioSound, 'Dead Mario Sound');
+
+                        // Show game over screen
                         window.gameOver();
                     }
                 }
