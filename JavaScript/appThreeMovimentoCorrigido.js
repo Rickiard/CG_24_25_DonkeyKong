@@ -1371,7 +1371,10 @@ window.cleanupUnwantedLights = function() {
     // Lista de UUIDs das luzes essenciais que não devem ser removidas
     // Você pode adicionar os UUIDs das luzes que você criou explicitamente
     const essentialLights = [
-        // Adicione aqui os UUIDs das luzes que você quer manter
+        luzAmbiente.uuid,
+        luzDirecional1.uuid,   
+        luzDirecional2.uuid,
+        luzDirecional3.uuid
     ];
     
     let lightsRemoved = 0;
