@@ -775,6 +775,8 @@ function atualizarZDoBarril(barril) {
 // Add TextureLoader
 const textureLoader = new THREE.TextureLoader();
 const marioTexture = textureLoader.load('./textures/mario_texture.png');  // Adjust path as needed
+// Cor castanha para os barris
+const barrelColor = new THREE.Color(0x8B4513); // Cor castanha (SaddleBrown)
 
 // Escadas (pontos onde os barris podem cair)
 const posicoesEscadas = [
@@ -909,6 +911,13 @@ function lançarBarril() {
         if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
+            
+            // Aplicar cor castanha aos barris
+            child.material = new THREE.MeshPhongMaterial({
+                color: barrelColor,
+                shininess: 30,
+                side: THREE.DoubleSide
+            });
         }
     });
 
