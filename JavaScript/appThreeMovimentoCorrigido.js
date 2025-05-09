@@ -732,8 +732,8 @@ var andando = false;
 var pulando = false;
 var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
-var gravidade = -0.004; // Slightly increased gravity for faster fall
-var forcaPulo = 0.12; // Reduced jump force for lower height
+var gravidade = -0.008; // Aumentado para queda mais rápida e natural
+var forcaPulo = 0.18; // Aumentado para pulo mais alto e consistente
 var velocidadeMovimento = 0.03; // Reduced movement speed (was 0.10)
 var velocidadeMovimentoAr = 0.02; // Slower movement speed while in air
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
@@ -1244,6 +1244,16 @@ function atualizarBarril() {
     }
 }
 
+// Luzes
+
+var luzAmbiente = new THREE.AmbientLight(0xffffff, 0.5);
+// Main directional light from front-right
+var luzDirecional1 = new THREE.DirectionalLight(0xffffff, 0.7);
+// Secondary directional light from top-left
+var luzDirecional2 = new THREE.DirectionalLight(0xffffff, 0.4);
+// Soft fill light from behind
+var luzDirecional3 = new THREE.DirectionalLight(0xffffee, 0.2);
+
 // Função principal - agora assíncrona
 async function Start() {
     // Add audio listener to the camera
@@ -1289,26 +1299,18 @@ async function Start() {
     camaraOrto.position.set(0, 1, 5);
     camaraOrto.lookAt(0, 0, 0);
 
-    // Luzes
-    var luzAmbiente = new THREE.AmbientLight(0xffffff, 0.5);
     cena.add(luzAmbiente);
 
-    // Main directional light from front-right
-    var luzDirecional1 = new THREE.DirectionalLight(0xffffff, 0.7);
     luzDirecional1.position.set(5, 0, 8);
     luzDirecional1.target.position.set(1, -1, 0);
     cena.add(luzDirecional1);
     cena.add(luzDirecional1.target);
 
-    // Secondary directional light from top-left
-    var luzDirecional2 = new THREE.DirectionalLight(0xffffff, 0.4);
     luzDirecional2.position.set(-8, 6, 4);
     luzDirecional2.target.position.set(0, -5, 0);
     cena.add(luzDirecional2);
     cena.add(luzDirecional2.target);
 
-    // Soft fill light from behind
-    var luzDirecional3 = new THREE.DirectionalLight(0xffffee, 0.2);
     luzDirecional3.position.set(0, 4, -5);
     cena.add(luzDirecional3);
 
@@ -1445,10 +1447,10 @@ function loop() {
     }
 
     if (objetoImportado) {
-        // Raycasting para verificar o chão
+        // Raycasting para verificar o chão - aumentado o alcance do raycaster
         raycaster.set(objetoImportado.position, new THREE.Vector3(0, -1, 0));
         const intersects = raycaster.intersectObjects(objetosColisao, true);
-        const noChao = intersects.length > 0 && intersects[0].distance < 0.1;
+        const noChao = intersects.length > 0 && intersects[0].distance < 0.2; // Aumentado o limite de distância
 
         // Get current platform info
         let plataformaAtual = null;
@@ -1456,12 +1458,49 @@ function loop() {
             plataformaAtual = intersects[0].object.userData.plataformaInfo;
         }
 
+        // Abordagem simplificada para evitar que o Mario bata a cabeça
+        // Em vez de verificar colisões complexas, vamos ajustar a física do pulo
+        
+        // Se o Mario está pulando e está subindo, verificar se ele está próximo de uma plataforma
+        if (pulando && velocidadeY > 0) {
+            // Verificar se há uma plataforma acima
+            // Usar plataformas existentes em vez de plataformasInfo
+            for (let i = 0; i < plataformas.length; i++) {
+                const plataforma = plataformas[i].userData.plataformaInfo;
+                
+                // Verificar se plataforma existe antes de usar
+                if (plataforma && plataforma.y > objetoImportado.position.y && 
+                    plataforma.y - objetoImportado.position.y < 3.0) {
+                    
+                    // Se o Mario está dentro dos limites horizontais da plataforma
+                    if (objetoImportado.position.x >= plataforma.xMin - 0.5 && 
+                        objetoImportado.position.x <= plataforma.xMax + 0.5) {
+                        
+                        // Limitar a altura máxima do pulo para evitar bater na plataforma
+                        // Definir uma altura máxima segura (um pouco abaixo da plataforma)
+                        const alturaMaximaPulo = plataforma.y - 0.5;
+                        
+                        // Se o Mario está prestes a ultrapassar essa altura, ajustar
+                        if (objetoImportado.position.y + velocidadeY > alturaMaximaPulo) {
+                            // Ajustar a posição para a altura máxima segura
+                            objetoImportado.position.y = alturaMaximaPulo;
+                            // Inverter a velocidade para iniciar a queda
+                            velocidadeY = -0.05;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
         if (!noChao) {
             velocidadeY += gravidade; // Aplica gravidade
             podePular = false; // Cannot jump while in the air
         } else {
             if (pulando) {
                 pulando = false; // Reseta o estado de pulo ao tocar o chão
+                // Resetar a velocidade horizontal do pulo ao tocar o chão
+                objetoImportado.userData.velocidadePuloX = 0;
             }
             velocidadeY = 0; // Zera a velocidade vertical ao tocar o chão
             podePular = true; // Reset jump ability when on ground
@@ -1478,18 +1517,56 @@ function loop() {
                 podePular = false;
                 velocidadeY = forcaPulo;
                 ultimoPulo = relogio.getElapsedTime();
+                // Play jump sound
+                if (jumpSound && !jumpSound.isPlaying) {
+                    jumpSound.play();
+                }
             }
         }
 
         // Handle jump input in the loop for consistent behavior
         if (teclasPressionadas[32] && !teclasPressionadasAnterior[32]) { // Spacebar just pressed
             const tempoAtual = relogio.getElapsedTime();
-            if (tempoAtual - ultimoPulo > 0.1) { // Minimum time between jumps
+            if (tempoAtual - ultimoPulo > 0.2) { // Aumentado o tempo mínimo entre pulos para evitar pulos rápidos demais
                 if (podePular && !pulando) {
                     pulando = true;
                     podePular = false;
                     velocidadeY = forcaPulo;
                     ultimoPulo = tempoAtual;
+                    
+                    // Verificar se há teclas direcionais pressionadas para pulo direcional
+                    let puloComDirecao = false;
+                    
+                    // Na câmera perspectiva: W+Space = pulo para frente, S+Space = pulo para trás
+                    if (cameraAtual === camaraPerspectiva) {
+                        if (teclasPressionadas[87]) { // W pressionado junto com espaço
+                            objetoImportado.rotation.y = Math.PI / 2;
+                            objetoImportado.userData.velocidadePuloX = velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
+                            puloComDirecao = true;
+                        } else if (teclasPressionadas[83]) { // S pressionado junto com espaço
+                            objetoImportado.rotation.y = -Math.PI / 2;
+                            objetoImportado.userData.velocidadePuloX = -velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
+                            puloComDirecao = true;
+                        }
+                    } 
+                    // Na câmera ortográfica: D+Space = pulo para direita, A+Space = pulo para esquerda
+                    else if (cameraAtual === camaraOrto) {
+                        if (teclasPressionadas[68]) { // D pressionado junto com espaço
+                            objetoImportado.rotation.y = Math.PI / 2;
+                            objetoImportado.userData.velocidadePuloX = velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
+                            puloComDirecao = true;
+                        } else if (teclasPressionadas[65]) { // A pressionado junto com espaço
+                            objetoImportado.rotation.y = -Math.PI / 2;
+                            objetoImportado.userData.velocidadePuloX = -velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
+                            puloComDirecao = true;
+                        }
+                    }
+                    
+                    // Se não houver direção, pulo vertical
+                    if (!puloComDirecao) {
+                        objetoImportado.userData.velocidadePuloX = 0;
+                    }
+                    
                     // Play jump sound
                     if (jumpSound && !jumpSound.isPlaying) {
                         jumpSound.play();
@@ -1503,6 +1580,18 @@ function loop() {
 
         // Atualiza a posição vertical do personagem
         objetoImportado.position.y += velocidadeY;
+        
+        // Aplicar velocidade horizontal durante o pulo, se existir
+        if (pulando && objetoImportado.userData.velocidadePuloX !== undefined) {
+            objetoImportado.position.x += objetoImportado.userData.velocidadePuloX;
+            
+            // Verificar limites horizontais para não sair da plataforma
+            if (objetoImportado.position.x < -10) {
+                objetoImportado.position.x = -10;
+            } else if (objetoImportado.position.x > 12) {
+                objetoImportado.position.x = 12;
+            }
+        }
 
         // Prevent falling below platforms
         if (objetoImportado.position.y < -10) {
@@ -1581,6 +1670,7 @@ function loop() {
 
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.rotation.y = Math.PI;
+                // Verificar se está em uma escada e só subir se estiver no chão
                 if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
@@ -1590,7 +1680,7 @@ function loop() {
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                     (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
-                    pulando === false) {
+                    noChao && !pulando) { // Adicionado noChao para garantir que só suba escadas quando estiver no chão
                     objetoImportado.position.y += 3.1;
                     objetoImportado.position.z -= 1;
                 }
