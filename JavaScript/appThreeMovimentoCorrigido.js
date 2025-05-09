@@ -1525,56 +1525,76 @@ function loop() {
         }
 
         // Handle jump input in the loop for consistent behavior
-        if (teclasPressionadas[32] && !teclasPressionadasAnterior[32]) { // Spacebar just pressed
+        // Verificar se o espaço foi pressionado ou se já está em um pulo
+        if ((teclasPressionadas[32] && !teclasPressionadasAnterior[32]) || pulando) { 
             const tempoAtual = relogio.getElapsedTime();
-            if (tempoAtual - ultimoPulo > 0.2) { // Aumentado o tempo mínimo entre pulos para evitar pulos rápidos demais
-                if (podePular && !pulando) {
-                    pulando = true;
-                    podePular = false;
-                    velocidadeY = forcaPulo;
-                    ultimoPulo = tempoAtual;
-                    
-                    // Verificar se há teclas direcionais pressionadas para pulo direcional
-                    let puloComDirecao = false;
-                    
-                    // Na câmera perspectiva: W+Space = pulo para frente, S+Space = pulo para trás
-                    if (cameraAtual === camaraPerspectiva) {
-                        if (teclasPressionadas[87]) { // W pressionado junto com espaço
-                            objetoImportado.rotation.y = Math.PI / 2;
-                            objetoImportado.userData.velocidadePuloX = velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
-                            puloComDirecao = true;
-                        } else if (teclasPressionadas[83]) { // S pressionado junto com espaço
-                            objetoImportado.rotation.y = -Math.PI / 2;
-                            objetoImportado.userData.velocidadePuloX = -velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
-                            puloComDirecao = true;
-                        }
-                    } 
-                    // Na câmera ortográfica: D+Space = pulo para direita, A+Space = pulo para esquerda
-                    else if (cameraAtual === camaraOrto) {
-                        if (teclasPressionadas[68]) { // D pressionado junto com espaço
-                            objetoImportado.rotation.y = Math.PI / 2;
-                            objetoImportado.userData.velocidadePuloX = velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
-                            puloComDirecao = true;
-                        } else if (teclasPressionadas[65]) { // A pressionado junto com espaço
-                            objetoImportado.rotation.y = -Math.PI / 2;
-                            objetoImportado.userData.velocidadePuloX = -velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
-                            puloComDirecao = true;
-                        }
+            
+            // Se o espaço acabou de ser pressionado e podemos pular
+            if (teclasPressionadas[32] && !teclasPressionadasAnterior[32] && 
+                tempoAtual - ultimoPulo > 0.2 && podePular && !pulando) {
+                
+                // Iniciar um novo pulo
+                pulando = true;
+                podePular = false;
+                velocidadeY = forcaPulo;
+                ultimoPulo = tempoAtual;
+                objetoImportado.userData.tempoInicioPulo = tempoAtual; // Registrar o tempo de início do pulo
+                objetoImportado.userData.duracaoPulo = 0.8; // Definir duração fixa para o pulo (em segundos)
+                
+                // Verificar se há teclas direcionais pressionadas para pulo direcional
+                let puloComDirecao = false;
+                
+                // Na câmera perspectiva: W+Space = pulo para frente, S+Space = pulo para trás
+                if (cameraAtual === camaraPerspectiva) {
+                    if (teclasPressionadas[87]) { // W pressionado junto com espaço
+                        objetoImportado.rotation.y = Math.PI / 2;
+                        objetoImportado.userData.velocidadePuloX = velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
+                        puloComDirecao = true;
+                    } else if (teclasPressionadas[83]) { // S pressionado junto com espaço
+                        objetoImportado.rotation.y = -Math.PI / 2;
+                        objetoImportado.userData.velocidadePuloX = -velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
+                        puloComDirecao = true;
                     }
-                    
-                    // Se não houver direção, pulo vertical
-                    if (!puloComDirecao) {
-                        objetoImportado.userData.velocidadePuloX = 0;
+                } 
+                // Na câmera ortográfica: D+Space = pulo para direita, A+Space = pulo para esquerda
+                else if (cameraAtual === camaraOrto) {
+                    if (teclasPressionadas[68]) { // D pressionado junto com espaço
+                        objetoImportado.rotation.y = Math.PI / 2;
+                        objetoImportado.userData.velocidadePuloX = velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
+                        puloComDirecao = true;
+                    } else if (teclasPressionadas[65]) { // A pressionado junto com espaço
+                        objetoImportado.rotation.y = -Math.PI / 2;
+                        objetoImportado.userData.velocidadePuloX = -velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
+                        puloComDirecao = true;
                     }
-                    
-                    // Play jump sound
-                    if (jumpSound && !jumpSound.isPlaying) {
-                        jumpSound.play();
-                    }
-                } else if (noChao) {
-                    // If we're on the ground but can't jump yet, queue the jump
-                    puloPendente = true;
                 }
+                
+                // Se não houver direção, pulo vertical
+                if (!puloComDirecao) {
+                    objetoImportado.userData.velocidadePuloX = 0;
+                }
+                
+                // Play jump sound
+                if (jumpSound && !jumpSound.isPlaying) {
+                    jumpSound.play();
+                }
+            } 
+            // Se já estamos pulando, verificar se o pulo deve continuar
+            else if (pulando) {
+                // Verificar se o pulo já ultrapassou sua duração máxima
+                const tempoPulo = tempoAtual - objetoImportado.userData.tempoInicioPulo;
+                
+                // Se o pulo já durou o suficiente e estamos no chão, encerrá-lo
+                if (tempoPulo >= objetoImportado.userData.duracaoPulo && noChao) {
+                    pulando = false;
+                    podePular = true;
+                    velocidadeY = 0;
+                    objetoImportado.userData.velocidadePuloX = 0;
+                }
+            }
+            else if (noChao) {
+                // If we're on the ground but can't jump yet, queue the jump
+                puloPendente = true;
             }
         }
 
@@ -1582,8 +1602,13 @@ function loop() {
         objetoImportado.position.y += velocidadeY;
         
         // Aplicar velocidade horizontal durante o pulo, se existir
-        if (pulando && objetoImportado.userData.velocidadePuloX !== undefined) {
-            objetoImportado.position.x += objetoImportado.userData.velocidadePuloX;
+        // O pulo tem prioridade sobre o movimento normal
+        if (pulando) {
+            // Se estiver pulando, aplicar a velocidade horizontal definida no início do pulo
+            // Isso garante que o pulo seja executado na sua totalidade mesmo se o jogador soltar a tecla
+            if (objetoImportado.userData.velocidadePuloX !== undefined) {
+                objetoImportado.position.x += objetoImportado.userData.velocidadePuloX;
+            }
             
             // Verificar limites horizontais para não sair da plataforma
             if (objetoImportado.position.x < -10) {
@@ -1612,7 +1637,8 @@ function loop() {
         }
 
         // Movimentação baseada na câmera atual
-        if (cameraAtual === camaraPerspectiva) {
+        // Verificar primeiro se está pulando - o pulo tem prioridade sobre o movimento normal
+        if (!pulando && cameraAtual === camaraPerspectiva) {
             // Use different movement speed based on whether Mario is in the air
             const velocidadeAtual = noChao ? velocidadeMovimento : velocidadeMovimentoAr;
 
@@ -1629,7 +1655,7 @@ function loop() {
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                         (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                         (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
-                        pulando === false) {
+                        noChao) {
                         objetoImportado.position.y += 3.1;
                         objetoImportado.position.z -= 1;
                     }
@@ -1647,7 +1673,7 @@ function loop() {
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                         (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                         (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
-                        pulando === false) {
+                        noChao) {
                         objetoImportado.position.y += 3.1;
                         objetoImportado.position.z -= 1;
                     }
@@ -1664,7 +1690,7 @@ function loop() {
                 objetoImportado.rotation.y = -Math.PI / 2;
                 iniciarAnimacao();
             }
-        } else if (cameraAtual === camaraOrto) {
+        } else if (!pulando && cameraAtual === camaraOrto) {
             // Use different movement speed based on whether Mario is in the air
             const velocidadeAtual = noChao ? velocidadeMovimento : velocidadeMovimentoAr;
 
@@ -1680,7 +1706,7 @@ function loop() {
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                     (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
-                    noChao && !pulando) { // Adicionado noChao para garantir que só suba escadas quando estiver no chão
+                    noChao) { // Adicionado noChao para garantir que só suba escadas quando estiver no chão
                     objetoImportado.position.y += 3.1;
                     objetoImportado.position.z -= 1;
                 }
@@ -1696,7 +1722,7 @@ function loop() {
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5) ||
                     (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) &&
-                    pulando === false) {
+                    noChao) {
                     objetoImportado.position.y -= 3;
                     objetoImportado.position.z += 1;
                 }
