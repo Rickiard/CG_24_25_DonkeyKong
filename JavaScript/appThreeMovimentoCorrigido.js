@@ -793,10 +793,38 @@ const posicoesEscadas = [
 var importer = new FBXLoader();
 function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
     importer.load(caminho, function (object) {
+        // Procurar e remover luzes do modelo FBX
+        let lightsFound = [];
+        
+        // Função recursiva para encontrar todas as luzes, mesmo em grupos aninhados
+        function findLightsRecursively(obj) {
+            if (obj.isLight) {
+                console.log(`Luz encontrada no modelo ${caminho}:`, obj);
+                lightsFound.push(obj);
+            }
+            
+            // Se for um grupo ou objeto com filhos, procurar recursivamente
+            if (obj.children && obj.children.length > 0) {
+                obj.children.forEach(child => findLightsRecursively(child));
+            }
+        }
+        
+        // Iniciar busca recursiva
+        findLightsRecursively(object);
+        
+        // Aplicar propriedades às meshes
         object.traverse(function (child) {
             if (child.isMesh) {
                 child.castShadow = true;
                 child.receiveShadow = true;
+            }
+        });
+        
+        // Remover as luzes encontradas
+        lightsFound.forEach(light => {
+            console.log(`Removendo luz: ${light.name} (${light.type})`);
+            if (light.parent) {
+                light.parent.remove(light);
             }
         });
 
@@ -890,10 +918,38 @@ function lançarBarril() {
 
 function carregarBarril(caminho, escala, posicao, rotacao) {
     importer.load(caminho, function (object) {
+        // Procurar e remover luzes do modelo FBX
+        let lightsFound = [];
+        
+        // Função recursiva para encontrar todas as luzes, mesmo em grupos aninhados
+        function findLightsRecursively(obj) {
+            if (obj.isLight) {
+                console.log(`Luz encontrada no barril ${caminho}:`, obj);
+                lightsFound.push(obj);
+            }
+            
+            // Se for um grupo ou objeto com filhos, procurar recursivamente
+            if (obj.children && obj.children.length > 0) {
+                obj.children.forEach(child => findLightsRecursively(child));
+            }
+        }
+        
+        // Iniciar busca recursiva
+        findLightsRecursively(object);
+        
+        // Aplicar propriedades às meshes
         object.traverse(function (child) {
             if (child.isMesh) {
                 child.castShadow = true;
                 child.receiveShadow = true;
+            }
+        });
+        
+        // Remover as luzes encontradas
+        lightsFound.forEach(light => {
+            console.log(`Removendo luz do barril: ${light.name} (${light.type})`);
+            if (light.parent) {
+                light.parent.remove(light);
             }
         });
 
@@ -910,12 +966,41 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
 carregarObjetoFBX('./Objetos/tentativa1.fbx', { x: 0.03, y: 0.03, z: 0.03 }, { x: 1.5, y: -0.5, z: -6.0 }, { x: -Math.PI / 2, y: 0, z: 0 });
 
 importer.load('./Objetos/Donkey Kong.fbx', function (object) {
+    // Procurar e remover luzes do modelo FBX
+    let lightsFound = [];
+    
+    // Função recursiva para encontrar todas as luzes, mesmo em grupos aninhados
+    function findLightsRecursively(obj) {
+        if (obj.isLight) {
+            console.log(`Luz encontrada no modelo Donkey Kong:`, obj);
+            lightsFound.push(obj);
+        }
+        
+        // Se for um grupo ou objeto com filhos, procurar recursivamente
+        if (obj.children && obj.children.length > 0) {
+            obj.children.forEach(child => findLightsRecursively(child));
+        }
+    }
+    
+    // Iniciar busca recursiva
+    findLightsRecursively(object);
+    
+    // Aplicar propriedades às meshes
     object.traverse(child => {
         if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
         }
     });
+    
+    // Remover as luzes encontradas
+    lightsFound.forEach(light => {
+        console.log(`Removendo luz do Donkey Kong: ${light.name} (${light.type})`);
+        if (light.parent) {
+            light.parent.remove(light);
+        }
+    });
+    
     object.scale.set(0.015, 0.015, 0.015);
     object.position.set(-6.5, 5.7, -9);
 
@@ -1220,6 +1305,14 @@ async function Start() {
 
     carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -10, y: 5.7, z: -9 }, { x: 0, y: 0, z: 0 });
 
+    // Aguardar um pouco para garantir que todos os modelos foram carregados
+    setTimeout(() => {
+        // Verificar e remover luzes indesejadas
+        console.log("Verificando e removendo luzes indesejadas...");
+        window.findAllLights(); // Listar todas as luzes para debug
+        window.cleanupUnwantedLights(); // Remover luzes não essenciais
+    }, 2000); // Esperar 2 segundos
+
     requestAnimationFrame(loop);
 }
 
@@ -1232,7 +1325,81 @@ function foraDaPlataforma(barril) {
 // Variável para controlar se o loop de animação está ativo
 let animationLoopActive = true;
 
+// Variável para controlar a frequência dos logs de luzes
+let lightLogCounter = 0;
+
+// Função para encontrar e listar todas as luzes na cena
+window.findAllLights = function() {
+    console.log("Procurando todas as luzes na cena...");
+    let lightsFound = [];
+    
+    cena.traverse(function(object) {
+        if (object.isLight) {
+            lightsFound.push({
+                name: object.name,
+                type: object.type,
+                uuid: object.uuid,
+                parent: object.parent ? object.parent.name || object.parent.uuid : "none",
+                object: object // Guardar referência ao objeto para possível remoção
+            });
+        }
+    });
+    
+    console.log("Luzes encontradas:", lightsFound);
+    return lightsFound;
+};
+
+// Função para remover uma luz específica pelo UUID
+window.removeLightByUUID = function(uuid) {
+    let lightRemoved = false;
+    
+    cena.traverse(function(object) {
+        if (object.isLight && object.uuid === uuid) {
+            console.log(`Removendo luz: ${object.name} (${object.type})`);
+            if (object.parent) {
+                object.parent.remove(object);
+                lightRemoved = true;
+            }
+        }
+    });
+    
+    return lightRemoved;
+};
+
+// Função para limpar todas as luzes não essenciais
+window.cleanupUnwantedLights = function() {
+    // Lista de UUIDs das luzes essenciais que não devem ser removidas
+    // Você pode adicionar os UUIDs das luzes que você criou explicitamente
+    const essentialLights = [
+        // Adicione aqui os UUIDs das luzes que você quer manter
+    ];
+    
+    let lightsRemoved = 0;
+    
+    cena.traverse(function(object) {
+        if (object.isLight) {
+            // Se não for uma luz essencial e for do tipo PointLight
+            if (!essentialLights.includes(object.uuid) && object.type === 'PointLight') {
+                console.log(`Removendo luz não essencial: ${object.name} (${object.type})`);
+                if (object.parent) {
+                    object.parent.remove(object);
+                    lightsRemoved++;
+                }
+            }
+        }
+    });
+    
+    console.log(`${lightsRemoved} luzes não essenciais foram removidas.`);
+    return lightsRemoved;
+};
+
 function loop() {
+    // Log de luzes apenas a cada 100 frames para não sobrecarregar o console
+    if (lightLogCounter % 100 === 0) {
+        console.log("Número de luzes na cena:", renderer.info.lights);
+    }
+    lightLogCounter++;
+
     // Se não estiver ativo, não continua o loop
     if (!animationLoopActive) {
         return;
