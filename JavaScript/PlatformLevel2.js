@@ -30,7 +30,7 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
     function criarPlataforma(x, y, largura = 12, altura = 0.4) {
         const geometry = new THREE.BoxGeometry(largura, altura, 1);
         const mesh = new THREE.Mesh(geometry, platformMaterial);
-        mesh.position.set(x, y, -6);
+        mesh.position.set(x, y, -3); // Ajustado para ficar ainda mais para trás
         cena.add(mesh);
         objetosColisao.push(mesh);
     }
@@ -38,29 +38,43 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
     function criarEscada(x, y, altura = 3.0) {
         const geometry = new THREE.BoxGeometry(0.3, altura, 0.5);
         const mesh = new THREE.Mesh(geometry, ladderMaterial);
-        mesh.position.set(x, y, -5.9);
+        mesh.position.set(x, y, -3); // Ajustado para ficar no mesmo plano Z que as plataformas
         cena.add(mesh);
     }
 
-    const plataformas = [-10, -7, -4, -1, 2, 5, 8];
-    plataformas.forEach(y => criarPlataforma(0, y, 24, 0.4));
+    // Configuração das plataformas com posições e tamanhos variados
+    const plataformasConfig = [
+        { y: -10, x: 0, largura: 24 },      // Base (mantida grande)
+        { y: -7, x: -3, largura: 18 },      // Um pouco para a esquerda
+        { y: -4, x: 3, largura: 18 },       // Um pouco para a direita
+        { y: -1, x: -2, largura: 20 },      // Um pouco para a esquerda
+        { y: 2, x: 2, largura: 20 },        // Um pouco para a direita
+        { y: 5, x: -1, largura: 22 },       // Um pouco para a esquerda
+        { y: 8, x: 1, largura: 22 }         // Um pouco para a direita
+    ];
+    
+    // Criar plataformas com configurações variadas
+    plataformasConfig.forEach(config => {
+        criarPlataforma(config.x, config.y, config.largura, 0.4);
+    });
 
-    criarEscada(-8, -8.5);
-    criarEscada(-4, -5.5);
-    criarEscada(0, -2.5);
-    criarEscada(4, 0.5);
-    criarEscada(8, 3.5);
-    criarEscada(-6, 6.5);
+    // Posições das escadas mais aleatórias
+    criarEscada(-9, -8.5);  // Mais à esquerda
+    criarEscada(-2, -5.5);  // Mais à direita
+    criarEscada(5, -2.5);   // Mais à direita
+    criarEscada(-7, 0.5);   // Mais à esquerda
+    criarEscada(7, 3.5);    // Mais à direita
+    criarEscada(-4, 6.5);   // Mais ao centro-esquerda
 }
 
 export function getPlataformasInfo() {
     return [
-        { y: -10, xMin: -12, xMax: 12 },
-        { y: -7, xMin: -12, xMax: 12 },
-        { y: -4, xMin: -12, xMax: 12 },
-        { y: -1, xMin: -12, xMax: 12 },
-        { y: 2, xMin: -12, xMax: 12 },
-        { y: 5, xMin: -12, xMax: 12 },
-        { y: 8, xMin: -12, xMax: 12 }
+        { y: -10, xMin: -12, xMax: 12 },        // Base (mantida grande)
+        { y: -7, xMin: -12, xMax: 6 },          // Um pouco para a esquerda
+        { y: -4, xMin: -6, xMax: 12 },          // Um pouco para a direita
+        { y: -1, xMin: -12, xMax: 8 },          // Um pouco para a esquerda
+        { y: 2, xMin: -8, xMax: 12 },           // Um pouco para a direita
+        { y: 5, xMin: -12, xMax: 10 },          // Um pouco para a esquerda
+        { y: 8, xMin: -10, xMax: 12 }           // Um pouco para a direita
     ];
 }
