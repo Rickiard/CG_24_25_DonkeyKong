@@ -24,12 +24,7 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
     // No Level 1, não criamos as plataformas do Level 2
     // Apenas mantemos as informações para colisão no getPlataformasInfo()
     
-    // Escadas para o Level 1
-    const escadas = [
-        { x: -2, y: -8.5 }, { x: 2, y: -5.5 }, { x: -2, y: -2.5 },
-        { x: 2, y: 0.5 }, { x: -2, y: 3.5 }, { x: 2, y: 6.5 }
-    ];
-    escadas.forEach(({ x, y }) => criarEscada(x, y));
+    // Removidas as escadas correspondentes ao PlataformLevel2
 
     // Carregar o modelo 3D "tentativa1.fbx"
     const importer = new FBXLoader();
