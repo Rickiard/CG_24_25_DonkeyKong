@@ -20,10 +20,19 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
         cena.add(mesh);
     }
 
-    // Plataformas (zig-zag)
+    // Plataformas (zig-zag) - padrão do level 2
     const yValues = [-10, -7, -4, -1, 2, 5, 8];
     yValues.forEach((y, i) => {
-        const offset = (i % 2 === 0) ? -1 : 1;
+        // Ajustamos o offset para a primeira plataforma ficar mais próxima do Mario
+        // que está posicionado em x=-2
+        let offset;
+        if (i === 0) {
+            // Primeira plataforma (mais próxima do Mario)
+            offset = -2;
+        } else {
+            // Demais plataformas seguem o padrão zig-zag
+            offset = (i % 2 === 0) ? -1 : 1;
+        }
         criarPlataforma(offset, y);
     });
 

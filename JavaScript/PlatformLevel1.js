@@ -21,12 +21,9 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
         cena.add(mesh);
     }
 
-    // Plataformas para o Level 1
-    const yValues = [-10, -7, -4, -1, 2, 5, 8];
-    yValues.forEach((y, i) => {
-        criarPlataforma(0, y);
-    });
-
+    // No Level 1, não criamos as plataformas do Level 2
+    // Apenas mantemos as informações para colisão no getPlataformasInfo()
+    
     // Escadas para o Level 1
     const escadas = [
         { x: -2, y: -8.5 }, { x: 2, y: -5.5 }, { x: -2, y: -2.5 },

@@ -400,7 +400,13 @@ async function startGameCommon() {
         window.gameState.isInitialized = true;
         // Garantir que o Mario esteja na posição correta
         if (objetoImportado) {
-            objetoImportado.position.set(-10, -9.7, -3.0);
+            // Posicionar o Mario com base no nível atual
+            if (window.gameState.currentLevel === 1) {
+                objetoImportado.position.set(-10, -9.7, -3.0);
+            } else if (window.gameState.currentLevel === 2) {
+                // Posição mais próxima da plataforma no level 2
+                objetoImportado.position.set(-2, -9.7, -3.0);
+            }
             objetoImportado.rotation.set(0, Math.PI / 2, 0);
 
             // Reset Mario's texture back to normal
@@ -611,7 +617,13 @@ window.restartGame = async function () {
 
     // Reset Mario's position and rotation
     if (objetoImportado) {
-        objetoImportado.position.set(-10, -9.7, -3.0);
+        // Posicionar o Mario com base no nível atual
+        if (window.gameState.currentLevel === 1) {
+            objetoImportado.position.set(-10, -9.7, -3.0);
+        } else if (window.gameState.currentLevel === 2) {
+            // Posição mais próxima da plataforma no level 2
+            objetoImportado.position.set(-2, -9.7, -3.0);
+        }
         objetoImportado.rotation.set(0, Math.PI / 2, 0);
 
         // Reset Mario's texture back to normal
@@ -1293,7 +1305,13 @@ async function Start() {
 
     // Reposicionar Mario se ele já existir
     if (objetoImportado) {
-        objetoImportado.position.set(-10, -9.7, -3.0);
+        // Posicionar o Mario com base no nível atual
+        if (window.gameState.currentLevel === 1) {
+            objetoImportado.position.set(-10, -9.7, -3.0);
+        } else if (window.gameState.currentLevel === 2) {
+            // Posição mais próxima da plataforma no level 2
+            objetoImportado.position.set(-2, -9.7, -3.0);
+        }
         objetoImportado.rotation.set(0, Math.PI / 2, 0);
     }
 
@@ -2099,7 +2117,13 @@ document.getElementById('winMainMenuButton').addEventListener('click', function 
 
         // Reset Mario's position and rotation
         if (objetoImportado) {
-            objetoImportado.position.set(-10, -9.7, -3.0);
+            // Posicionar o Mario com base no nível atual
+            if (window.gameState.currentLevel === 1) {
+                objetoImportado.position.set(-10, -9.7, -3.0);
+            } else if (window.gameState.currentLevel === 2) {
+                // Posição mais próxima da plataforma no level 2
+                objetoImportado.position.set(-2, -9.7, -3.0);
+            }
             objetoImportado.rotation.set(0, Math.PI / 2, 0);
 
             // Reset Mario's texture back to normal
