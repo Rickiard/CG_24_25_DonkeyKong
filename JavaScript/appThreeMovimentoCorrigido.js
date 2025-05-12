@@ -404,8 +404,8 @@ async function startGameCommon() {
             if (window.gameState.currentLevel === 1) {
                 objetoImportado.position.set(-10, -9.7, -3.0);
             } else if (window.gameState.currentLevel === 2) {
-                // Posição ajustada para ficar na primeira escada do level 2
-                objetoImportado.position.set(-2, -8.5, -3.0);
+                // Posição ajustada para ficar mais à esquerda, próximo à ponta inferior da plataforma
+                objetoImportado.position.set(-8, -9.7, -3.0);
             }
             objetoImportado.rotation.set(0, Math.PI / 2, 0);
 
@@ -621,8 +621,8 @@ window.restartGame = async function () {
         if (window.gameState.currentLevel === 1) {
             objetoImportado.position.set(-10, -9.7, -3.0);
         } else if (window.gameState.currentLevel === 2) {
-            // Posição ajustada para ficar na primeira escada do level 2
-            objetoImportado.position.set(-2, -8.5, -3.0);
+            // Posição ajustada para ficar mais à esquerda, próximo à ponta inferior da plataforma
+            objetoImportado.position.set(-8, -9.7, -3.0);
         }
         objetoImportado.rotation.set(0, Math.PI / 2, 0);
 
@@ -1309,8 +1309,8 @@ async function Start() {
         if (window.gameState.currentLevel === 1) {
             objetoImportado.position.set(-10, -9.7, -3.0);
         } else if (window.gameState.currentLevel === 2) {
-            // Posição ajustada para ficar na primeira escada do level 2
-            objetoImportado.position.set(-2, -8.5, -3.0);
+            // Posição ajustada para ficar mais à esquerda, próximo à ponta inferior da plataforma
+            objetoImportado.position.set(-8, -9.7, -3.0);
         }
         objetoImportado.rotation.set(0, Math.PI / 2, 0);
     }
@@ -2121,8 +2121,8 @@ document.getElementById('winMainMenuButton').addEventListener('click', function 
             if (window.gameState.currentLevel === 1) {
                 objetoImportado.position.set(-10, -9.7, -3.0);
             } else if (window.gameState.currentLevel === 2) {
-                // Posição ajustada para ficar na primeira escada do level 2
-                objetoImportado.position.set(-2, -8.5, -3.0);
+                // Posição ajustada para ficar mais à esquerda, próximo à ponta inferior da plataforma
+                objetoImportado.position.set(-8, -9.7, -3.0);
             }
             objetoImportado.rotation.set(0, Math.PI / 2, 0);
 
