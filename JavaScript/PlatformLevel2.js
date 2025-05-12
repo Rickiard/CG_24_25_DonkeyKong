@@ -6,7 +6,7 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
     const textureLoader = new THREE.TextureLoader();
 
     // TEXTURA PARA CHÃO (vermelho metálico)
-    const texturaChao = textureLoader.load('./textures/platform_red.png');
+    const texturaChao = textureLoader.load('./objetos/textures/platform_red.png');
     texturaChao.wrapS = THREE.RepeatWrapping;
     texturaChao.wrapT = THREE.RepeatWrapping;
     texturaChao.repeat.set(4, 1);
@@ -17,7 +17,7 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
     });
 
     // TEXTURA PARA ESCADAS (azul com ranhuras)
-    const texturaEscada = textureLoader.load('./textures/ladder_blue.png');
+    const texturaEscada = textureLoader.load('./objetos/textures/ladder_blue.png');
     texturaEscada.wrapS = THREE.RepeatWrapping;
     texturaEscada.wrapT = THREE.RepeatWrapping;
     texturaEscada.repeat.set(1, 2);
@@ -51,14 +51,6 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
     criarEscada(4, 0.5);
     criarEscada(8, 3.5);
     criarEscada(-6, 6.5);
-
-    const importer = new FBXLoader();
-    importer.load('./Objetos/tentativa1.fbx', function (object) {
-        object.scale.set(0.03, 0.03, 0.03);
-        object.position.set(1.5, -0.5, -6.0);
-        object.rotation.set(-Math.PI / 2, 0, 0);
-        cena.add(object);
-    });
 }
 
 export function getPlataformasInfo() {

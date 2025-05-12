@@ -1318,6 +1318,29 @@ async function Start() {
     // Plataformas serão carregadas de acordo com o nível selecionado
     let plataformasInfo = [];
 
+    // Limpar plataformas existentes
+    // Remover plataformas e escadas da cena e da lista de colisão
+    for (let i = plataformas.length - 1; i >= 0; i--) {
+        cena.remove(plataformas[i]);
+        const index = objetosColisao.indexOf(plataformas[i]);
+        if (index > -1) {
+            objetosColisao.splice(index, 1);
+        }
+    }
+    plataformas = [];
+    
+    // Remover outros objetos que possam ser plataformas ou escadas
+    for (let i = cena.children.length - 1; i >= 0; i--) {
+        const obj = cena.children[i];
+        // Não remover a skybox (que é um BoxGeometry grande) e remover apenas objetos menores que são plataformas/escadas
+        if (obj.geometry && 
+            (obj.geometry.type === 'BoxGeometry' || obj.geometry.type === 'PlaneGeometry') && 
+            obj.geometry.parameters && 
+            obj.geometry.parameters.width < 50) { // A skybox tem tamanho 100, então isso não a afetará
+            cena.remove(obj);
+        }
+    }
+    
     // Carregar plataformas de acordo com o nível atual
     if (window.gameState.currentLevel === 1) {
         plataformasInfo = PlatformLevel1.getPlataformasInfo();
