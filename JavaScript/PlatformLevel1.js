@@ -32,6 +32,9 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
         object.scale.set(0.03, 0.03, 0.03);
         object.position.set(1.5, -0.5, -6.0);
         object.rotation.set(-Math.PI / 2, 0, 0);
+        // Adicionar uma propriedade para identificar este objeto como pertencente ao Level 1
+        object.userData.levelId = 1;
+        object.name = "level1_fbx_model";
         cena.add(object);
     });
 }

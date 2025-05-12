@@ -391,6 +391,36 @@ async function startGameCommon() {
             barrisAtivos = [];
         }
         barrilColisao = false;
+        
+        // Limpar objetos específicos do nível anterior
+        // Isso garante que não haja objetos duplicados ao mudar de nível
+        for (let i = cena.children.length - 1; i >= 0; i--) {
+            const obj = cena.children[i];
+            
+            // Verificar se é a skybox (que deve ser preservada)
+            const isSkybox = obj.geometry && 
+                            obj.geometry.type === 'BoxGeometry' && 
+                            obj.geometry.parameters.width === 100 &&
+                            obj.geometry.parameters.height === 100 &&
+                            obj.geometry.parameters.depth === 100;
+            
+            // Pular a skybox
+            if (isSkybox) {
+                continue;
+            }
+            
+            // Remover objetos com userData.levelId que não correspondem ao nível atual
+            if (obj.userData && obj.userData.levelId !== undefined && 
+                obj.userData.levelId !== window.gameState.currentLevel) {
+                cena.remove(obj);
+            }
+            
+            // Remover modelos FBX e outros objetos específicos de nível
+            if (obj.type === 'Group' && obj.name && 
+                (obj.name.includes('fbx') || obj.name === "level1_fbx_model")) {
+                cena.remove(obj);
+            }
+        }
 
         // Forçar reinicialização completa do jogo
         window.gameState.isInitialized = false;
@@ -1331,15 +1361,54 @@ async function Start() {
     }
     plataformas = [];
     
-    // Remover outros objetos que possam ser plataformas ou escadas
+    // Limpar completamente objetosColisao para evitar duplicação
+    objetosColisao.length = 0;
+    
+    // Remover todos os objetos que possam ser plataformas, escadas, planos invisíveis ou modelos FBX
     for (let i = cena.children.length - 1; i >= 0; i--) {
         const obj = cena.children[i];
-        // Não remover a skybox (que é um BoxGeometry grande) e remover apenas objetos menores que são plataformas/escadas
-        if (obj.geometry && 
-            (obj.geometry.type === 'BoxGeometry' || obj.geometry.type === 'PlaneGeometry') && 
-            obj.geometry.parameters && 
-            obj.geometry.parameters.width < 50) { // A skybox tem tamanho 100, então isso não a afetará
-            cena.remove(obj);
+        
+        // Verificar se é a skybox (que deve ser preservada)
+        const isSkybox = obj.geometry && 
+                        obj.geometry.type === 'BoxGeometry' && 
+                        obj.geometry.parameters.width === 100 &&
+                        obj.geometry.parameters.height === 100 &&
+                        obj.geometry.parameters.depth === 100;
+        
+        // Pular a skybox
+        if (isSkybox) {
+            continue;
+        }
+        
+        // Remover objetos de geometria (plataformas/escadas)
+        if (obj.geometry) {
+            // Remover BoxGeometry (plataformas/escadas)
+            if (obj.geometry.type === 'BoxGeometry') {
+                // Verificar se é uma plataforma/escada (tamanho menor que a skybox)
+                if (obj.geometry.parameters.width < 50) {
+                    cena.remove(obj);
+                }
+            }
+            // Remover PlaneGeometry (planos invisíveis)
+            else if (obj.geometry.type === 'PlaneGeometry') {
+                // Se for um plano invisível (usado para colisão) ou uma plataforma pequena
+                if (obj.material && obj.material.transparent === true) {
+                    cena.remove(obj);
+                }
+            }
+        }
+        
+        // Remover também modelos FBX e outros grupos
+        else if (obj.type === 'Group') {
+            // Remover modelos FBX pelo nome
+            if (obj.name && (obj.name.includes('fbx') || obj.name === "level1_fbx_model")) {
+                cena.remove(obj);
+            }
+            // Remover modelos pelo userData.levelId
+            else if (obj.userData && obj.userData.levelId !== undefined && 
+                    obj.userData.levelId !== window.gameState.currentLevel) {
+                cena.remove(obj);
+            }
         }
     }
     
@@ -1353,13 +1422,26 @@ async function Start() {
     }
 
     // Criar planos invisíveis para colisão com base nas informações das plataformas
+    // Limpar qualquer array existente de planos invisíveis
+    if (window.planosInvisiveis) {
+        for (let i = 0; i < window.planosInvisiveis.length; i++) {
+            cena.remove(window.planosInvisiveis[i]);
+        }
+    }
+    
+    // Inicializar ou limpar o array de planos invisíveis
+    window.planosInvisiveis = [];
+    
+    // Criar novos planos invisíveis para o nível atual
     for (let i = 0; i < plataformasInfo.length; i++) {
         const info = plataformasInfo[i];
         const plano = criarChaoInvisivel(7, info.y, -3);
         plano.userData.plataformaInfo = info; // Store platform info
+        plano.userData.levelId = window.gameState.currentLevel; // Marcar com o ID do nível
         cena.add(plano);
         objetosColisao.push(plano);
         plataformas.push(plano);
+        window.planosInvisiveis.push(plano); // Armazenar referência para limpeza futura
     }
 
     // Configuração da câmara perspectiva
