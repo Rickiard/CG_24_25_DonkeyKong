@@ -744,6 +744,7 @@ var animacaoAtual = null; // Track current animation
 var plataformas = []; // Array to store platform information
 var ultimoPulo = 0; // Track when the last jump occurred
 var puloPendente = false; // Track if a jump is pending
+var tentandoSubirEscada = false; // Nova variável para rastrear tentativa de subir escada
 // Variáveis globais para o barril
 var barrilImportado;
 var velocidadeBarrilY = 0; // Velocidade vertical do barril
@@ -904,8 +905,9 @@ function lançarBarril() {
     const novoBarril = barrilImportado.clone();
     novoBarril.position.set(-7, 5.25, barrilZPorPlataforma['8']); // Usar o z correto para a plataforma inicial
     novoBarril.rotation.set(Math.PI / 2, 0, 0);
-    novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0);
+    novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0); // Velocidade horizontal inicial
     novoBarril.userData.plataformaAtual = 0;
+    novoBarril.userData.isBarrel = true; // Marcar como barril para usar detecção de colisão original
 
     novoBarril.traverse(child => {
         if (child.isMesh) {
@@ -1447,7 +1449,7 @@ function loop() {
     }
 
     if (objetoImportado) {
-        // Raycasting para verificar o chão - melhorado para detectar apenas plataformas válidas
+        // Raycasting para verificar o chão - melhorado para detectar apenas plataformas válidas para Mario
         raycaster.set(objetoImportado.position, new THREE.Vector3(0, -1, 0));
         const intersects = raycaster.intersectObjects(objetosColisao, true);
         
@@ -1466,6 +1468,10 @@ function loop() {
                 }
             }
         }
+        
+        // Adicionar uma propriedade ao objeto para indicar que é o Mario
+        // Isso será usado para diferenciar a detecção de colisão entre Mario e barris
+        objetoImportado.userData.isMario = true;
 
         // Get current platform info
         let plataformaAtual = null;
@@ -1754,8 +1760,8 @@ function loop() {
 
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.rotation.y = Math.PI;
-                // Verificar se está em uma escada e só subir se estiver no chão
-                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                // Verificar se está em uma escada e só subir se estiver no chão e não estiver pulando
+                tentandoSubirEscada = ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
@@ -1763,8 +1769,10 @@ function loop() {
                     (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
-                    noChao) { // Adicionado noChao para garantir que só suba escadas quando estiver no chão
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5));
+                
+                // Só permitir subir escadas se estiver no chão e não estiver pulando
+                if (tentandoSubirEscada && noChao && !pulando) {
                     objetoImportado.position.y += 3.1;
                     objetoImportado.position.z -= 1;
                 }
@@ -1858,25 +1866,11 @@ function loop() {
                 barril.userData.plataformaAtual = 0;
             }
 
-            // Raycasting para verificar o chão - melhorado para detectar apenas plataformas válidas
+            // Raycasting para verificar o chão - usando a versão original para barris
             raycaster.set(barril.position, new THREE.Vector3(0, -1, 0));
             const intersects = raycaster.intersectObjects(objetosColisao, true);
-            
-            // Verificar se a colisão é com uma plataforma válida
-            let noChao = false;
-            if (intersects.length > 0 && intersects[0].distance < 0.6) {
-                // Verificar se o barril está em uma das alturas válidas
-                const alturasValidas = [-10, -7, -4, -1, 2, 5, 8];
-                const alturaAtual = Math.round(barril.position.y);
-                
-                // Verificar se estamos próximos de uma altura válida (com margem de erro)
-                for (let i = 0; i < alturasValidas.length; i++) {
-                    if (Math.abs(alturaAtual - alturasValidas[i]) <= 0.5) {
-                        noChao = true;
-                        break;
-                    }
-                }
-            }
+            // Para barris, usamos a detecção de colisão original sem verificar alturas específicas
+            const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
 
             // Verifica se está sobre uma escada para a plataforma atual
             const laddersAtCurrentHeight = posicoesEscadas.filter(escada => {
@@ -1910,20 +1904,36 @@ function loop() {
                     } else {
                         // Continue moving horizontally
                         barril.position.x += barril.userData.velocidade.x;
-                        // Manter barril rente ao plano
-                        let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
-                        let planoMaisProximo = alturasPlanos.reduce((prev, curr) => Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
-                        let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
-                        barril.position.y = planoMaisProximo + offset;
+                        // Manter barril rente ao plano - usando a lógica original
+                        // Verificar se o barril está em uma plataforma conhecida
+                        if (intersects.length > 0 && intersects[0].object.userData.plataformaInfo) {
+                            // Usar a altura da plataforma detectada
+                            barril.position.y = intersects[0].object.userData.plataformaInfo.y + 0.125;
+                        } else {
+                            // Fallback para o método anterior
+                            let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
+                            let planoMaisProximo = alturasPlanos.reduce((prev, curr) => 
+                                Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
+                            let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
+                            barril.position.y = planoMaisProximo + offset;
+                        }
                     }
                 } else {
                     // No ladders available, continue moving horizontally
                     barril.position.x += barril.userData.velocidade.x;
-                    // Manter barril rente ao plano
-                    let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
-                    let planoMaisProximo = alturasPlanos.reduce((prev, curr) => Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
-                    let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
-                    barril.position.y = planoMaisProximo + offset;
+                    // Manter barril rente ao plano - usando a lógica original
+                    // Verificar se o barril está em uma plataforma conhecida
+                    if (intersects.length > 0 && intersects[0].object.userData.plataformaInfo) {
+                        // Usar a altura da plataforma detectada
+                        barril.position.y = intersects[0].object.userData.plataformaInfo.y + 0.125;
+                    } else {
+                        // Fallback para o método anterior
+                        let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
+                        let planoMaisProximo = alturasPlanos.reduce((prev, curr) => 
+                            Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
+                        let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
+                        barril.position.y = planoMaisProximo + offset;
+                    }
 
                     // Verifica se atingiu os limites da plataforma
                     if (barril.position.x <= -10 || barril.position.x >= 12) {
@@ -2072,9 +2082,9 @@ function atualizarCameraParaSeguirPersonagem(camera, personagem) {
 }
 
 function criarChaoInvisivel(x, y, z) {
-    // Usar uma geometria de tamanho mais razoável para evitar colisões indesejadas
-    // Largura de 24 (de -12 a 12) para corresponder aos limites das plataformas
-    const geometry = new THREE.PlaneGeometry(24, 3);
+    // Voltar para a geometria original de plano "infinito" para os barris
+    // mas manter a detecção especial para o Mario
+    const geometry = new THREE.PlaneGeometry(10000, 10000);
 
     // Material invisível
     const material = new THREE.MeshBasicMaterial({
