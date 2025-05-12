@@ -1282,6 +1282,147 @@ async function Start() {
         { y: 8, xMin: -12, xMax: 12 }     // Top platform
     ];
 
+    // Inicializar array de luzes essenciais se não existir
+    if (!window.luzesEssenciais) {
+        window.luzesEssenciais = [];
+    }
+    
+    // Configuração personalizada das luzes pontuais por plataforma
+    // Formato: [índice da plataforma, posição X esquerda, posição X direita, altura Y esquerda, altura Y direita, cor, intensidade, alcance]
+    const configLuzes = [
+        // Plataforma 0 (Bottom platform, y = -10)
+        [0, -11, 14.1, 1.0, 1.35, 0xffaa00, 6, 45],
+        // Plataforma 1 (Second platform, y = -7)
+        [1, -10.2, 12, 1.5, 0.8, 0xffaa00, 6, 45],
+        // Plataforma 2 (Third platform, y = -4)
+        [2, -8.5, 14.1, 1.0, 1.68, 0xffaa00, 6, 45],
+        // Plataforma 3 (Fourth platform, y = -1)
+        [3, -10.2, 12.35, 1.8, 1.0, 0xffaa00, 6, 45],
+        // Plataforma 4 (Fifth platform, y = 2)
+        [4, -8.5, 13.7, 1.0, 1.8, 0xffaa00, 6, 45],
+        // Plataforma 5 (Sixth platform, y = 5)
+        [5, -11, 12.3, 1.0, 1.5, 0xffaa00, 6, 45]
+        // Plataforma 6 (Top platform, y = 8) - não tem luzes
+    ];
+    
+    // Função para ajustar a altura de uma luz específica
+    // Parâmetros: índice da plataforma, 'esquerda' ou 'direita', nova altura
+    window.ajustarAlturaLuz = function(plataformaIndex, lado, novaAltura) {
+        // Verificar se a plataforma existe na configuração
+        const configIndex = configLuzes.findIndex(config => config[0] === plataformaIndex);
+        if (configIndex === -1) {
+            console.error(`Plataforma ${plataformaIndex} não encontrada na configuração de luzes.`);
+            return false;
+        }
+        
+        // Atualizar a altura na configuração
+        if (lado.toLowerCase() === 'esquerda') {
+            configLuzes[configIndex][3] = novaAltura;
+        } else if (lado.toLowerCase() === 'direita') {
+            configLuzes[configIndex][4] = novaAltura;
+        } else {
+            console.error(`Lado inválido: ${lado}. Use 'esquerda' ou 'direita'.`);
+            return false;
+        }
+        
+        // Remover as luzes existentes
+        atualizarLuzes();
+        
+        return true;
+    };
+    
+    // Variável global para controlar o número de luzes adicionais por plataforma
+    window.numLuzesAdicionaisPorPlataforma = 3;
+    
+    // Função para ajustar o número de luzes adicionais em todas as plataformas
+    window.ajustarNumeroLuzes = function(novoNumero) {
+        if (novoNumero < 0) {
+            console.error("O número de luzes adicionais não pode ser negativo.");
+            return false;
+        }
+        
+        window.numLuzesAdicionaisPorPlataforma = novoNumero;
+        atualizarLuzes();
+        return true;
+    };
+    
+    // Função para atualizar todas as luzes com base na configuração atual
+    function atualizarLuzes() {
+        // Remover todas as luzes pontuais existentes
+        const luzesParaRemover = [];
+        cena.traverse(function(object) {
+            if (object.isLight && object.type === 'PointLight') {
+                luzesParaRemover.push(object);
+            }
+        });
+        
+        luzesParaRemover.forEach(luz => {
+            if (luz.parent) {
+                luz.parent.remove(luz);
+            }
+        });
+        
+        // Limpar o array de luzes essenciais
+        window.luzesEssenciais = [];
+        
+        // Recriar as luzes com base na configuração atual
+        configLuzes.forEach(config => {
+            const [plataformaIndex, xEsquerda, xDireita, alturaEsquerda, alturaDireita, cor, intensidade, alcance] = config;
+            const plataforma = plataformasInfo[plataformaIndex];
+            
+            // Obter o valor Z correto para a plataforma atual, usando o mesmo que está definido para o barril
+            // ou usar -3 como fallback se não estiver definido
+            const plataformaY = plataforma.y.toString();
+            const zValue = barrilZPorPlataforma[plataformaY] !== undefined ? barrilZPorPlataforma[plataformaY] : -3;
+            
+            // Criar luz na extremidade esquerda
+            criarLuzPontual(xEsquerda, plataforma.y + alturaEsquerda, zValue, cor, intensidade, alcance);
+            
+            // Criar luzes adicionais ao longo da plataforma
+            const numLuzesAdicionais = window.numLuzesAdicionaisPorPlataforma || 3; // Usar a variável global ou o valor padrão
+            if (numLuzesAdicionais > 0) {
+                const distanciaTotal = xDireita - xEsquerda;
+                const intervalo = distanciaTotal / (numLuzesAdicionais + 1);
+                
+                for (let i = 1; i <= numLuzesAdicionais; i++) {
+                    const posX = xEsquerda + (intervalo * i);
+                    // Calcular altura interpolada entre as extremidades
+                    const progress = i / (numLuzesAdicionais + 1);
+                    const alturaInterpolada = alturaEsquerda + (alturaDireita - alturaEsquerda) * progress;
+                    
+                    // Criar luz com intensidade ligeiramente reduzida para as luzes intermediárias
+                    // Mantendo a mesma proporção de 80% da intensidade principal
+                    const intensidadeAjustada = intensidade * 0.8;
+                    criarLuzPontual(posX, plataforma.y + alturaInterpolada, zValue, cor, intensidadeAjustada, alcance);
+                }
+            }
+            
+            // Criar luz na extremidade direita
+            criarLuzPontual(xDireita, plataforma.y + alturaDireita, zValue, cor, intensidade, alcance);
+        });
+    }
+    
+    // Função para criar uma luz pontual com esfera visível
+    function criarLuzPontual(x, y, z, cor, intensidade, alcance) {
+        const luz = new THREE.PointLight(cor, intensidade, alcance);
+        luz.position.set(x, y, z);
+        luz.castShadow = true;
+        
+        // Adicionar uma esfera para tornar a luz visível
+        const esfera = new THREE.Mesh(
+            new THREE.SphereGeometry(0.2, 16, 16),
+            new THREE.MeshBasicMaterial({ color: cor })
+        );
+        luz.add(esfera);
+        cena.add(luz);
+        
+        // Adicionar ao array de luzes essenciais
+        window.luzesEssenciais.push(luz.uuid);
+        
+        return luz;
+    }
+    
+    // Criar as plataformas
     for (let i = 0; i < plataformasInfo.length; i++) {
         const info = plataformasInfo[i];
         const plano = criarChaoInvisivel(7, info.y, -3);
@@ -1290,6 +1431,42 @@ async function Start() {
         objetosColisao.push(plano);
         plataformas.push(plano);
     }
+    
+    // Adicionar luzes pontuais conforme configuração
+    configLuzes.forEach(config => {
+        const [plataformaIndex, xEsquerda, xDireita, alturaEsquerda, alturaDireita, cor, intensidade, alcance] = config;
+        const plataforma = plataformasInfo[plataformaIndex];
+        
+        // Obter o valor Z correto para a plataforma atual, usando o mesmo que está definido para o barril
+        // ou usar -3 como fallback se não estiver definido
+        const plataformaY = plataforma.y.toString();
+        const zValue = barrilZPorPlataforma[plataformaY] !== undefined ? barrilZPorPlataforma[plataformaY] : -3;
+        
+        // Criar luz na extremidade esquerda
+        criarLuzPontual(xEsquerda, plataforma.y + alturaEsquerda, zValue, cor, intensidade, alcance);
+        
+        // Criar luzes adicionais ao longo da plataforma
+        const numLuzesAdicionais = window.numLuzesAdicionaisPorPlataforma || 3; // Usar a variável global ou o valor padrão
+        if (numLuzesAdicionais > 0) {
+            const distanciaTotal = xDireita - xEsquerda;
+            const intervalo = distanciaTotal / (numLuzesAdicionais + 1);
+            
+            for (let i = 1; i <= numLuzesAdicionais; i++) {
+                const posX = xEsquerda + (intervalo * i);
+                // Calcular altura interpolada entre as extremidades
+                const progress = i / (numLuzesAdicionais + 1);
+                const alturaInterpolada = alturaEsquerda + (alturaDireita - alturaEsquerda) * progress;
+                
+                // Criar luz com intensidade ligeiramente reduzida para as luzes intermediárias
+                // Mantendo a mesma proporção de 80% da intensidade principal
+                const intensidadeAjustada = intensidade * 0.8;
+                criarLuzPontual(posX, plataforma.y + alturaInterpolada, zValue, cor, intensidadeAjustada, alcance);
+            }
+        }
+        
+        // Criar luz na extremidade direita
+        criarLuzPontual(xDireita, plataforma.y + alturaDireita, zValue, cor, intensidade, alcance);
+    });
 
     // Configuração da câmara perspectiva
     camaraPerspectiva.position.set(0, 1, 5);
@@ -1387,6 +1564,11 @@ window.cleanupUnwantedLights = function() {
         luzDirecional2.uuid,
         luzDirecional3.uuid
     ];
+    
+    // Adicionar as luzes das plataformas à lista de luzes essenciais
+    if (window.luzesEssenciais && window.luzesEssenciais.length > 0) {
+        essentialLights.push(...window.luzesEssenciais);
+    }
     
     let lightsRemoved = 0;
     
