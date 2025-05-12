@@ -770,8 +770,8 @@ var andando = false;
 var pulando = false;
 var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
-var gravidade = -0.008; // Aumentado para queda mais rápida e natural
-var forcaPulo = 0.18; // Aumentado para pulo mais alto e consistente
+var gravidade = -0.008; // Voltando para o valor original
+var forcaPulo = 0.25; // Aumentado significativamente para garantir que o pulo seja perceptível
 var velocidadeMovimento = 0.03; // Reduced movement speed (was 0.10)
 var velocidadeMovimentoAr = 0.02; // Slower movement speed while in air
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
@@ -782,6 +782,7 @@ var animacaoAtual = null; // Track current animation
 var plataformas = []; // Array to store platform information
 var ultimoPulo = 0; // Track when the last jump occurred
 var puloPendente = false; // Track if a jump is pending
+var tentandoSubirEscada = false; // Nova variável para rastrear tentativa de subir escada
 // Variáveis globais para o barril
 var barrilImportado;
 var velocidadeBarrilY = 0; // Velocidade vertical do barril
@@ -942,8 +943,9 @@ function lançarBarril() {
     const novoBarril = barrilImportado.clone();
     novoBarril.position.set(-7, 5.25, barrilZPorPlataforma['8']); // Usar o z correto para a plataforma inicial
     novoBarril.rotation.set(Math.PI / 2, 0, 0);
-    novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0);
+    novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0); // Velocidade horizontal inicial
     novoBarril.userData.plataformaAtual = 0;
+    novoBarril.userData.isBarrel = true; // Marcar como barril para usar detecção de colisão original
 
     novoBarril.traverse(child => {
         if (child.isMesh) {
@@ -1516,10 +1518,29 @@ function loop() {
     }
 
     if (objetoImportado) {
-        // Raycasting para verificar o chão - aumentado o alcance do raycaster
+        // Raycasting para verificar o chão - melhorado para detectar apenas plataformas válidas para Mario
         raycaster.set(objetoImportado.position, new THREE.Vector3(0, -1, 0));
         const intersects = raycaster.intersectObjects(objetosColisao, true);
-        const noChao = intersects.length > 0 && intersects[0].distance < 0.2; // Aumentado o limite de distância
+        
+        // Verificar se a colisão é com uma plataforma válida
+        let noChao = false;
+        if (intersects.length > 0 && intersects[0].distance < 0.2) {
+            // Verificar se a plataforma está em uma das alturas válidas
+            const alturasValidas = [-10, -7, -4, -1, 2, 5, 8];
+            const alturaAtual = Math.round(objetoImportado.position.y);
+            
+            // Verificar se estamos próximos de uma altura válida (com margem de erro)
+            for (let i = 0; i < alturasValidas.length; i++) {
+                if (Math.abs(alturaAtual - alturasValidas[i]) <= 0.5) {
+                    noChao = true;
+                    break;
+                }
+            }
+        }
+        
+        // Adicionar uma propriedade ao objeto para indicar que é o Mario
+        // Isso será usado para diferenciar a detecção de colisão entre Mario e barris
+        objetoImportado.userData.isMario = true;
 
         // Get current platform info
         let plataformaAtual = null;
@@ -1527,36 +1548,46 @@ function loop() {
             plataformaAtual = intersects[0].object.userData.plataformaInfo;
         }
 
-        // Abordagem simplificada para evitar que o Mario bata a cabeça
-        // Em vez de verificar colisões complexas, vamos ajustar a física do pulo
-
+        // Abordagem melhorada para evitar que o Mario bata a cabeça
+        // Verificar apenas plataformas válidas em alturas específicas
+        
         // Se o Mario está pulando e está subindo, verificar se ele está próximo de uma plataforma
         if (pulando && velocidadeY > 0) {
-            // Verificar se há uma plataforma acima
-            // Usar plataformas existentes em vez de plataformasInfo
-            for (let i = 0; i < plataformas.length; i++) {
-                const plataforma = plataformas[i].userData.plataformaInfo;
-
-                // Verificar se plataforma existe antes de usar
-                if (plataforma && plataforma.y > objetoImportado.position.y &&
-                    plataforma.y - objetoImportado.position.y < 3.0) {
-
-                    // Se o Mario está dentro dos limites horizontais da plataforma
-                    if (objetoImportado.position.x >= plataforma.xMin - 0.5 &&
-                        objetoImportado.position.x <= plataforma.xMax + 0.5) {
-
-                        // Limitar a altura máxima do pulo para evitar bater na plataforma
-                        // Definir uma altura máxima segura (um pouco abaixo da plataforma)
-                        const alturaMaximaPulo = plataforma.y - 0.5;
-
-                        // Se o Mario está prestes a ultrapassar essa altura, ajustar
-                        if (objetoImportado.position.y + velocidadeY > alturaMaximaPulo) {
-                            // Ajustar a posição para a altura máxima segura
-                            objetoImportado.position.y = alturaMaximaPulo;
-                            // Inverter a velocidade para iniciar a queda
-                            velocidadeY = -0.05;
-                            break;
-                        }
+            // Lista de alturas válidas para plataformas
+            const alturasValidas = [-10, -7, -4, -1, 2, 5, 8];
+            
+            // Encontrar a próxima plataforma acima
+            let proximaPlataformaAcima = null;
+            let distanciaMinima = Infinity;
+            
+            for (let i = 0; i < alturasValidas.length; i++) {
+                const alturaPlataforma = alturasValidas[i];
+                
+                // Verificar se a plataforma está acima do Mario
+                if (alturaPlataforma > objetoImportado.position.y) {
+                    const distancia = alturaPlataforma - objetoImportado.position.y;
+                    
+                    // Se esta plataforma está mais próxima que a anterior
+                    if (distancia < distanciaMinima) {
+                        distanciaMinima = distancia;
+                        proximaPlataformaAcima = alturaPlataforma;
+                    }
+                }
+            }
+            
+            // Se encontrou uma plataforma acima e está próxima o suficiente
+            if (proximaPlataformaAcima !== null && distanciaMinima < 3.0) {
+                // Verificar se o Mario está dentro dos limites horizontais da plataforma (-12 a 12)
+                if (objetoImportado.position.x >= -12 && objetoImportado.position.x <= 12) {
+                    // Definir uma altura máxima segura (um pouco abaixo da plataforma)
+                    const alturaMaximaPulo = proximaPlataformaAcima - 0.5;
+                    
+                    // Se o Mario está prestes a ultrapassar essa altura, ajustar
+                    if (objetoImportado.position.y + velocidadeY > alturaMaximaPulo) {
+                        // Ajustar a posição para a altura máxima segura
+                        objetoImportado.position.y = alturaMaximaPulo;
+                        // Inverter a velocidade para iniciar a queda
+                        velocidadeY = -0.05;
                     }
                 }
             }
@@ -1565,6 +1596,11 @@ function loop() {
         if (!noChao) {
             velocidadeY += gravidade; // Aplica gravidade
             podePular = false; // Cannot jump while in the air
+            
+            // Limitar a velocidade máxima de queda para evitar atravessar plataformas
+            if (velocidadeY < -0.3) {
+                velocidadeY = -0.3;
+            }
         } else {
             if (pulando) {
                 pulando = false; // Reseta o estado de pulo ao tocar o chão
@@ -1574,9 +1610,25 @@ function loop() {
             velocidadeY = 0; // Zera a velocidade vertical ao tocar o chão
             podePular = true; // Reset jump ability when on ground
 
-            // Snap to platform height
-            if (plataformaAtual) {
-                objetoImportado.position.y = plataformaAtual.y + 0.1; // Small offset to prevent floating
+            // Snap to platform height - melhorado para evitar o efeito de "degrau invisível"
+            // Usar as alturas válidas em vez de confiar apenas na plataforma atual
+            const alturasValidas = [-10, -7, -4, -1, 2, 5, 8];
+            let alturaAtual = objetoImportado.position.y;
+            let alturaCorreta = null;
+            let distanciaMinima = Infinity;
+            
+            // Encontrar a altura válida mais próxima
+            for (let i = 0; i < alturasValidas.length; i++) {
+                const distancia = Math.abs(alturaAtual - alturasValidas[i]);
+                if (distancia < distanciaMinima) {
+                    distanciaMinima = distancia;
+                    alturaCorreta = alturasValidas[i];
+                }
+            }
+            
+            // Se encontrou uma altura válida próxima, ajustar a posição
+            if (alturaCorreta !== null && distanciaMinima < 0.5) {
+                objetoImportado.position.y = alturaCorreta + 0.1; // Pequeno offset para evitar flutuação
             }
 
             // Process pending jump if we just landed
@@ -1601,15 +1653,27 @@ function loop() {
             // Se o espaço acabou de ser pressionado e podemos pular
             if (teclasPressionadas[32] && !teclasPressionadasAnterior[32] &&
                 tempoAtual - ultimoPulo > 0.2 && podePular && !pulando) {
-
-                // Iniciar um novo pulo
+                
+                // Iniciar um novo pulo - melhorado para evitar colisões indesejadas
                 pulando = true;
                 podePular = false;
-                velocidadeY = forcaPulo;
+                velocidadeY = forcaPulo; // Usar a força de pulo aumentada
                 ultimoPulo = tempoAtual;
                 objetoImportado.userData.tempoInicioPulo = tempoAtual; // Registrar o tempo de início do pulo
                 objetoImportado.userData.duracaoPulo = 0.8; // Definir duração fixa para o pulo (em segundos)
-
+                
+                // Tocar som de pulo
+                if (jumpSound && !jumpSound.isPlaying) {
+                    jumpSound.play();
+                }
+                
+                // Garantir que o personagem comece a subir imediatamente
+                // Impulso maior para garantir que saia do chão e evite colisões indesejadas
+                objetoImportado.position.y += 0.2; 
+                
+                // Registrar a altura inicial do pulo para cálculos de colisão mais precisos
+                objetoImportado.userData.alturaInicioPulo = objetoImportado.position.y;
+                
                 // Verificar se há teclas direcionais pressionadas para pulo direcional
                 let puloComDirecao = false;
 
@@ -1765,8 +1829,8 @@ function loop() {
 
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.rotation.y = Math.PI;
-                // Verificar se está em uma escada e só subir se estiver no chão
-                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                // Verificar se está em uma escada e só subir se estiver no chão e não estiver pulando
+                tentandoSubirEscada = ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
@@ -1774,8 +1838,10 @@ function loop() {
                     (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
-                    noChao) { // Adicionado noChao para garantir que só suba escadas quando estiver no chão
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5));
+                
+                // Só permitir subir escadas se estiver no chão e não estiver pulando
+                if (tentandoSubirEscada && noChao && !pulando) {
                     objetoImportado.position.y += 3.1;
                     objetoImportado.position.z -= 1;
                 }
@@ -1869,9 +1935,10 @@ function loop() {
                 barril.userData.plataformaAtual = 0;
             }
 
-            // Raycasting para verificar o chão
+            // Raycasting para verificar o chão - usando a versão original para barris
             raycaster.set(barril.position, new THREE.Vector3(0, -1, 0));
             const intersects = raycaster.intersectObjects(objetosColisao, true);
+            // Para barris, usamos a detecção de colisão original sem verificar alturas específicas
             const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
 
             // Verifica se está sobre uma escada para a plataforma atual
@@ -1906,20 +1973,36 @@ function loop() {
                     } else {
                         // Continue moving horizontally
                         barril.position.x += barril.userData.velocidade.x;
-                        // Manter barril rente ao plano
-                        let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
-                        let planoMaisProximo = alturasPlanos.reduce((prev, curr) => Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
-                        let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
-                        barril.position.y = planoMaisProximo + offset;
+                        // Manter barril rente ao plano - usando a lógica original
+                        // Verificar se o barril está em uma plataforma conhecida
+                        if (intersects.length > 0 && intersects[0].object.userData.plataformaInfo) {
+                            // Usar a altura da plataforma detectada
+                            barril.position.y = intersects[0].object.userData.plataformaInfo.y + 0.125;
+                        } else {
+                            // Fallback para o método anterior
+                            let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
+                            let planoMaisProximo = alturasPlanos.reduce((prev, curr) => 
+                                Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
+                            let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
+                            barril.position.y = planoMaisProximo + offset;
+                        }
                     }
                 } else {
                     // No ladders available, continue moving horizontally
                     barril.position.x += barril.userData.velocidade.x;
-                    // Manter barril rente ao plano
-                    let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
-                    let planoMaisProximo = alturasPlanos.reduce((prev, curr) => Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
-                    let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
-                    barril.position.y = planoMaisProximo + offset;
+                    // Manter barril rente ao plano - usando a lógica original
+                    // Verificar se o barril está em uma plataforma conhecida
+                    if (intersects.length > 0 && intersects[0].object.userData.plataformaInfo) {
+                        // Usar a altura da plataforma detectada
+                        barril.position.y = intersects[0].object.userData.plataformaInfo.y + 0.125;
+                    } else {
+                        // Fallback para o método anterior
+                        let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
+                        let planoMaisProximo = alturasPlanos.reduce((prev, curr) => 
+                            Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
+                        let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
+                        barril.position.y = planoMaisProximo + offset;
+                    }
 
                     // Verifica se atingiu os limites da plataforma
                     if (barril.position.x <= -10 || barril.position.x >= 12) {
@@ -2068,7 +2151,8 @@ function atualizarCameraParaSeguirPersonagem(camera, personagem) {
 }
 
 function criarChaoInvisivel(x, y, z) {
-    // Usamos uma geometria MUITO grande simulando plano infinito
+    // Voltar para a geometria original de plano "infinito" para os barris
+    // mas manter a detecção especial para o Mario
     const geometry = new THREE.PlaneGeometry(10000, 10000);
 
     // Material invisível
