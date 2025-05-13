@@ -2333,6 +2333,7 @@ document.getElementById('winMainMenuButton').addEventListener('click', function 
         document.getElementById('winMenu').classList.add('hidden');
 
         // Restart the game loop
+
         loop();
     }
 });
