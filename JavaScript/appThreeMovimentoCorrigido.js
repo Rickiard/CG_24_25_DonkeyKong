@@ -10,7 +10,13 @@ window.gameState = {
     originalPosition: null,
     isGameOver: false,
     isWin: false,
-    score: 0
+    score: 0,
+    // Light states
+    lights: {
+        ambient: true,
+        directional: true,
+        point: true
+    }
 };
 
 // Audio setup
@@ -437,73 +443,36 @@ let animationStates = {
 };
 
 window.pauseMenu = function () {
-    // Definir o estado do jogo como pausado
-    window.gameState.isPaused = true;
-
-    // Mostrar o menu de pausa
-    document.getElementById('pauseMenu').classList.remove('hidden');
-
-    // Salvar a posição original do Mario
-    if (objetoImportado) {
-        window.gameState.originalPosition = objetoImportado.position.clone();
-        // Garantir que o Mario não se mova
-        teclasPressionadas = {}; // Limpar todas as teclas pressionadas
+    if (!window.gameState.isPaused) {
+        window.gameState.isPaused = true;
+        window.pauseAudio();
+        document.getElementById('pauseMenu').classList.remove('hidden');
+        
+        // Update light toggle buttons to reflect current state
+        updateLightToggleButtons();
     }
+};
 
-    // PAUSAR TODAS AS ANIMAÇÕES
-
-    // Pausar a animação do Mario
-    if (mixerAnimacao) {
-        mixerAnimacao.timeScale = 0;
-        if (animacaoAtual) {
-            animacaoAtual.paused = true;
-        }
+// Function to update light toggle buttons based on current state
+function updateLightToggleButtons() {
+    const ambientToggle = document.getElementById('ambientLightToggle');
+    const directionalToggle = document.getElementById('directionalLightToggle');
+    const pointToggle = document.getElementById('pointLightToggle');
+    
+    if (ambientToggle) {
+        ambientToggle.textContent = window.gameState.lights.ambient ? 'ON' : 'OFF';
+        ambientToggle.className = window.gameState.lights.ambient ? 'toggle-button on' : 'toggle-button off';
     }
-
-    // Pausar a animação do Donkey Kong
-    if (mixerDonkeyKong) {
-        mixerDonkeyKong.timeScale = 0;
+    
+    if (directionalToggle) {
+        directionalToggle.textContent = window.gameState.lights.directional ? 'ON' : 'OFF';
+        directionalToggle.className = window.gameState.lights.directional ? 'toggle-button on' : 'toggle-button off';
     }
-
-    // Pausar a animação da Peach
-    if (mixerPeach) {
-        mixerPeach.timeScale = 0;
+    
+    if (pointToggle) {
+        pointToggle.textContent = window.gameState.lights.point ? 'ON' : 'OFF';
+        pointToggle.className = window.gameState.lights.point ? 'toggle-button on' : 'toggle-button off';
     }
-
-    // Pausar todos os barris
-    if (barrisAtivos && barrisAtivos.length > 0) {
-        barrisAtivos.forEach(barril => {
-            if (barril.userData.velocidade) {
-                // Guardar a velocidade original
-                barril.userData.velocidadeOriginal = { ...barril.userData.velocidade };
-
-                // Zerar a velocidade
-                barril.userData.velocidade.x = 0;
-                barril.userData.velocidade.y = 0;
-                barril.userData.velocidade.z = 0;
-            }
-        });
-    }
-
-    // Salvar e fixar a intensidade das luzes
-    animationStates.luzes = [];
-    cena.traverse(function (objeto) {
-        if (objeto.isLight) {
-            // Salvar a intensidade original
-            animationStates.luzes.push({
-                luz: objeto,
-                intensidade: objeto.intensity
-            });
-
-            // Fixar a intensidade para evitar mudanças
-            objeto.userData.intensidadeOriginal = objeto.intensity;
-        }
-    });
-    // Pausar o áudio
-    window.pauseAudio();
-
-    // Pausar o relógio do jogo para que o delta time seja zero
-    relogio.stop();
 };
 
 window.resumeGame = function () {
@@ -1255,6 +1224,39 @@ var luzDirecional1 = new THREE.DirectionalLight(0xffffff, 0.7);
 var luzDirecional2 = new THREE.DirectionalLight(0xffffff, 0.4);
 // Soft fill light from behind
 var luzDirecional3 = new THREE.DirectionalLight(0xffffee, 0.2);
+
+// Light toggle functions
+window.toggleAmbientLight = function() {
+    window.gameState.lights.ambient = !window.gameState.lights.ambient;
+    updateLightToggleButtons();
+    
+    // Toggle ambient light visibility
+    if (luzAmbiente) {
+        luzAmbiente.visible = window.gameState.lights.ambient;
+    }
+};
+
+window.toggleDirectionalLights = function() {
+    window.gameState.lights.directional = !window.gameState.lights.directional;
+    updateLightToggleButtons();
+    
+    // Toggle directional lights visibility
+    if (luzDirecional1) luzDirecional1.visible = window.gameState.lights.directional;
+    if (luzDirecional2) luzDirecional2.visible = window.gameState.lights.directional;
+    if (luzDirecional3) luzDirecional3.visible = window.gameState.lights.directional;
+};
+
+window.togglePointLights = function() {
+    window.gameState.lights.point = !window.gameState.lights.point;
+    updateLightToggleButtons();
+    
+    // Find and toggle all point lights in the scene
+    cena.traverse(function(object) {
+        if (object.isLight && object.type === 'PointLight') {
+            object.visible = window.gameState.lights.point;
+        }
+    });
+};
 
 // Função principal - agora assíncrona
 async function Start() {

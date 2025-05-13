@@ -350,6 +350,51 @@
             margin-top: 20px;
             text-align: center;
         }
+
+        /* Light Controls Styling */
+        .light-controls {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            width: 80%;
+            max-width: 400px;
+        }
+        
+        .light-section-title {
+            color: #ffffff;
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .light-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            color: #ffffff;
+            font-size: 0.9em;
+        }
+        
+        .toggle-button {
+            padding: 5px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s ease;
+        }
+        
+        .toggle-button.on {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .toggle-button.off {
+            background-color: #f44336;
+            color: white;
+        }
     </style>
 
 </head>
@@ -386,6 +431,23 @@
         <button id="resumeButton" class="menu-button">RESUME GAME</button>
         <button id="restartButton" class="menu-button">RESTART GAME</button>
         <button id="mainMenuButton" class="menu-button">MAIN MENU</button>
+        
+        <!-- Light Controls Section -->
+        <div class="light-controls">
+            <h2 class="light-section-title">LIGHT CONTROLS</h2>
+            <div class="light-toggle">
+                <span>Ambient Light:</span>
+                <button id="ambientLightToggle" class="toggle-button on">ON</button>
+            </div>
+            <div class="light-toggle">
+                <span>Directional Lights:</span>
+                <button id="directionalLightToggle" class="toggle-button on">ON</button>
+            </div>
+            <div class="light-toggle">
+                <span>Point Lights:</span>
+                <button id="pointLightToggle" class="toggle-button on">ON</button>
+            </div>
+        </div>
     </div>
 
     <!-- Game Over Menu Container -->
@@ -449,6 +511,38 @@
             document.getElementById('mainMenu').classList.add('hidden');
             if (typeof startGame === 'function') {
                 startGame();
+            }
+        });
+        
+        // Light toggle buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add event listeners for light toggle buttons
+            const ambientLightToggle = document.getElementById('ambientLightToggle');
+            const directionalLightToggle = document.getElementById('directionalLightToggle');
+            const pointLightToggle = document.getElementById('pointLightToggle');
+            
+            if (ambientLightToggle) {
+                ambientLightToggle.addEventListener('click', function() {
+                    if (typeof window.toggleAmbientLight === 'function') {
+                        window.toggleAmbientLight();
+                    }
+                });
+            }
+            
+            if (directionalLightToggle) {
+                directionalLightToggle.addEventListener('click', function() {
+                    if (typeof window.toggleDirectionalLights === 'function') {
+                        window.toggleDirectionalLights();
+                    }
+                });
+            }
+            
+            if (pointLightToggle) {
+                pointLightToggle.addEventListener('click', function() {
+                    if (typeof window.togglePointLights === 'function') {
+                        window.togglePointLights();
+                    }
+                });
             }
         });
 
