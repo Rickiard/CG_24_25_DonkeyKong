@@ -185,7 +185,7 @@
             .sound-button:active {
                 transform: scale(0.9);
             }
-            
+
             /* Estilo para quando o áudio estiver mutado */
             .sound-button.muted {
                 background-color: #F44336;
@@ -226,19 +226,19 @@
         #gameOverMenu {
             background: #000000;
         }
-        
+
         /* Win Menu Specific Styles */
         #winMenu {
             background: #000000;
         }
 
-            #gameOverMenu .menu-title {
-                font-size: 3.5em;
-                margin-bottom: 1em;
-                color: #FF0000;
-                text-shadow: 0 0 10px rgba(255, 0, 0, 0.7), 0 0 20px rgba(255, 0, 0, 0.5), 0 0 30px rgba(255, 0, 0, 0.3);
-                animation: glowGameOver 2s ease-in-out infinite alternate;
-            }
+        #gameOverMenu .menu-title {
+            font-size: 3.5em;
+            margin-bottom: 1em;
+            color: #FF0000;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.7), 0 0 20px rgba(255, 0, 0, 0.5), 0 0 30px rgba(255, 0, 0, 0.3);
+            animation: glowGameOver 2s ease-in-out infinite alternate;
+        }
 
         @keyframes glowGameOver {
             from {
@@ -280,7 +280,7 @@
         .hidden {
             display: none;
         }
-        
+
         /* Countdown Timer Styles */
         .countdown-timer {
             position: fixed;
@@ -294,12 +294,13 @@
             font-weight: bold;
             animation: countdownPulse 1s infinite alternate;
         }
-        
+
         @keyframes countdownPulse {
             from {
                 transform: translate(-50%, -50%) scale(1);
                 opacity: 1;
             }
+
             to {
                 transform: translate(-50%, -50%) scale(1.1);
                 opacity: 0.8;
@@ -312,18 +313,19 @@
             z-index: 2000;
         }
 
-        #loadingScreen .menu-title {
-            font-size: 3.5em;
-            margin-bottom: 1em;
-            color: #4CAF50;
-            text-shadow: 0 0 10px rgba(76, 175, 80, 0.7), 0 0 20px rgba(76, 175, 80, 0.5), 0 0 30px rgba(76, 175, 80, 0.3);
-            animation: glowLoading 2s ease-in-out infinite alternate;
-        }
+            #loadingScreen .menu-title {
+                font-size: 3.5em;
+                margin-bottom: 1em;
+                color: #4CAF50;
+                text-shadow: 0 0 10px rgba(76, 175, 80, 0.7), 0 0 20px rgba(76, 175, 80, 0.5), 0 0 30px rgba(76, 175, 80, 0.3);
+                animation: glowLoading 2s ease-in-out infinite alternate;
+            }
 
         @keyframes glowLoading {
             from {
                 text-shadow: 0 0 10px rgba(76, 175, 80, 0.7), 0 0 20px rgba(76, 175, 80, 0.5), 0 0 30px rgba(76, 175, 80, 0.3);
             }
+
             to {
                 text-shadow: 0 0 15px rgba(76, 175, 80, 0.8), 0 0 25px rgba(76, 175, 80, 0.6), 0 0 35px rgba(76, 175, 80, 0.4);
             }
@@ -340,8 +342,13 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         #loadingProgress {
@@ -356,10 +363,10 @@
 <body>
     <!-- Score Display -->
     <div id="scoreDisplay">Score: 0</div>
-    
+
     <!-- Countdown Timer -->
     <div id="countdownTimer" class="countdown-timer hidden">3</div>
-    
+
     <!-- Sound Button - Sempre visível -->
     <button id="soundButton" class="sound-button">🔊</button>
 
@@ -373,11 +380,12 @@
     <!-- Main Menu Container -->
     <div id="mainMenu" class="menu-container">
         <h1 class="menu-title">DONKEY KONG</h1>
-        <button id="startButton" class="menu-button">START GAME</button>
+        <button id="level1Button" class="menu-button">LEVEL 1</button>
+        <button id="level2Button" class="menu-button">LEVEL 2</button>
         <button id="instructionsButton" class="menu-button">INSTRUCTIONS</button>
         <button id="creditsButton" class="menu-button">CREDITS</button>
         <!-- Botão de som agora está fora do menu para ficar sempre visível -->
-        
+
     </div>
 
     <!-- Pause Menu Container -->
@@ -445,10 +453,17 @@
     <!-- Menu Script -->
     <script>
         // Menu functionality
-        document.getElementById('startButton').addEventListener('click', function () {
+        document.getElementById('level1Button').addEventListener('click', function () {
             document.getElementById('mainMenu').classList.add('hidden');
-            if (typeof startGame === 'function') {
-                startGame();
+            if (typeof startGameLevel1 === 'function') {
+                startGameLevel1();
+            }
+        });
+
+        document.getElementById('level2Button').addEventListener('click', function () {
+            document.getElementById('mainMenu').classList.add('hidden');
+            if (typeof startGameLevel2 === 'function') {
+                startGameLevel2();
             }
         });
 

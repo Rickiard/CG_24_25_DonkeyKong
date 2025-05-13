@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'FBXLoader';
 import { PointerLockControls } from 'PointerLockControls';
+import * as PlatformLevel1 from './platformLevel1.js';
+import * as PlatformLevel2 from './platformLevel2.js';
 
 // Game state management
 window.gameState = {
@@ -10,7 +12,8 @@ window.gameState = {
     originalPosition: null,
     isGameOver: false,
     isWin: false,
-    score: 0
+    score: 0,
+    currentLevel: null // Armazena o nível atual (1 ou 2)
 };
 
 // Audio setup
@@ -359,7 +362,20 @@ function updateScoreDisplay() {
 }
 
 // Global functions for menu control
-window.startGame = async function () {
+// Função para iniciar o Level 1
+window.startGameLevel1 = async function () {
+    window.gameState.currentLevel = 1;
+    await startGameCommon();
+};
+
+// Função para iniciar o Level 2
+window.startGameLevel2 = async function () {
+    window.gameState.currentLevel = 2;
+    await startGameCommon();
+};
+
+// Função comum para iniciar o jogo (usada por ambos os níveis)
+async function startGameCommon() {
     // Mostrar tela de loading
     document.getElementById('mainMenu').classList.add('hidden');
     document.getElementById('loadingScreen').classList.remove('hidden');
@@ -375,6 +391,36 @@ window.startGame = async function () {
             barrisAtivos = [];
         }
         barrilColisao = false;
+        
+        // Limpar objetos específicos do nível anterior
+        // Isso garante que não haja objetos duplicados ao mudar de nível
+        for (let i = cena.children.length - 1; i >= 0; i--) {
+            const obj = cena.children[i];
+            
+            // Verificar se é a skybox (que deve ser preservada)
+            const isSkybox = obj.geometry && 
+                            obj.geometry.type === 'BoxGeometry' && 
+                            obj.geometry.parameters.width === 100 &&
+                            obj.geometry.parameters.height === 100 &&
+                            obj.geometry.parameters.depth === 100;
+            
+            // Pular a skybox
+            if (isSkybox) {
+                continue;
+            }
+            
+            // Remover objetos com userData.levelId que não correspondem ao nível atual
+            if (obj.userData && obj.userData.levelId !== undefined && 
+                obj.userData.levelId !== window.gameState.currentLevel) {
+                cena.remove(obj);
+            }
+            
+            // Remover modelos FBX e outros objetos específicos de nível
+            if (obj.type === 'Group' && obj.name && 
+                (obj.name.includes('fbx') || obj.name === "level1_fbx_model")) {
+                cena.remove(obj);
+            }
+        }
 
         // Forçar reinicialização completa do jogo
         window.gameState.isInitialized = false;
@@ -384,7 +430,13 @@ window.startGame = async function () {
         window.gameState.isInitialized = true;
         // Garantir que o Mario esteja na posição correta
         if (objetoImportado) {
-            objetoImportado.position.set(-10, -9.7, -3.0);
+            // Posicionar o Mario com base no nível atual
+            if (window.gameState.currentLevel === 1) {
+                objetoImportado.position.set(-10, -9.7, -3.0);
+            } else if (window.gameState.currentLevel === 2) {
+                // Posição ajustada para ficar mais à esquerda, próximo à ponta inferior da plataforma
+                objetoImportado.position.set(-8, -9.7, -3.0);
+            }
             objetoImportado.rotation.set(0, Math.PI / 2, 0);
 
             // Reset Mario's texture back to normal
@@ -590,9 +642,18 @@ window.resumeGame = function () {
 };
 
 window.restartGame = async function () {
+    // Manter o nível atual
+    const currentLevel = window.gameState.currentLevel;
+
     // Reset Mario's position and rotation
     if (objetoImportado) {
-        objetoImportado.position.set(-10, -9.7, -3.0);
+        // Posicionar o Mario com base no nível atual
+        if (window.gameState.currentLevel === 1) {
+            objetoImportado.position.set(-10, -9.7, -3.0);
+        } else if (window.gameState.currentLevel === 2) {
+            // Posição ajustada para ficar mais à esquerda, próximo à ponta inferior da plataforma
+            objetoImportado.position.set(-8, -9.7, -3.0);
+        }
         objetoImportado.rotation.set(0, Math.PI / 2, 0);
 
         // Reset Mario's texture back to normal
@@ -605,6 +666,13 @@ window.restartGame = async function () {
                 });
             }
         });
+    }
+
+    // Reiniciar o jogo com o mesmo nível
+    if (currentLevel === 1) {
+        window.startGameLevel1();
+    } else if (currentLevel === 2) {
+        window.startGameLevel2();
     }
 
     // Reset game state
@@ -732,8 +800,8 @@ var andando = false;
 var pulando = false;
 var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
-var gravidade = -0.008; // Aumentado para queda mais rápida e natural
-var forcaPulo = 0.18; // Aumentado para pulo mais alto e consistente
+var gravidade = -0.008; // Voltando para o valor original
+var forcaPulo = 0.25; // Aumentado significativamente para garantir que o pulo seja perceptível
 var velocidadeMovimento = 0.03; // Reduced movement speed (was 0.10)
 var velocidadeMovimentoAr = 0.02; // Slower movement speed while in air
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
@@ -744,6 +812,7 @@ var animacaoAtual = null; // Track current animation
 var plataformas = []; // Array to store platform information
 var ultimoPulo = 0; // Track when the last jump occurred
 var puloPendente = false; // Track if a jump is pending
+var tentandoSubirEscada = false; // Nova variável para rastrear tentativa de subir escada
 // Variáveis globais para o barril
 var barrilImportado;
 var velocidadeBarrilY = 0; // Velocidade vertical do barril
@@ -797,23 +866,23 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
     importer.load(caminho, function (object) {
         // Procurar e remover luzes do modelo FBX
         let lightsFound = [];
-        
+
         // Função recursiva para encontrar todas as luzes, mesmo em grupos aninhados
         function findLightsRecursively(obj) {
             if (obj.isLight) {
                 console.log(`Luz encontrada no modelo ${caminho}:`, obj);
                 lightsFound.push(obj);
             }
-            
+
             // Se for um grupo ou objeto com filhos, procurar recursivamente
             if (obj.children && obj.children.length > 0) {
                 obj.children.forEach(child => findLightsRecursively(child));
             }
         }
-        
+
         // Iniciar busca recursiva
         findLightsRecursively(object);
-        
+
         // Aplicar propriedades às meshes
         object.traverse(function (child) {
             if (child.isMesh) {
@@ -821,7 +890,7 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
                 child.receiveShadow = true;
             }
         });
-        
+
         // Remover as luzes encontradas
         lightsFound.forEach(light => {
             console.log(`Removendo luz: ${light.name} (${light.type})`);
@@ -865,7 +934,7 @@ carregarObjetoFBX(
         objetoImportado = object;
         if (object.animations && object.animations.length > 0) {
             mixerAnimacao = new THREE.AnimationMixer(object);
-            
+
             // Log available animations for debugging
             console.log('Available animations:', object.animations.length);
             object.animations.forEach((anim, index) => {
@@ -904,14 +973,15 @@ function lançarBarril() {
     const novoBarril = barrilImportado.clone();
     novoBarril.position.set(-7, 5.25, barrilZPorPlataforma['8']); // Usar o z correto para a plataforma inicial
     novoBarril.rotation.set(Math.PI / 2, 0, 0);
-    novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0);
+    novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0); // Velocidade horizontal inicial
     novoBarril.userData.plataformaAtual = 0;
+    novoBarril.userData.isBarrel = true; // Marcar como barril para usar detecção de colisão original
 
     novoBarril.traverse(child => {
         if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
-            
+
             // Aplicar cor castanha aos barris
             child.material = new THREE.MeshPhongMaterial({
                 color: barrelColor,
@@ -929,23 +999,23 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
     importer.load(caminho, function (object) {
         // Procurar e remover luzes do modelo FBX
         let lightsFound = [];
-        
+
         // Função recursiva para encontrar todas as luzes, mesmo em grupos aninhados
         function findLightsRecursively(obj) {
             if (obj.isLight) {
                 console.log(`Luz encontrada no barril ${caminho}:`, obj);
                 lightsFound.push(obj);
             }
-            
+
             // Se for um grupo ou objeto com filhos, procurar recursivamente
             if (obj.children && obj.children.length > 0) {
                 obj.children.forEach(child => findLightsRecursively(child));
             }
         }
-        
+
         // Iniciar busca recursiva
         findLightsRecursively(object);
-        
+
         // Aplicar propriedades às meshes
         object.traverse(function (child) {
             if (child.isMesh) {
@@ -953,7 +1023,7 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
                 child.receiveShadow = true;
             }
         });
-        
+
         // Remover as luzes encontradas
         lightsFound.forEach(light => {
             console.log(`Removendo luz do barril: ${light.name} (${light.type})`);
@@ -972,28 +1042,28 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
     });
 }
 
-carregarObjetoFBX('./Objetos/tentativa1.fbx', { x: 0.03, y: 0.03, z: 0.03 }, { x: 1.5, y: -0.5, z: -6.0 }, { x: -Math.PI / 2, y: 0, z: 0 });
+// O modelo tentativa1.fbx será carregado pelo módulo platformLevel1.js
 
 importer.load('./Objetos/Donkey Kong.fbx', function (object) {
     // Procurar e remover luzes do modelo FBX
     let lightsFound = [];
-    
+
     // Função recursiva para encontrar todas as luzes, mesmo em grupos aninhados
     function findLightsRecursively(obj) {
         if (obj.isLight) {
             console.log(`Luz encontrada no modelo Donkey Kong:`, obj);
             lightsFound.push(obj);
         }
-        
+
         // Se for um grupo ou objeto com filhos, procurar recursivamente
         if (obj.children && obj.children.length > 0) {
             obj.children.forEach(child => findLightsRecursively(child));
         }
     }
-    
+
     // Iniciar busca recursiva
     findLightsRecursively(object);
-    
+
     // Aplicar propriedades às meshes
     object.traverse(child => {
         if (child.isMesh) {
@@ -1001,7 +1071,7 @@ importer.load('./Objetos/Donkey Kong.fbx', function (object) {
             child.receiveShadow = true;
         }
     });
-    
+
     // Remover as luzes encontradas
     lightsFound.forEach(light => {
         console.log(`Removendo luz do Donkey Kong: ${light.name} (${light.type})`);
@@ -1009,7 +1079,7 @@ importer.load('./Objetos/Donkey Kong.fbx', function (object) {
             light.parent.remove(light);
         }
     });
-    
+
     object.scale.set(0.015, 0.015, 0.015);
     object.position.set(-6.5, 5.7, -9);
 
@@ -1162,7 +1232,7 @@ function iniciarAnimacao() {
             if (animacaoAtual) {
                 animacaoAtual.stop();
             }
-            
+
             // Get running animation from stored animations or fall back to index 7
             let runningAnim = objetoImportado.userData.runningAnimation || objetoImportado.animations[7];
             if (runningAnim) {
@@ -1190,7 +1260,7 @@ function pararAnimacao() {
             if (animacaoAtual) {
                 animacaoAtual.stop();
             }
-            
+
             // Find idle animation by name or fall back to index 3
             let idleAnim = objetoImportado.animations.find(a => a.name && a.name.toLowerCase().includes('idle')) || objetoImportado.animations[3];
             if (idleAnim) {
@@ -1267,7 +1337,13 @@ async function Start() {
 
     // Reposicionar Mario se ele já existir
     if (objetoImportado) {
-        objetoImportado.position.set(-10, -9.7, -3.0);
+        // Posicionar o Mario com base no nível atual
+        if (window.gameState.currentLevel === 1) {
+            objetoImportado.position.set(-10, -9.7, -3.0);
+        } else if (window.gameState.currentLevel === 2) {
+            // Posição ajustada para ficar mais à esquerda, próximo à ponta inferior da plataforma
+            objetoImportado.position.set(-8, -9.7, -3.0);
+        }
         objetoImportado.rotation.set(0, Math.PI / 2, 0);
     }
 
@@ -1445,9 +1521,11 @@ async function Start() {
         const info = plataformasInfo[i];
         const plano = criarChaoInvisivel(7, info.y, -3);
         plano.userData.plataformaInfo = info; // Store platform info
+        plano.userData.levelId = window.gameState.currentLevel; // Marcar com o ID do nível
         cena.add(plano);
         objetosColisao.push(plano);
         plataformas.push(plano);
+        window.planosInvisiveis.push(plano); // Armazenar referência para limpeza futura
     }
     
     // Adicionar luzes pontuais conforme configuração
@@ -1563,11 +1641,11 @@ let animationLoopActive = true;
 let lightLogCounter = 0;
 
 // Função para encontrar e listar todas as luzes na cena
-window.findAllLights = function() {
+window.findAllLights = function () {
     console.log("Procurando todas as luzes na cena...");
     let lightsFound = [];
-    
-    cena.traverse(function(object) {
+
+    cena.traverse(function (object) {
         if (object.isLight) {
             lightsFound.push({
                 name: object.name,
@@ -1578,16 +1656,16 @@ window.findAllLights = function() {
             });
         }
     });
-    
+
     console.log("Luzes encontradas:", lightsFound);
     return lightsFound;
 };
 
 // Função para remover uma luz específica pelo UUID
-window.removeLightByUUID = function(uuid) {
+window.removeLightByUUID = function (uuid) {
     let lightRemoved = false;
-    
-    cena.traverse(function(object) {
+
+    cena.traverse(function (object) {
         if (object.isLight && object.uuid === uuid) {
             console.log(`Removendo luz: ${object.name} (${object.type})`);
             if (object.parent) {
@@ -1596,17 +1674,17 @@ window.removeLightByUUID = function(uuid) {
             }
         }
     });
-    
+
     return lightRemoved;
 };
 
 // Função para limpar todas as luzes não essenciais
-window.cleanupUnwantedLights = function() {
+window.cleanupUnwantedLights = function () {
     // Lista de UUIDs das luzes essenciais que não devem ser removidas
     // Você pode adicionar os UUIDs das luzes que você criou explicitamente
     const essentialLights = [
         luzAmbiente.uuid,
-        luzDirecional1.uuid,   
+        luzDirecional1.uuid,
         luzDirecional2.uuid,
         luzDirecional3.uuid
     ];
@@ -1617,8 +1695,8 @@ window.cleanupUnwantedLights = function() {
     }
     
     let lightsRemoved = 0;
-    
-    cena.traverse(function(object) {
+
+    cena.traverse(function (object) {
         if (object.isLight) {
             // Se não for uma luz essencial e for do tipo PointLight
             if (!essentialLights.includes(object.uuid) && object.type === 'PointLight') {
@@ -1630,7 +1708,7 @@ window.cleanupUnwantedLights = function() {
             }
         }
     });
-    
+
     console.log(`${lightsRemoved} luzes não essenciais foram removidas.`);
     return lightsRemoved;
 };
@@ -1675,10 +1753,29 @@ function loop() {
     }
 
     if (objetoImportado) {
-        // Raycasting para verificar o chão - aumentado o alcance do raycaster
+        // Raycasting para verificar o chão - melhorado para detectar apenas plataformas válidas para Mario
         raycaster.set(objetoImportado.position, new THREE.Vector3(0, -1, 0));
         const intersects = raycaster.intersectObjects(objetosColisao, true);
-        const noChao = intersects.length > 0 && intersects[0].distance < 0.2; // Aumentado o limite de distância
+        
+        // Verificar se a colisão é com uma plataforma válida
+        let noChao = false;
+        if (intersects.length > 0 && intersects[0].distance < 0.2) {
+            // Verificar se a plataforma está em uma das alturas válidas
+            const alturasValidas = [-10, -7, -4, -1, 2, 5, 8];
+            const alturaAtual = Math.round(objetoImportado.position.y);
+            
+            // Verificar se estamos próximos de uma altura válida (com margem de erro)
+            for (let i = 0; i < alturasValidas.length; i++) {
+                if (Math.abs(alturaAtual - alturasValidas[i]) <= 0.5) {
+                    noChao = true;
+                    break;
+                }
+            }
+        }
+        
+        // Adicionar uma propriedade ao objeto para indicar que é o Mario
+        // Isso será usado para diferenciar a detecção de colisão entre Mario e barris
+        objetoImportado.userData.isMario = true;
 
         // Get current platform info
         let plataformaAtual = null;
@@ -1686,44 +1783,59 @@ function loop() {
             plataformaAtual = intersects[0].object.userData.plataformaInfo;
         }
 
-        // Abordagem simplificada para evitar que o Mario bata a cabeça
-        // Em vez de verificar colisões complexas, vamos ajustar a física do pulo
+        // Abordagem melhorada para evitar que o Mario bata a cabeça
+        // Verificar apenas plataformas válidas em alturas específicas
         
         // Se o Mario está pulando e está subindo, verificar se ele está próximo de uma plataforma
         if (pulando && velocidadeY > 0) {
-            // Verificar se há uma plataforma acima
-            // Usar plataformas existentes em vez de plataformasInfo
-            for (let i = 0; i < plataformas.length; i++) {
-                const plataforma = plataformas[i].userData.plataformaInfo;
+            // Lista de alturas válidas para plataformas
+            const alturasValidas = [-10, -7, -4, -1, 2, 5, 8];
+            
+            // Encontrar a próxima plataforma acima
+            let proximaPlataformaAcima = null;
+            let distanciaMinima = Infinity;
+            
+            for (let i = 0; i < alturasValidas.length; i++) {
+                const alturaPlataforma = alturasValidas[i];
                 
-                // Verificar se plataforma existe antes de usar
-                if (plataforma && plataforma.y > objetoImportado.position.y && 
-                    plataforma.y - objetoImportado.position.y < 3.0) {
+                // Verificar se a plataforma está acima do Mario
+                if (alturaPlataforma > objetoImportado.position.y) {
+                    const distancia = alturaPlataforma - objetoImportado.position.y;
                     
-                    // Se o Mario está dentro dos limites horizontais da plataforma
-                    if (objetoImportado.position.x >= plataforma.xMin - 0.5 && 
-                        objetoImportado.position.x <= plataforma.xMax + 0.5) {
-                        
-                        // Limitar a altura máxima do pulo para evitar bater na plataforma
-                        // Definir uma altura máxima segura (um pouco abaixo da plataforma)
-                        const alturaMaximaPulo = plataforma.y - 0.5;
-                        
-                        // Se o Mario está prestes a ultrapassar essa altura, ajustar
-                        if (objetoImportado.position.y + velocidadeY > alturaMaximaPulo) {
-                            // Ajustar a posição para a altura máxima segura
-                            objetoImportado.position.y = alturaMaximaPulo;
-                            // Inverter a velocidade para iniciar a queda
-                            velocidadeY = -0.05;
-                            break;
-                        }
+                    // Se esta plataforma está mais próxima que a anterior
+                    if (distancia < distanciaMinima) {
+                        distanciaMinima = distancia;
+                        proximaPlataformaAcima = alturaPlataforma;
+                    }
+                }
+            }
+            
+            // Se encontrou uma plataforma acima e está próxima o suficiente
+            if (proximaPlataformaAcima !== null && distanciaMinima < 3.0) {
+                // Verificar se o Mario está dentro dos limites horizontais da plataforma (-12 a 12)
+                if (objetoImportado.position.x >= -12 && objetoImportado.position.x <= 12) {
+                    // Definir uma altura máxima segura (um pouco abaixo da plataforma)
+                    const alturaMaximaPulo = proximaPlataformaAcima - 0.5;
+                    
+                    // Se o Mario está prestes a ultrapassar essa altura, ajustar
+                    if (objetoImportado.position.y + velocidadeY > alturaMaximaPulo) {
+                        // Ajustar a posição para a altura máxima segura
+                        objetoImportado.position.y = alturaMaximaPulo;
+                        // Inverter a velocidade para iniciar a queda
+                        velocidadeY = -0.05;
                     }
                 }
             }
         }
-        
+
         if (!noChao) {
             velocidadeY += gravidade; // Aplica gravidade
             podePular = false; // Cannot jump while in the air
+            
+            // Limitar a velocidade máxima de queda para evitar atravessar plataformas
+            if (velocidadeY < -0.3) {
+                velocidadeY = -0.3;
+            }
         } else {
             if (pulando) {
                 pulando = false; // Reseta o estado de pulo ao tocar o chão
@@ -1733,9 +1845,25 @@ function loop() {
             velocidadeY = 0; // Zera a velocidade vertical ao tocar o chão
             podePular = true; // Reset jump ability when on ground
 
-            // Snap to platform height
-            if (plataformaAtual) {
-                objetoImportado.position.y = plataformaAtual.y + 0.1; // Small offset to prevent floating
+            // Snap to platform height - melhorado para evitar o efeito de "degrau invisível"
+            // Usar as alturas válidas em vez de confiar apenas na plataforma atual
+            const alturasValidas = [-10, -7, -4, -1, 2, 5, 8];
+            let alturaAtual = objetoImportado.position.y;
+            let alturaCorreta = null;
+            let distanciaMinima = Infinity;
+            
+            // Encontrar a altura válida mais próxima
+            for (let i = 0; i < alturasValidas.length; i++) {
+                const distancia = Math.abs(alturaAtual - alturasValidas[i]);
+                if (distancia < distanciaMinima) {
+                    distanciaMinima = distancia;
+                    alturaCorreta = alturasValidas[i];
+                }
+            }
+            
+            // Se encontrou uma altura válida próxima, ajustar a posição
+            if (alturaCorreta !== null && distanciaMinima < 0.5) {
+                objetoImportado.position.y = alturaCorreta + 0.1; // Pequeno offset para evitar flutuação
             }
 
             // Process pending jump if we just landed
@@ -1754,24 +1882,36 @@ function loop() {
 
         // Handle jump input in the loop for consistent behavior
         // Verificar se o espaço foi pressionado ou se já está em um pulo
-        if ((teclasPressionadas[32] && !teclasPressionadasAnterior[32]) || pulando) { 
+        if ((teclasPressionadas[32] && !teclasPressionadasAnterior[32]) || pulando) {
             const tempoAtual = relogio.getElapsedTime();
-            
+
             // Se o espaço acabou de ser pressionado e podemos pular
-            if (teclasPressionadas[32] && !teclasPressionadasAnterior[32] && 
+            if (teclasPressionadas[32] && !teclasPressionadasAnterior[32] &&
                 tempoAtual - ultimoPulo > 0.2 && podePular && !pulando) {
                 
-                // Iniciar um novo pulo
+                // Iniciar um novo pulo - melhorado para evitar colisões indesejadas
                 pulando = true;
                 podePular = false;
-                velocidadeY = forcaPulo;
+                velocidadeY = forcaPulo; // Usar a força de pulo aumentada
                 ultimoPulo = tempoAtual;
                 objetoImportado.userData.tempoInicioPulo = tempoAtual; // Registrar o tempo de início do pulo
                 objetoImportado.userData.duracaoPulo = 0.8; // Definir duração fixa para o pulo (em segundos)
                 
+                // Tocar som de pulo
+                if (jumpSound && !jumpSound.isPlaying) {
+                    jumpSound.play();
+                }
+                
+                // Garantir que o personagem comece a subir imediatamente
+                // Impulso maior para garantir que saia do chão e evite colisões indesejadas
+                objetoImportado.position.y += 0.2; 
+                
+                // Registrar a altura inicial do pulo para cálculos de colisão mais precisos
+                objetoImportado.userData.alturaInicioPulo = objetoImportado.position.y;
+                
                 // Verificar se há teclas direcionais pressionadas para pulo direcional
                 let puloComDirecao = false;
-                
+
                 // Na câmera perspectiva: W+Space = pulo para frente, S+Space = pulo para trás
                 if (cameraAtual === camaraPerspectiva) {
                     if (teclasPressionadas[87]) { // W pressionado junto com espaço
@@ -1783,7 +1923,7 @@ function loop() {
                         objetoImportado.userData.velocidadePuloX = -velocidadeMovimento * 1.5; // Velocidade horizontal durante o pulo
                         puloComDirecao = true;
                     }
-                } 
+                }
                 // Na câmera ortográfica: D+Space = pulo para direita, A+Space = pulo para esquerda
                 else if (cameraAtual === camaraOrto) {
                     if (teclasPressionadas[68]) { // D pressionado junto com espaço
@@ -1796,22 +1936,22 @@ function loop() {
                         puloComDirecao = true;
                     }
                 }
-                
+
                 // Se não houver direção, pulo vertical
                 if (!puloComDirecao) {
                     objetoImportado.userData.velocidadePuloX = 0;
                 }
-                
+
                 // Play jump sound
                 if (jumpSound && !jumpSound.isPlaying) {
                     jumpSound.play();
                 }
-            } 
+            }
             // Se já estamos pulando, verificar se o pulo deve continuar
             else if (pulando) {
                 // Verificar se o pulo já ultrapassou sua duração máxima
                 const tempoPulo = tempoAtual - objetoImportado.userData.tempoInicioPulo;
-                
+
                 // Se o pulo já durou o suficiente e estamos no chão, encerrá-lo
                 if (tempoPulo >= objetoImportado.userData.duracaoPulo && noChao) {
                     pulando = false;
@@ -1828,7 +1968,7 @@ function loop() {
 
         // Atualiza a posição vertical do personagem
         objetoImportado.position.y += velocidadeY;
-        
+
         // Aplicar velocidade horizontal durante o pulo, se existir
         // O pulo tem prioridade sobre o movimento normal
         if (pulando) {
@@ -1837,7 +1977,7 @@ function loop() {
             if (objetoImportado.userData.velocidadePuloX !== undefined) {
                 objetoImportado.position.x += objetoImportado.userData.velocidadePuloX;
             }
-            
+
             // Verificar limites horizontais para não sair da plataforma
             if (objetoImportado.position.x < -10) {
                 objetoImportado.position.x = -10;
@@ -1924,8 +2064,8 @@ function loop() {
 
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.rotation.y = Math.PI;
-                // Verificar se está em uma escada e só subir se estiver no chão
-                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                // Verificar se está em uma escada e só subir se estiver no chão e não estiver pulando
+                tentandoSubirEscada = ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
@@ -1933,8 +2073,10 @@ function loop() {
                     (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
-                    noChao) { // Adicionado noChao para garantir que só suba escadas quando estiver no chão
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5));
+                
+                // Só permitir subir escadas se estiver no chão e não estiver pulando
+                if (tentandoSubirEscada && noChao && !pulando) {
                     objetoImportado.position.y += 3.1;
                     objetoImportado.position.z -= 1;
                 }
@@ -2028,9 +2170,10 @@ function loop() {
                 barril.userData.plataformaAtual = 0;
             }
 
-            // Raycasting para verificar o chão
+            // Raycasting para verificar o chão - usando a versão original para barris
             raycaster.set(barril.position, new THREE.Vector3(0, -1, 0));
             const intersects = raycaster.intersectObjects(objetosColisao, true);
+            // Para barris, usamos a detecção de colisão original sem verificar alturas específicas
             const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
 
             // Verifica se está sobre uma escada para a plataforma atual
@@ -2065,20 +2208,36 @@ function loop() {
                     } else {
                         // Continue moving horizontally
                         barril.position.x += barril.userData.velocidade.x;
-                        // Manter barril rente ao plano
-                        let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
-                        let planoMaisProximo = alturasPlanos.reduce((prev, curr) => Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
-                        let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
-                        barril.position.y = planoMaisProximo + offset;
+                        // Manter barril rente ao plano - usando a lógica original
+                        // Verificar se o barril está em uma plataforma conhecida
+                        if (intersects.length > 0 && intersects[0].object.userData.plataformaInfo) {
+                            // Usar a altura da plataforma detectada
+                            barril.position.y = intersects[0].object.userData.plataformaInfo.y + 0.125;
+                        } else {
+                            // Fallback para o método anterior
+                            let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
+                            let planoMaisProximo = alturasPlanos.reduce((prev, curr) => 
+                                Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
+                            let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
+                            barril.position.y = planoMaisProximo + offset;
+                        }
                     }
                 } else {
                     // No ladders available, continue moving horizontally
                     barril.position.x += barril.userData.velocidade.x;
-                    // Manter barril rente ao plano
-                    let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
-                    let planoMaisProximo = alturasPlanos.reduce((prev, curr) => Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
-                    let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
-                    barril.position.y = planoMaisProximo + offset;
+                    // Manter barril rente ao plano - usando a lógica original
+                    // Verificar se o barril está em uma plataforma conhecida
+                    if (intersects.length > 0 && intersects[0].object.userData.plataformaInfo) {
+                        // Usar a altura da plataforma detectada
+                        barril.position.y = intersects[0].object.userData.plataformaInfo.y + 0.125;
+                    } else {
+                        // Fallback para o método anterior
+                        let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
+                        let planoMaisProximo = alturasPlanos.reduce((prev, curr) => 
+                            Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
+                        let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
+                        barril.position.y = planoMaisProximo + offset;
+                    }
 
                     // Verifica se atingiu os limites da plataforma
                     if (barril.position.x <= -10 || barril.position.x >= 12) {
@@ -2227,7 +2386,8 @@ function atualizarCameraParaSeguirPersonagem(camera, personagem) {
 }
 
 function criarChaoInvisivel(x, y, z) {
-    // Usamos uma geometria MUITO grande simulando plano infinito
+    // Voltar para a geometria original de plano "infinito" para os barris
+    // mas manter a detecção especial para o Mario
     const geometry = new THREE.PlaneGeometry(10000, 10000);
 
     // Material invisível
@@ -2299,7 +2459,13 @@ document.getElementById('winMainMenuButton').addEventListener('click', function 
 
         // Reset Mario's position and rotation
         if (objetoImportado) {
-            objetoImportado.position.set(-10, -9.7, -3.0);
+            // Posicionar o Mario com base no nível atual
+            if (window.gameState.currentLevel === 1) {
+                objetoImportado.position.set(-10, -9.7, -3.0);
+            } else if (window.gameState.currentLevel === 2) {
+                // Posição ajustada para ficar mais à esquerda, próximo à ponta inferior da plataforma
+                objetoImportado.position.set(-8, -9.7, -3.0);
+            }
             objetoImportado.rotation.set(0, Math.PI / 2, 0);
 
             // Reset Mario's texture back to normal
