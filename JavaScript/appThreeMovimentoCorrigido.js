@@ -1424,18 +1424,14 @@ async function Start() {
         });
     }
     
-    // Função para criar uma luz pontual com esfera visível
+    // Função para criar uma luz pontual (sem esfera visível)
     function criarLuzPontual(x, y, z, cor, intensidade, alcance) {
         const luz = new THREE.PointLight(cor, intensidade, alcance);
         luz.position.set(x, y, z);
         luz.castShadow = true;
         
-        // Adicionar uma esfera para tornar a luz visível
-        const esfera = new THREE.Mesh(
-            new THREE.SphereGeometry(0.2, 16, 16),
-            new THREE.MeshBasicMaterial({ color: cor })
-        );
-        luz.add(esfera);
+        // Removida a criação da esfera visível - apenas o efeito de luz permanece
+        
         cena.add(luz);
         
         // Adicionar ao array de luzes essenciais
