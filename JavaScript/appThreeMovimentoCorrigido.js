@@ -18,7 +18,7 @@ window.gameState = {
         ambient: true,
         directional: true,
         point: true
-    }
+    },
     score: 0,
     currentLevel: null // Armazena o nível atual (1 ou 2)
 };
