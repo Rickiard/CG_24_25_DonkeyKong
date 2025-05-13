@@ -1391,15 +1391,15 @@ async function Start() {
                     const distanciaTotal = xDireita - startX;
                     const intervalo = distanciaTotal / (numLuzesAdicionais + 1);
                     
+                    // Reduzir a altura das luzes na plataforma 5
+                    const alturaReduzida = 0.5; // Reduzir para 0.5 unidades acima da plataforma
+                    
                     for (let i = 1; i <= numLuzesAdicionais; i++) {
                         const posX = startX + (intervalo * i);
-                        // Calcular altura interpolada entre as extremidades
-                        const progress = i / (numLuzesAdicionais + 1);
-                        const alturaInterpolada = alturaEsquerda + (alturaDireita - alturaEsquerda) * progress;
                         
                         // Criar luz com intensidade ligeiramente reduzida para as luzes intermediárias
                         const intensidadeAjustada = intensidade * 0.8;
-                        criarLuzPontual(posX, plataforma.y + alturaInterpolada, zValue, cor, intensidadeAjustada, alcance);
+                        criarLuzPontual(posX, plataforma.y + alturaReduzida, zValue, cor, intensidadeAjustada, alcance);
                     }
                 } else {
                     // Para as outras plataformas, manter o comportamento normal
@@ -1480,15 +1480,15 @@ async function Start() {
                 const distanciaTotal = xDireita - startX;
                 const intervalo = distanciaTotal / (numLuzesAdicionais + 1);
                 
+                // Reduzir a altura das luzes na plataforma 5
+                const alturaReduzida = 0.5; // Reduzir para 0.5 unidades acima da plataforma
+                
                 for (let i = 1; i <= numLuzesAdicionais; i++) {
                     const posX = startX + (intervalo * i);
-                    // Calcular altura interpolada entre as extremidades
-                    const progress = i / (numLuzesAdicionais + 1);
-                    const alturaInterpolada = alturaEsquerda + (alturaDireita - alturaEsquerda) * progress;
                     
                     // Criar luz com intensidade ligeiramente reduzida para as luzes intermediárias
                     const intensidadeAjustada = intensidade * 0.8;
-                    criarLuzPontual(posX, plataforma.y + alturaInterpolada, zValue, cor, intensidadeAjustada, alcance);
+                    criarLuzPontual(posX, plataforma.y + alturaReduzida, zValue, cor, intensidadeAjustada, alcance);
                 }
           } else {
                 // Para as outras plataformas, manter o comportamento normal
@@ -1509,7 +1509,13 @@ async function Start() {
         }
         
         // Criar luz na extremidade direita
-        criarLuzPontual(xDireita, plataforma.y + alturaDireita, zValue, cor, intensidade, alcance);
+        // Para a plataforma 5, usar altura reduzida
+        if (plataformaIndex === 5) {
+            const alturaReduzida = 0.5; // Mesma altura reduzida usada para as luzes intermediárias
+            criarLuzPontual(xDireita, plataforma.y + alturaReduzida, zValue, cor, intensidade, alcance);
+        } else {
+            criarLuzPontual(xDireita, plataforma.y + alturaDireita, zValue, cor, intensidade, alcance);
+        }
     });
 
     // Configuração da câmara perspectiva
