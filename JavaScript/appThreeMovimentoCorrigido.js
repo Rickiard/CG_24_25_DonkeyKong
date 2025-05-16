@@ -1576,6 +1576,28 @@ async function Start() {
             // Criar luz na extremidade direita
             criarLuzPontual(xDireita, plataforma.y + alturaDireita, zValue, cor, intensidade, alcance);
         });
+        
+        // Após criar todas as luzes pontuais para o nível 2, alinhar o z de todas
+        if (window.gameState.currentLevel === 2) {
+            // Filtrar todas as luzes pontuais criadas neste momento
+            const pointLights = [];
+            cena.traverse(function(obj) {
+                if (obj.isLight && obj.type === 'PointLight') {
+                    pointLights.push(obj);
+                }
+            });
+            if (pointLights.length > 0) {
+                // Encontrar o menor z
+                let menorZ = pointLights[0].position.z;
+                pointLights.forEach(luz => {
+                    if (luz.position.z < menorZ) menorZ = luz.position.z;
+                });
+                // Alinhar todas as luzes para esse z
+                pointLights.forEach(luz => {
+                    luz.position.z = menorZ;
+                });
+            }
+        }
     }
     
     // Função para criar uma luz pontual (sem esfera visível)
