@@ -39,9 +39,9 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
     }
 
     function criarEscada(x, y, altura = 3.0) {
-        const geometry = new THREE.BoxGeometry(0.8, altura, 0.5); // Aumentada a largura de 0.3 para 0.8 (aproximadamente a largura do Mario)
+        const geometry = new THREE.BoxGeometry(0.8, altura, 0.01); // Aumentada a largura de 0.3 para 0.8 (aproximadamente a largura do Mario)
         const mesh = new THREE.Mesh(geometry, ladderMaterial);
-        mesh.position.set(x, y, -3); // Ajustado para ficar no mesmo plano Z que as plataformas
+        mesh.position.set(x, y, -3.3); // Ajustado para ficar no mesmo plano Z que as plataformas
         cena.add(mesh);
     }
 
@@ -68,6 +68,17 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
     criarEscada(-7, 0.5);   // Mais à esquerda
     criarEscada(7, 3.5);    // Mais à direita
     criarEscada(-4, 6.5);   // Mais ao centro-esquerda
+}
+
+export function getEscadasInfo() {
+    return [
+        { xMin: -10, xMax: -8, yMin: -10, yMax: -7 },
+        { xMin: -3, xMax: -1, yMin: -7, yMax: -4 },
+        { xMin: 4, xMax: 6, yMin: -4, yMax: -1 },
+        { xMin: -8, xMax: -6, yMin: -1, yMax: 2 },
+        { xMin: 6, xMax: 8, yMin: 2, yMax: 5 },
+        { xMin: -5, xMax: -3, yMin: 5, yMax: 8 }
+    ]
 }
 
 export function getPlataformasInfo() {

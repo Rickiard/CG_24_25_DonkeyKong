@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { FBXLoader } from 'FBXLoader';
 import { PointerLockControls } from 'PointerLockControls';
-import * as PlatformLevel1 from './platformLevel1.js';
-import * as PlatformLevel2 from './platformLevel2.js';
+import * as PlatformLevel1 from './PlatformLevel1.js';
+import * as PlatformLevel2 from './PlatformLevel2.js';
 
 // Game state management
 window.gameState = {
@@ -770,10 +770,10 @@ var andando = false;
 var pulando = false;
 var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
-var gravidade = -0.008; // Voltando para o valor original
-var forcaPulo = 0.25; // Aumentado significativamente para garantir que o pulo seja perceptível
-var velocidadeMovimento = 0.03; // Reduced movement speed (was 0.10)
-var velocidadeMovimentoAr = 0.02; // Slower movement speed while in air
+var gravidade = -0.001; // Voltando para o valor original
+var forcaPulo = 0.15; // Aumentado significativamente para garantir que o pulo seja perceptível
+var velocidadeMovimento = 0.02;
+var velocidadeMovimentoAr = 0.01;
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
 var teclasPressionadasAnterior = {}; // Track previous frame's key states
 var raycaster = new THREE.Raycaster();
@@ -2124,9 +2124,16 @@ function loop() {
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                         (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                         (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
-                        noChao) {
+                        noChao && window.gameState.currentLevel === 1) {
                         objetoImportado.position.y += 3.1;
                         objetoImportado.position.z -= 1;
+                    }
+                    else if (PlatformLevel2.getEscadasInfo().some(escada =>
+                    objetoImportado.position.x >= escada.xMin &&
+                    objetoImportado.position.x <= escada.xMax &&
+                    objetoImportado.position.y >= escada.yMin &&
+                    objetoImportado.position.y <= escada.yMax) && window.gameState.currentLevel === 2) {
+                        objetoImportado.position.y += 3.1;
                     }
                     iniciarAnimacao();
                 }
@@ -2142,12 +2149,44 @@ function loop() {
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
                         (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                         (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5)) &&
-                        noChao) {
+                        noChao && window.gameState.currentLevel === 1) {
                         objetoImportado.position.y += 3.1;
                         objetoImportado.position.z -= 1;
                     }
+                    else if (PlatformLevel2.getEscadasInfo().some(escada =>
+                    objetoImportado.position.x >= escada.xMin &&
+                    objetoImportado.position.x <= escada.xMax &&
+                    objetoImportado.position.y >= escada.yMin &&
+                    objetoImportado.position.y <= escada.yMax) && window.gameState.currentLevel === 2) {
+                        objetoImportado.position.y += 3.1;
+                    }
                     iniciarAnimacao();
                 }
+            }
+            
+            if (teclasPressionadas[17])
+            {
+                if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 5) ||
+                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) &&
+                    noChao && window.gameState.currentLevel === 1) {
+                    objetoImportado.position.y -= 3.1;
+                    objetoImportado.position.z += 1;
+                }
+                else if (PlatformLevel2.getEscadasInfo().some(escada =>
+                objetoImportado.position.x >= escada.xMin &&
+                objetoImportado.position.x <= escada.xMax &&
+                objetoImportado.position.y - 3 >= escada.yMin &&
+                objetoImportado.position.y - 3 <= escada.yMax) && window.gameState.currentLevel === 2) {
+                    objetoImportado.position.y -= 3.1;
+                }
+                iniciarAnimacao();
             }
 
             if (teclasPressionadas[87]) { // W (frente)
@@ -2165,21 +2204,33 @@ function loop() {
 
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.rotation.y = Math.PI;
-                // Verificar se está em uma escada e só subir se estiver no chão e não estiver pulando
-                tentandoSubirEscada = ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
-                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
-                    (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
-                    (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
-                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
-                    (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
-                    (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
-                    (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
-                    (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5));
+                if (window.gameState.currentLevel === 1){
+                    // Verificar se está em uma escada e só subir se estiver no chão e não estiver pulando
+                    tentandoSubirEscada = ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
+                        (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                        (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
+                        (objetoImportado.position.x >= 1 && objetoImportado.position.x <= 3 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                        (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
+                        (objetoImportado.position.x >= -3 && objetoImportado.position.x <= -1 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                        (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 2 && objetoImportado.position.y >= -1) ||
+                        (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
+                        (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5));
+                }
+                else if (window.gameState.currentLevel === 2)
+                {
+                    tentandoSubirEscada = PlatformLevel2.getEscadasInfo().some(escada =>
+                    objetoImportado.position.x >= escada.xMin &&
+                    objetoImportado.position.x <= escada.xMax &&
+                    objetoImportado.position.y >= escada.yMin &&
+                    objetoImportado.position.y <= escada.yMax)
+                }
                 
                 // Só permitir subir escadas se estiver no chão e não estiver pulando
                 if (tentandoSubirEscada && noChao && !pulando) {
                     objetoImportado.position.y += 3.1;
-                    objetoImportado.position.z -= 1;
+                    if (window.gameState.currentLevel === 1){
+                        objetoImportado.position.z -= 1;
+                    }
                 }
                 iniciarAnimacao();
             } else if (teclasPressionadas[83]) {
@@ -2193,9 +2244,17 @@ function loop() {
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                     (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5) ||
                     (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 11 && objetoImportado.position.y >= 8)) &&
-                    noChao) {
+                    noChao && window.gameState.currentLevel === 1) {
                     objetoImportado.position.y -= 3;
                     objetoImportado.position.z += 1;
+                }
+                else if (PlatformLevel2.getEscadasInfo().some(escada =>
+                objetoImportado.position.x >= escada.xMin &&
+                objetoImportado.position.x <= escada.xMax &&
+                objetoImportado.position.y - 3 >= escada.yMin &&
+                objetoImportado.position.y - 3 <= escada.yMax) && window.gameState.currentLevel === 2)
+                {
+                    objetoImportado.position.y -= 3;
                 }
                 iniciarAnimacao();
             } else if (teclasPressionadas[65]) { // A (esquerda)
