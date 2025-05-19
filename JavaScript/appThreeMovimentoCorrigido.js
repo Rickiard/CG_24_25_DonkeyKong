@@ -777,7 +777,7 @@ var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
 var gravidade = -0.01; // Voltando para o valor original
 var forcaPulo = 0.15; // Aumentado significativamente para garantir que o pulo seja perceptível
-var velocidadeMovimento = 0.02;
+var velocidadeMovimento = 0.05;
 var velocidadeMovimentoAr = 0.01;
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
 var teclasPressionadasAnterior = {}; // Track previous frame's key states
@@ -996,6 +996,12 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
             if (child.isMesh) {
                 child.castShadow = true;
                 child.receiveShadow = true;
+
+                child.material = new THREE.MeshPhongMaterial({
+                    color: barrelColor,
+                    shininess: 30,
+                    side: THREE.DoubleSide
+                });
             }
         });
 
@@ -1760,7 +1766,7 @@ async function Start() {
     luzDirecional3.position.set(0, 4, -5);
     cena.add(luzDirecional3);
 
-    const basePosition = { x: -10, y: 5.7, z: -3 };
+    const basePosition = { x: -11, y: 5.7, z: -3 };
     const spacing = 0.5;
     const scale = { x: 0.35, y: 0.35, z: 0.35 };
     const rotation = { x: 0, y: 0, z: 0 };
