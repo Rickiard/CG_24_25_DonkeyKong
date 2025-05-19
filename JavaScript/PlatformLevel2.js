@@ -62,7 +62,7 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
     });
 
     // Posições das escadas mais aleatórias
-    criarEscada(-9, -8.5);  // Mais à esquerda
+    criarEscada(5, -8.5);  // Mais à esquerda
     criarEscada(-2, -5.5);  // Mais à direita
     criarEscada(5, -2.5);   // Mais à direita
     criarEscada(-7, 0.5);   // Mais à esquerda
@@ -72,7 +72,7 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
 
 export function getEscadasInfo() {
     return [
-        { xMin: -10, xMax: -8, yMin: -10, yMax: -7 },
+        { xMin: 4, xMax: 6, yMin: -10, yMax: -7 },
         { xMin: -3, xMax: -1, yMin: -7, yMax: -4 },
         { xMin: 4, xMax: 6, yMin: -4, yMax: -1 },
         { xMin: -8, xMax: -6, yMin: -1, yMax: 2 },
