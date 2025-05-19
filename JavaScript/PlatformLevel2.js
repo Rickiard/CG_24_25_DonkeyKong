@@ -1,3 +1,14 @@
+// Função para retornar as posições das escadas para lógica dos barris
+export function getEscadasInfo() {
+    return [
+        { y: -8.5, xMin: -9.4, xMax: -8.6 },   // escada 1 (ajuste conforme largura real)
+        { y: -5.5, xMin: -2.4, xMax: -1.6 },   // escada 2
+        { y: -2.5, xMin: 6.5, xMax: 7.5 },     // escada 3
+        { y: 0.5, xMin: -7.5, xMax: -6.5 },    // escada 4
+        { y: 3.5, xMin: 6.6, xMax: 7.4 },      // escada 5
+        { y: 6.5, xMin: 6, xMax: 8 }     // escada 6
+    ];
+}
 
 import * as THREE from 'three';
 import { FBXLoader } from 'FBXLoader';

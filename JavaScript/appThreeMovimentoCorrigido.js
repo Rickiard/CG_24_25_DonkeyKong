@@ -817,8 +817,8 @@ const marioTexture = textureLoader.load('./textures/mario_texture.png');  // Adj
 // Cor castanha para os barris
 const barrelColor = new THREE.Color(0x8B4513); // Cor castanha (SaddleBrown)
 
-// Escadas (pontos onde os barris podem cair)
-const posicoesEscadas = [
+// Escadas (pontos onde os barris podem cair) - Level 1
+const posicoesEscadasLevel1 = [
     { xMin: 9.8, xMax: 10.2, y: -7 },  // Primeiro plano
     { xMin: -7.2, xMax: -6.8, y: -4 }, // Segundo plano
     { xMin: 0.4, xMax: 0.6, y: -4 },   // Segundo plano
@@ -829,6 +829,21 @@ const posicoesEscadas = [
     { xMin: 9.8, xMax: 10.2, y: 5 },   // Quinto plano
     { xMin: 3.8, xMax: 4.2, y: 8 }     // Sexto plano
 ];
+
+// Escadas para o Level 2 - usando as coordenadas definidas em platformLevel2.js
+const posicoesEscadasLevel2 = [
+    { y: -7, xMin: -9.4, xMax: -8.6 },   // escada 1 (alinhada com plataforma)
+    { y: -4, xMin: -2.4, xMax: -1.6 },   // escada 2
+    { y: -1, xMin: 4.9, xMax: 5.9 },     // escada 3
+    { y: 2, xMin: -7.5, xMax: -6.5 },    // escada 4
+    { y: 5, xMin: 6.6, xMax: 7.4 },      // escada 5
+    { y: 8, xMin: 6, xMax: 8 }           // escada 6
+];
+
+// Função para obter as posições das escadas com base no nível atual
+function getPosicoesEscadasAtuais() {
+    return window.gameState.currentLevel === 2 ? posicoesEscadasLevel2 : posicoesEscadasLevel1;
+}
 
 // Carregador FBX
 var importer = new FBXLoader();
@@ -1350,8 +1365,14 @@ async function Start() {
         objetoImportado.rotation.set(0, Math.PI / 2, 0);
     }
 
-    // Plataformas serão carregadas de acordo com o nível selecionado
+    // Plataformas e escadas serão carregadas de acordo com o nível selecionado
     let plataformasInfo = [];
+    // Atualizar as posições das escadas para o nível atual
+    if (window.gameState.currentLevel === 1) {
+        window.posicoesEscadas = posicoesEscadasLevel1; // constante do Level 1
+    } else if (window.gameState.currentLevel === 2) {
+        window.posicoesEscadas = posicoesEscadasLevel2; // função do Level 2
+    }
 
     // Limpar plataformas existentes
     // Remover plataformas e escadas da cena e da lista de colisão
@@ -2236,6 +2257,8 @@ function loop() {
 
 
 
+        // Selecionar as posições das escadas corretas de acordo com o nível
+        const posicoesEscadasAtuais = (window.gameState.currentLevel === 1) ? posicoesEscadasLevel1 : posicoesEscadasLevel2;
         barrisAtivos.forEach((barril, index) => {
             // Remove o barril se estiver muito abaixo (fora da cena)
             if (barril.position.y < -10) {
@@ -2256,7 +2279,7 @@ function loop() {
             const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
 
             // Verifica se está sobre uma escada para a plataforma atual
-            const laddersAtCurrentHeight = posicoesEscadas.filter(escada => {
+            const laddersAtCurrentHeight = posicoesEscadasAtuais.filter(escada => {
                 const alturaCorreta = Math.abs(barril.position.y - escada.y) < 0.5;
                 const dentroDosLimites = barril.position.x >= escada.xMin && barril.position.x <= escada.xMax;
                 return alturaCorreta && dentroDosLimites;
