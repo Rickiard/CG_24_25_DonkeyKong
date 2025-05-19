@@ -465,6 +465,10 @@ async function startGameCommon() {
     } catch (error) {
         console.error("Erro ao inicializar o jogo:", error);
     } finally {
+        // Aplicar o estado das luzes imediatamente
+        console.log("Aplicando estado das luzes imediatamente após carregamento:", window.gameState.lights);
+        applyLightStates();
+        
         // Esconder a tela de loading
         document.getElementById('loadingScreen').classList.add('hidden');
     }
@@ -511,27 +515,59 @@ window.pauseMenu = function () {
     }
 };
 
-// Function to update light toggle buttons based on current state
+// Function to update in-game light buttons based on current state
 function updateLightToggleButtons() {
-    const ambientToggle = document.getElementById('ambientLightToggle');
-    const directionalToggle = document.getElementById('directionalLightToggle');
-    const pointToggle = document.getElementById('pointLightToggle');
+    const ingameAmbientLight = document.getElementById('ingameAmbientLight');
+    const ingameDirectionalLight = document.getElementById('ingameDirectionalLight');
+    const ingamePointLight = document.getElementById('ingamePointLight');
     
-    if (ambientToggle) {
-        ambientToggle.textContent = window.gameState.lights.ambient ? 'ON' : 'OFF';
-        ambientToggle.className = window.gameState.lights.ambient ? 'toggle-button on' : 'toggle-button off';
+    if (ingameAmbientLight) {
+        ingameAmbientLight.className = window.gameState.lights.ambient ? 'light-button' : 'light-button off';
     }
     
-    if (directionalToggle) {
-        directionalToggle.textContent = window.gameState.lights.directional ? 'ON' : 'OFF';
-        directionalToggle.className = window.gameState.lights.directional ? 'toggle-button on' : 'toggle-button off';
+    if (ingameDirectionalLight) {
+        ingameDirectionalLight.className = window.gameState.lights.directional ? 'light-button' : 'light-button off';
     }
     
-    if (pointToggle) {
-        pointToggle.textContent = window.gameState.lights.point ? 'ON' : 'OFF';
-        pointToggle.className = window.gameState.lights.point ? 'toggle-button on' : 'toggle-button off';
+    if (ingamePointLight) {
+        ingamePointLight.className = window.gameState.lights.point ? 'light-button' : 'light-button off';
     }
 };
+
+// Function to apply light states to all lights in the scene
+function applyLightStates() {
+    console.log("Applying light states:", window.gameState.lights);
+    
+    // Apply ambient light state
+    if (luzAmbiente) {
+        luzAmbiente.visible = window.gameState.lights.ambient;
+    }
+    
+    // Apply directional lights state
+    if (luzDirecional1) luzDirecional1.visible = window.gameState.lights.directional;
+    if (luzDirecional2) luzDirecional2.visible = window.gameState.lights.directional;
+    if (luzDirecional3) luzDirecional3.visible = window.gameState.lights.directional;
+    
+    // Collect all point lights first
+    let pointLights = [];
+    cena.traverse(function(object) {
+        if (object.isLight && object.type === 'PointLight') {
+            pointLights.push(object);
+        }
+    });
+    
+    // Apply point lights state
+    console.log(`Aplicando estado ${window.gameState.lights.point ? 'ON' : 'OFF'} para ${pointLights.length} point lights`);
+    pointLights.forEach(light => {
+        light.visible = window.gameState.lights.point;
+    });
+    
+    // Update UI buttons
+    updateLightToggleButtons();
+    
+    // Dispatch custom event for light state change
+    window.dispatchEvent(new CustomEvent('lightStateChanged'));
+}
 
 window.resumeGame = function () {
     // Esconder o menu de pausa
@@ -617,14 +653,21 @@ window.resumeGame = function () {
 };
 
 window.restartGame = async function () {
-    // Manter o nível atual
+    // Manter o nível atual e o estado das luzes
     const currentLevel = window.gameState.currentLevel;
+    const lightStates = {
+        ambient: window.gameState.lights.ambient,
+        directional: window.gameState.lights.directional,
+        point: window.gameState.lights.point
+    };
+    
+    console.log("Salvando estado das luzes antes do restart:", lightStates);
 
     // Reiniciar o jogo com o mesmo nível
     if (currentLevel === 1) {
-        window.startGameLevel1();
+        await window.startGameLevel1();
     } else if (currentLevel === 2) {
-        window.startGameLevel2();
+        await window.startGameLevel2();
     }
 
     // Reset game state
@@ -632,6 +675,15 @@ window.restartGame = async function () {
     window.gameState.isInMainMenu = false;
     window.gameState.isGameOver = false;
     window.gameState.isWin = false;
+    
+    // Restaurar o estado das luzes e aplicar imediatamente
+    console.log("Restaurando estado das luzes após restart:", lightStates);
+    window.gameState.lights.ambient = lightStates.ambient;
+    window.gameState.lights.directional = lightStates.directional;
+    window.gameState.lights.point = lightStates.point;
+    
+    // Aplicar o estado das luzes imediatamente
+    applyLightStates();
     window.gameState.score = 0;
     updateScoreDisplay();
 
@@ -1326,34 +1378,23 @@ var luzDirecional3 = new THREE.DirectionalLight(0xffffee, 0.2);
 // Light toggle functions
 window.toggleAmbientLight = function() {
     window.gameState.lights.ambient = !window.gameState.lights.ambient;
-    updateLightToggleButtons();
     
-    // Toggle ambient light visibility
-    if (luzAmbiente) {
-        luzAmbiente.visible = window.gameState.lights.ambient;
-    }
+    // Apply all light states to ensure consistency
+    applyLightStates();
 };
 
 window.toggleDirectionalLights = function() {
     window.gameState.lights.directional = !window.gameState.lights.directional;
-    updateLightToggleButtons();
     
-    // Toggle directional lights visibility
-    if (luzDirecional1) luzDirecional1.visible = window.gameState.lights.directional;
-    if (luzDirecional2) luzDirecional2.visible = window.gameState.lights.directional;
-    if (luzDirecional3) luzDirecional3.visible = window.gameState.lights.directional;
+    // Apply all light states to ensure consistency
+    applyLightStates();
 };
 
 window.togglePointLights = function() {
     window.gameState.lights.point = !window.gameState.lights.point;
-    updateLightToggleButtons();
     
-    // Find and toggle all point lights in the scene
-    cena.traverse(function(object) {
-        if (object.isLight && object.type === 'PointLight') {
-            object.visible = window.gameState.lights.point;
-        }
-    });
+    // Apply all light states to ensure consistency
+    applyLightStates();
 };
 
 // Função principal - agora assíncrona
@@ -1746,13 +1787,19 @@ async function Start() {
 
     carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -11, y: 5.7, z: -3 }, { x: 0, y: 0, z: 0 });
 
+    // Aplicar o estado das luzes imediatamente
+    console.log("Aplicando estado das luzes imediatamente após carregamento do nível:", window.gameState.lights);
+    applyLightStates();
+    
     // Aguardar um pouco para garantir que todos os modelos foram carregados
     setTimeout(() => {
         // Verificar e remover luzes indesejadas
         console.log("Verificando e removendo luzes indesejadas...");
         window.findAllLights(); // Listar todas as luzes para debug
         window.cleanupUnwantedLights(); // Remover luzes não essenciais
-    }, 2000); // Esperar 2 segundos
+        
+        // O cleanupUnwantedLights já aplica o estado das luzes
+    }, 1000); // Reduzido para 1 segundo para ser mais responsivo
 
     requestAnimationFrame(loop);
 }
@@ -1823,23 +1870,33 @@ window.cleanupUnwantedLights = function () {
         essentialLights.push(...window.luzesEssenciais);
     }
     
+    // Salvar referências a todas as point lights antes da limpeza
+    let pointLights = [];
+    cena.traverse(function(object) {
+        if (object.isLight && object.type === 'PointLight') {
+            pointLights.push(object);
+        }
+    });
 
     let lightsRemoved = 0;
 
-    cena.traverse(function (object) {
-        if (object.isLight) {
-            // Se não for uma luz essencial e for do tipo PointLight
-            if (!essentialLights.includes(object.uuid) && object.type === 'PointLight') {
-                console.log(`Removendo luz não essencial: ${object.name} (${object.type})`);
-                if (object.parent) {
-                    object.parent.remove(object);
-                    lightsRemoved++;
-                }
+    // Remover apenas as point lights não essenciais
+    pointLights.forEach(light => {
+        if (!essentialLights.includes(light.uuid)) {
+            console.log(`Removendo luz não essencial: ${light.name} (${light.type})`);
+            if (light.parent) {
+                light.parent.remove(light);
+                lightsRemoved++;
             }
         }
     });
 
     console.log(`${lightsRemoved} luzes não essenciais foram removidas.`);
+    
+    // Aplicar o estado das luzes imediatamente após a limpeza
+    console.log("Aplicando estado das luzes após limpeza:", window.gameState.lights);
+    applyLightStates();
+    
     return lightsRemoved;
 };
 
