@@ -1715,7 +1715,23 @@ async function Start() {
     luzDirecional3.position.set(0, 4, -5);
     cena.add(luzDirecional3);
 
-    carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -10, y: 5.7, z: -9 }, { x: 0, y: 0, z: 0 });
+    const basePosition = { x: -10, y: 5.7, z: -3 };
+    const spacing = 0.5;
+    const scale = { x: 0.35, y: 0.35, z: 0.35 };
+    const rotation = { x: 0, y: 0, z: 0 };
+
+    for (let i = 0; i < 3; i++) { // eixo x
+        for (let j = 0; j < 3; j++) { // eixo y
+            for (let k = 0; k < 3; k++) { // eixo z
+                const position = {
+                    x: basePosition.x + i * spacing,
+                    y: basePosition.y + j * spacing,
+                    z: basePosition.z + k * spacing
+                };
+                carregarBarril('./Objetos/Barril.fbx', scale, position, rotation);
+            }
+        }
+    }
 
     // Aguardar um pouco para garantir que todos os modelos foram carregados
     setTimeout(() => {
