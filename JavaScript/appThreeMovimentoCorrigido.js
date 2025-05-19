@@ -435,6 +435,11 @@ async function startGameCommon() {
         // Aguardar a inicialização assíncrona
         await Start();
         window.gameState.isInitialized = true;
+        
+        // Carregar o Donkey Kong e a Peach com as posições corretas para o nível atual
+        loadDonkeyKong();
+        loadPeach();
+        
         // Garantir que o Mario esteja na posição correta
         if (objetoImportado) {
             // Posicionar o Mario com base no nível atual
@@ -770,7 +775,7 @@ var andando = false;
 var pulando = false;
 var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
-var gravidade = -0.001; // Voltando para o valor original
+var gravidade = -0.01; // Voltando para o valor original
 var forcaPulo = 0.15; // Aumentado significativamente para garantir que o pulo seja perceptível
 var velocidadeMovimento = 0.02;
 var velocidadeMovimentoAr = 0.01;
@@ -1014,115 +1019,155 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
 
 // O modelo tentativa1.fbx será carregado pelo módulo platformLevel1.js
 
-importer.load('./Objetos/Donkey Kong.fbx', function (object) {
-    // Procurar e remover luzes do modelo FBX
-    let lightsFound = [];
+// Variável para armazenar o modelo do Donkey Kong
+let donkeyKongModel = null;
 
-    // Função recursiva para encontrar todas as luzes, mesmo em grupos aninhados
-    function findLightsRecursively(obj) {
-        if (obj.isLight) {
-            console.log(`Luz encontrada no modelo Donkey Kong:`, obj);
-            lightsFound.push(obj);
-        }
-
-        // Se for um grupo ou objeto com filhos, procurar recursivamente
-        if (obj.children && obj.children.length > 0) {
-            obj.children.forEach(child => findLightsRecursively(child));
-        }
+// Função para carregar o Donkey Kong
+function loadDonkeyKong() {
+    // Se já temos o modelo carregado, remova-o da cena primeiro
+    if (donkeyKongModel && donkeyKongModel.parent) {
+        donkeyKongModel.parent.remove(donkeyKongModel);
     }
+    
+    importer.load('./Objetos/Donkey Kong.fbx', function (object) {
+        // Procurar e remover luzes do modelo FBX
+        let lightsFound = [];
 
-    // Iniciar busca recursiva
-    findLightsRecursively(object);
+        // Função recursiva para encontrar todas as luzes, mesmo em grupos aninhados
+        function findLightsRecursively(obj) {
+            if (obj.isLight) {
+                console.log(`Luz encontrada no modelo Donkey Kong:`, obj);
+                lightsFound.push(obj);
+            }
 
-    // Aplicar propriedades às meshes
-    object.traverse(child => {
-        if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
+            // Se for um grupo ou objeto com filhos, procurar recursivamente
+            if (obj.children && obj.children.length > 0) {
+                obj.children.forEach(child => findLightsRecursively(child));
+            }
         }
-    });
 
-    // Remover as luzes encontradas
-    lightsFound.forEach(light => {
-        console.log(`Removendo luz do Donkey Kong: ${light.name} (${light.type})`);
-        if (light.parent) {
-            light.parent.remove(light);
+        // Iniciar busca recursiva
+        findLightsRecursively(object);
+
+        // Aplicar propriedades às meshes
+        object.traverse(child => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+
+        // Remover as luzes encontradas
+        lightsFound.forEach(light => {
+            console.log(`Removendo luz do Donkey Kong: ${light.name} (${light.type})`);
+            if (light.parent) {
+                light.parent.remove(light);
+            }
+        });
+        
+        // Definir escala padrão
+        object.scale.set(0.015, 0.015, 0.015);
+        
+        // Posicionar o Donkey Kong com base no nível atual
+        console.log("Posicionando Donkey Kong para o nível:", window.gameState.currentLevel);
+        if (window.gameState.currentLevel === 1) {
+            object.position.set(-6.5, 5.7, -9);
+        } else if (window.gameState.currentLevel === 2) {
+            object.position.set(-8.2, 6, -3.0);
+            object.scale.set(0.01, 0.01, 0.01); 
+        } 
+
+        // Configurar o mixer de animação para o Donkey Kong
+        if (object.animations.length > 0) {
+            mixerDonkeyKong = new THREE.AnimationMixer(object);
+            const animacaoDonkeyKong = mixerDonkeyKong.clipAction(object.animations[0]); // Use a primeira animação
+            animacaoDonkeyKong.loop = THREE.LoopRepeat; // Configurar para repetir
+            animacaoDonkeyKong.play();
         }
+        
+        // Armazenar referência ao modelo
+        donkeyKongModel = object;
+        
+        // Adicionar à cena
+        cena.add(object);
+        
+        // Adicionar userData para identificar o nível
+        object.userData.levelId = window.gameState.currentLevel;
     });
-
-    object.scale.set(0.015, 0.015, 0.015);
-    object.position.set(-6.5, 5.7, -9);
-
-    // Configurar o mixer de animação para o Donkey Kong
-    if (object.animations.length > 0) {
-        mixerDonkeyKong = new THREE.AnimationMixer(object);
-        const animacaoDonkeyKong = mixerDonkeyKong.clipAction(object.animations[0]); // Use a primeira animação
-        animacaoDonkeyKong.loop = THREE.LoopRepeat; // Configurar para repetir
-        animacaoDonkeyKong.play();
-    }
-
-    cena.add(object);
 
     // Lançar um barril a cada 3 segundos
     setInterval(() => {
         lançarBarril();
     }, 3000); // 3000 ms = 3 segundos
-});
+};
 
-carregarObjetoFBX(
-    './Objetos/peach.fbx',
-    { x: 0.05, y: 0.05, z: 0.05 },
-    { x: 0, y: 7.0, z: -9.5 },
-    { x: 0, y: 0, z: 0 },
-    function (object) {
+// Função para carregar a Peach
+function loadPeach() {
+    carregarObjetoFBX(
+        './Objetos/peach.fbx',
+        { x: 0.05, y: 0.05, z: 0.05 },
+        { x: 0, y: 7.0, z: -9.5 },
+        { x: 0, y: 0, z: 0 },
+        function (object) {
+            // Load textures
+            const textureLoader = new THREE.TextureLoader();
+            const bodyTexture = textureLoader.load('./textures/peach_body.png');
+            const eyeTexture = textureLoader.load('./textures/peach_eye.0.png');
 
-        // Load textures
-        const textureLoader = new THREE.TextureLoader();
-        const bodyTexture = textureLoader.load('./textures/peach_body.png');
-        const eyeTexture = textureLoader.load('./textures/peach_eye.0.png');
+            // Contagem de meshes para debug
+            let contadorMeshes = 0;
 
-        // Contagem de meshes para debug
-        let contadorMeshes = 0;
+            // Apply appropriate textures based on mesh names
+            object.traverse(function (child) {
+                if (child.isMesh) {
+                    contadorMeshes++;
 
-        // Apply appropriate textures based on mesh names
-        object.traverse(function (child) {
-            if (child.isMesh) {
-                contadorMeshes++;
-
-                // Create materials with textures
-                if (child.name.toLowerCase().includes('eye')) {
-                    // Eye material
-                    child.material = new THREE.MeshPhongMaterial({
-                        map: eyeTexture,
-                        shininess: 50,
-                        side: THREE.DoubleSide
-                    });
-                } else {
-                    // Body material
-                    child.material = new THREE.MeshPhongMaterial({
-                        map: bodyTexture,
-                        shininess: 30,
-                        side: THREE.DoubleSide
-                    });
+                    // Create materials with textures
+                    if (child.name.toLowerCase().includes('eye')) {
+                        // Eye material
+                        child.material = new THREE.MeshPhongMaterial({
+                            map: eyeTexture,
+                            shininess: 50,
+                            side: THREE.DoubleSide
+                        });
+                    } else {
+                        // Body material
+                        child.material = new THREE.MeshPhongMaterial({
+                            map: bodyTexture,
+                            shininess: 30,
+                            side: THREE.DoubleSide
+                        });
+                    }
                 }
+            });
+            object.scale.set(0.05, 0.05, 0.05);
+            // Posicionar a Peach com base no nível atual
+            console.log("Posicionando Peach para o nível:", window.gameState.currentLevel);
+            if (window.gameState.currentLevel === 1) {
+                object.position.set(0, 7.0, -9.5);
+            } else if (window.gameState.currentLevel === 2) {
+                object.position.set(0, 8.2, -3.0);
             }
-        });
 
-        // Configurar o mixer de animação para a Peach
-        if (object.animations.length > 0) {
-            mixerPeach = new THREE.AnimationMixer(object);
-            const animacaoPeach = mixerPeach.clipAction(object.animations[0]); // Use a primeira animação
-            animacaoPeach.loop = THREE.LoopRepeat; // Configurar para repetir
-            animacaoPeach.play();
+            // Configurar o mixer de animação para a Peach
+            if (object.animations.length > 0) {
+                mixerPeach = new THREE.AnimationMixer(object);
+                const animacaoPeach = mixerPeach.clipAction(object.animations[0]); // Use a primeira animação
+                animacaoPeach.loop = THREE.LoopRepeat; // Configurar para repetir
+                animacaoPeach.play();
+            }
+
+            // Adicionar userData para identificar o nível
+            object.userData.levelId = window.gameState.currentLevel;
+            
+            // Adicionar o objeto à cena explicitamente
+            cena.add(object);
+            
+            console.log("Peach carregada com sucesso para o nível:", window.gameState.currentLevel);
         }
-
-        // Adicionar o objeto à cena explicitamente
-        cena.add(object);
-    }
-);
-
-// Skybox
-function criarSkybox(caminhoTexturas, tamanho) {
+    );
+};
+function criarSkybox(caminhoTexturas, tamanho) { 
     const loader = new THREE.TextureLoader();
     const materialArray = [
         new THREE.MeshBasicMaterial({ map: loader.load(caminhoTexturas.posx) }),
@@ -2463,19 +2508,27 @@ function loop() {
             atualizarZDoBarril(barril);
         });
 
-        // Check if Mario has reached the win position (2, 7, -9.5)
+        // Check if Mario has reached the win position based on current level
         if (objetoImportado) {
-            // Check if Mario is at position (2, 7, -9.5) with some tolerance
+            // Check if Mario is at win position with some tolerance (level 1)
             const marioPos = objetoImportado.position;
-            if (Math.abs(marioPos.x - 2) < 1.0 &&
+            if (window.gameState.currentLevel === 1 &&
+                Math.abs(marioPos.x - 2) < 1.0 &&
                 Math.abs(marioPos.y - 7) < 1.0 &&
                 Math.abs(marioPos.z - (-9.5)) < 1.0) {
-                // Player has reached the win position
+                // Player has reached the win position for level 1
                 window.gameWin();
             }
 
-            // Also check proximity to Princess Peach as an alternative win condition
-            const distanceToPeach = objetoImportado.position.distanceTo(new THREE.Vector3(0, 7, -9.5));
+            // Check proximity to Princess Peach as win condition based on current level
+            let peachPosition;
+            if (window.gameState.currentLevel === 1) {
+                peachPosition = new THREE.Vector3(0, 7, -9.5);
+            } else if (window.gameState.currentLevel === 2) {
+                peachPosition = new THREE.Vector3(0, 8.2, -3.0);
+            }
+            
+            const distanceToPeach = objetoImportado.position.distanceTo(peachPosition);
             if (distanceToPeach < 2.0) {
                 // Stop current theme and play ending theme
                 if (window.stageTheme && window.stageTheme.isPlaying) {
