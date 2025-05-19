@@ -620,29 +620,6 @@ window.restartGame = async function () {
     // Manter o nível atual
     const currentLevel = window.gameState.currentLevel;
 
-    // Reset Mario's position and rotation
-    if (objetoImportado) {
-        // Posicionar o Mario com base no nível atual
-        if (window.gameState.currentLevel === 1) {
-            objetoImportado.position.set(-10, -9.7, -3.0);
-        } else if (window.gameState.currentLevel === 2) {
-            // Posição ajustada para ficar mais à esquerda, próximo à ponta inferior da plataforma
-            objetoImportado.position.set(-8, -9.7, -3.0);
-        }
-        objetoImportado.rotation.set(0, Math.PI / 2, 0);
-
-        // Reset Mario's texture back to normal
-        const marioTexture = textureLoader.load('./textures/mario_texture.png');
-        objetoImportado.traverse(function (child) {
-            if (child.isMesh) {
-                child.material = new THREE.MeshPhongMaterial({
-                    map: marioTexture,
-                    side: THREE.DoubleSide
-                });
-            }
-        });
-    }
-
     // Reiniciar o jogo com o mesmo nível
     if (currentLevel === 1) {
         window.startGameLevel1();
@@ -777,7 +754,7 @@ var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
 var gravidade = -0.01; // Voltando para o valor original
 var forcaPulo = 0.15; // Aumentado significativamente para garantir que o pulo seja perceptível
-var velocidadeMovimento = 0.05;
+var velocidadeMovimento = 0.02;
 var velocidadeMovimentoAr = 0.01;
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
 var teclasPressionadasAnterior = {}; // Track previous frame's key states
@@ -1081,6 +1058,7 @@ function loadDonkeyKong() {
         } else if (window.gameState.currentLevel === 2) {
             object.position.set(-8.2, 6, -3.0);
             object.scale.set(0.01, 0.01, 0.01); 
+            PlatformLevel2.createBarrelsAndCrates(cena);
         } 
 
         // Configurar o mixer de animação para o Donkey Kong
@@ -1766,23 +1744,7 @@ async function Start() {
     luzDirecional3.position.set(0, 4, -5);
     cena.add(luzDirecional3);
 
-    const basePosition = { x: -11, y: 5.7, z: -3 };
-    const spacing = 0.5;
-    const scale = { x: 0.35, y: 0.35, z: 0.35 };
-    const rotation = { x: 0, y: 0, z: 0 };
-
-    for (let i = 0; i < 3; i++) { // eixo x
-        for (let j = 0; j < 3; j++) { // eixo y
-            for (let k = 0; k < 3; k++) { // eixo z
-                const position = {
-                    x: basePosition.x + i * spacing,
-                    y: basePosition.y + j * spacing,
-                    z: basePosition.z + k * spacing
-                };
-                carregarBarril('./Objetos/Barril.fbx', scale, position, rotation);
-            }
-        }
-    }
+    carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -11, y: 5.7, z: -3 }, { x: 0, y: 0, z: 0 });
 
     // Aguardar um pouco para garantir que todos os modelos foram carregados
     setTimeout(() => {

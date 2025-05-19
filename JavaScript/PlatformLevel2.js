@@ -92,3 +92,69 @@ export function getPlataformasInfo() {
         { y: 8, xMin: -10, xMax: 12 }           // Um pouco para a direita
     ];
 }
+
+export function createBarrelsAndCrates(cena) {
+    const textureLoader = new THREE.TextureLoader();
+    const woodTexture = textureLoader.load('textures/wood.jpg');
+
+    // Caixa
+    const crateGeometry = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+    const crateMaterial = new THREE.MeshStandardMaterial({ map: woodTexture });
+    const crate = new THREE.Mesh(crateGeometry, crateMaterial);
+
+    // Barril
+    const barrelGeometry = new THREE.CylinderGeometry(0.7, 0.7, 2, 32);
+    const barrelMaterial = new THREE.MeshStandardMaterial({ map: woodTexture });
+    const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
+
+    // Aros de ferro
+    const ringMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const ringGeometry = new THREE.TorusGeometry(0.72, 0.05, 16, 100);
+
+    const ring1 = new THREE.Mesh(ringGeometry, ringMaterial);
+    ring1.rotation.x = Math.PI / 2;
+    ring1.position.y = 0.8;
+
+    const ring2 = ring1.clone();
+    ring2.position.y = -0.8;
+
+    barrel.add(ring1, ring2);
+
+    const baseX = -11;
+    const baseY = 5.7;
+    const baseZ = -3;
+    const spacing = 0.75; // lado das caixas após escala
+
+    const crates = [];
+    const barrels = [];
+
+    // 2x2 caixas (em baixo)
+    for (let i = 0; i < 2; i++) {
+        for (let j = 0; j < 2; j++) {
+            const crateClone = crate.clone();
+            crateClone.scale.set(0.5, 0.5, 0.5);
+            crateClone.position.set(
+                baseX + i * spacing,
+                baseY,
+                baseZ + j * spacing
+            );
+            cena.add(crateClone);
+            crates.push(crateClone);
+        }
+    }
+
+    // 2x2 barris (em cima das caixas)
+    for (let i = 0; i < 2; i++) {
+        for (let j = 0; j < 2; j++) {
+            const barrelClone = barrel.clone();
+            barrelClone.scale.set(0.5, 0.5, 0.5);
+            barrelClone.position.set(
+                baseX + i * spacing,
+                baseY + 0.75, // altura da caixa
+                baseZ + j * spacing
+            );
+            cena.add(barrelClone);
+            barrels.push(barrelClone);
+        }
+    }
+}
