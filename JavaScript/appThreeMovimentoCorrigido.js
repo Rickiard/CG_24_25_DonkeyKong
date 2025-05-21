@@ -2553,8 +2553,17 @@ function loop() {
                 peachPosition = new THREE.Vector3(0, 8.2, -3.0);
             }
             
-            const distanceToPeach = objetoImportado.position.distanceTo(peachPosition);
-            if (distanceToPeach < 2.0) {
+            // Calculate horizontal distance (ignoring Y axis)
+            const horizontalDistance = Math.sqrt(
+                Math.pow(objetoImportado.position.x - peachPosition.x, 2) + 
+                Math.pow(objetoImportado.position.z - peachPosition.z, 2)
+            );
+            
+            // Calculate vertical distance (Y axis only)
+            const verticalDistance = Math.abs(objetoImportado.position.y - peachPosition.y);
+            
+            // Check if Mario is close to Peach horizontally, on the same platform (similar Y), and not jumping
+            if (horizontalDistance < 1.5 && verticalDistance < 0.5 && !pulando) {
                 // Stop current theme and play ending theme
                 if (window.stageTheme && window.stageTheme.isPlaying) {
                     window.stageTheme.stop();
