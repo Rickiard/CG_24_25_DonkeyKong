@@ -805,9 +805,20 @@ var pulando = false;
 var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
 var gravidade = -0.01; // Voltando para o valor original
-var forcaPulo = 0.15; // Aumentado significativamente para garantir que o pulo seja perceptível
+var forcaPuloLevel1 = 0.15; // Força do pulo para o nível 1
+var forcaPuloLevel2 = 0.13; // Força do pulo para o nível 2
 var velocidadeMovimento = 0.02;
 var velocidadeMovimentoAr = 0.01;
+
+// Função para obter a força do pulo com base no nível atual
+function getForcaPulo() {
+    if (window.gameState.currentLevel === 1) {
+        return forcaPuloLevel1;
+    } else if (window.gameState.currentLevel === 2) {
+        return forcaPuloLevel2;
+    }
+    return forcaPuloLevel1; // Valor padrão caso não esteja em nenhum nível específico
+}
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
 var teclasPressionadasAnterior = {}; // Track previous frame's key states
 var raycaster = new THREE.Raycaster();
@@ -2058,7 +2069,7 @@ function loop() {
                 puloPendente = false;
                 pulando = true;
                 podePular = false;
-                velocidadeY = forcaPulo;
+                velocidadeY = getForcaPulo();
                 ultimoPulo = relogio.getElapsedTime();
                 // Play jump sound
                 if (jumpSound && !jumpSound.isPlaying) {
@@ -2079,7 +2090,7 @@ function loop() {
                 // Iniciar um novo pulo - melhorado para evitar colisões indesejadas
                 pulando = true;
                 podePular = false;
-                velocidadeY = forcaPulo; // Usar a força de pulo aumentada
+                velocidadeY = getForcaPulo(); // Usar a força de pulo específica do nível
                 ultimoPulo = tempoAtual;
                 objetoImportado.userData.tempoInicioPulo = tempoAtual; // Registrar o tempo de início do pulo
                 objetoImportado.userData.duracaoPulo = 0.8; // Definir duração fixa para o pulo (em segundos)
