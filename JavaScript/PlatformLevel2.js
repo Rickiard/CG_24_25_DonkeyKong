@@ -32,9 +32,11 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
 
     function criarPlataforma(x, y, largura = 12, altura = 0.4) {
         const geometry = new THREE.BoxGeometry(largura, altura, 1);
+        geometry.castShadow = true;
+        geometry.receiveShadow = true;
         const mesh = new THREE.Mesh(geometry, platformMaterial);
         mesh.position.set(x, y, -3); // Ajustado para ficar ainda mais para trás
-        mesh.castShadow = false;
+        mesh.castShadow = true;
         mesh.receiveShadow = true;
         cena.add(mesh);
         objetosColisao.push(mesh);

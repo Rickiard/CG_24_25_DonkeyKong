@@ -994,6 +994,7 @@ function lançarBarril() {
     if (!barrilImportado) return;
 
     const novoBarril = barrilImportado.clone();
+    novoBarril.visible = true; // Torna o barril visível    
     novoBarril.castShadow = true;
     novoBarril.receiveShadow = false;
     novoBarril.position.set(-7, 5.25, barrilZPorPlataforma['8']); // Usar o z correto para a plataforma inicial
@@ -1046,7 +1047,6 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
             if (child.isMesh) {
                 child.castShadow = true;
                 child.receiveShadow = true;
-
                 child.material = new THREE.MeshPhongMaterial({
                     color: barrelColor,
                     shininess: 30,
@@ -1055,9 +1055,8 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
             }
         });
 
-        // Remover as luzes encontradas
+        // Remover luzes
         lightsFound.forEach(light => {
-            console.log(`Removendo luz do barril: ${light.name} (${light.type})`);
             if (light.parent) {
                 light.parent.remove(light);
             }
@@ -1067,9 +1066,11 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
 
+        object.visible = false; // 👈 Torna o barril invisível
+
         objetosColisao.push(object);
         barrilImportado = object;
-        cena.add(object); // Adicionar o barril à cena imediatamente
+        cena.add(object);
     });
 }
 
@@ -1795,61 +1796,49 @@ async function Start() {
 
     cena.add(luzAmbiente);
 
-    // LUZ DIRECIONAL 1
+    // === LUZ DIRECIONAL 1 – principal: de frente para o Mario ===
     luzDirecional1.color = new THREE.Color(0xffffff);
-    luzDirecional1.intensity = 1;
+    luzDirecional1.intensity = 1.8;
+    luzDirecional1.position.set(0, 15, 12); // Luz elevada e vindo da frente
+    luzDirecional1.target.position.set(0, 0, 0); // Foco no Mario
     luzDirecional1.castShadow = true;
-    luzDirecional1.position.set(5, 0, 8);
-    luzDirecional1.target.position.set(1, -1, 0);
 
-    // Shadow params
-    luzDirecional1.shadow.mapSize.width = 1024;
-    luzDirecional1.shadow.mapSize.height = 1024;
-    luzDirecional1.shadow.camera.near = 0.5;
-    luzDirecional1.shadow.camera.far = 30;
-    luzDirecional1.shadow.camera.left = -10;
-    luzDirecional1.shadow.camera.right = 10;
-    luzDirecional1.shadow.camera.top = 10;
-    luzDirecional1.shadow.camera.bottom = -10;
+    // Sombra poderosa
+    luzDirecional1.shadow.mapSize.width = 2048;
+    luzDirecional1.shadow.mapSize.height = 2048;
+    luzDirecional1.shadow.bias = -0.0005; // Corrige artefatos (shadow acne)
+
+    // Shadow camera – cobre bem a área onde Mario se move
+    luzDirecional1.shadow.camera.near = 1;
+    luzDirecional1.shadow.camera.far = 50;
+    luzDirecional1.shadow.camera.left = -15;
+    luzDirecional1.shadow.camera.right = 15;
+    luzDirecional1.shadow.camera.top = 15;
+    luzDirecional1.shadow.camera.bottom = -15;
 
     cena.add(luzDirecional1);
     cena.add(luzDirecional1.target);
 
-    // LUZ DIRECIONAL 2
-    luzDirecional2.color = new THREE.Color(0xffffff);
+    // === LUZ DIRECIONAL 2 – lateral preenchimento (suaviza sombras fortes) ===
+    luzDirecional2.color = new THREE.Color(0xfff6cc); // luz mais quente
     luzDirecional2.intensity = 0.6;
-    luzDirecional2.castShadow = true;
-    luzDirecional2.position.set(-8, 6, 4);
-    luzDirecional2.target.position.set(0, -5, 0);
-
-    luzDirecional2.shadow.mapSize.width = 1024;
-    luzDirecional2.shadow.mapSize.height = 1024;
-    luzDirecional2.shadow.camera.near = 0.5;
-    luzDirecional2.shadow.camera.far = 30;
-    luzDirecional2.shadow.camera.left = -10;
-    luzDirecional2.shadow.camera.right = 10;
-    luzDirecional2.shadow.camera.top = 10;
-    luzDirecional2.shadow.camera.bottom = -10;
+    luzDirecional2.position.set(8, 10, 4); // lateral direita e acima
+    luzDirecional2.target.position.set(0, 0, 0);
+    luzDirecional2.castShadow = false;
 
     cena.add(luzDirecional2);
     cena.add(luzDirecional2.target);
 
-    // LUZ DIRECIONAL 3 (sem target definido – usará por padrão [0, 0, 0])
-    luzDirecional3.color = new THREE.Color(0xffffff);
-    luzDirecional3.intensity = 0.4;
-    luzDirecional3.castShadow = true;
-    luzDirecional3.position.set(0, 4, -5);
-
-    luzDirecional3.shadow.mapSize.width = 1024;
-    luzDirecional3.shadow.mapSize.height = 1024;
-    luzDirecional3.shadow.camera.near = 0.5;
-    luzDirecional3.shadow.camera.far = 30;
-    luzDirecional3.shadow.camera.left = -10;
-    luzDirecional3.shadow.camera.right = 10;
-    luzDirecional3.shadow.camera.top = 10;
-    luzDirecional3.shadow.camera.bottom = -10;
+    // === LUZ DIRECIONAL 3 – contraluz para destacar silhueta ===
+    luzDirecional3.color = new THREE.Color(0xddddff); // luz fria
+    luzDirecional3.intensity = 0.5;
+    luzDirecional3.position.set(-6, 8, -10); // vindo de trás e da esquerda
+    luzDirecional3.target = new THREE.Object3D();
+    luzDirecional3.target.position.set(0, 0, 0);
+    luzDirecional3.castShadow = false;
 
     cena.add(luzDirecional3);
+    cena.add(luzDirecional3.target);
 
     carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -11, y: 5.7, z: -3 }, { x: 0, y: 0, z: 0 });
 
