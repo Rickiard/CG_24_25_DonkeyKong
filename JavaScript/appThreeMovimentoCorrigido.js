@@ -435,6 +435,11 @@ async function startGameCommon() {
         // Aguardar a inicialização assíncrona
         await Start();
         window.gameState.isInitialized = true;
+        
+        // Carregar o Donkey Kong e a Peach com as posições corretas para o nível atual
+        loadDonkeyKong();
+        loadPeach();
+        
         // Garantir que o Mario esteja na posição correta
         if (objetoImportado) {
             // Posicionar o Mario com base no nível atual
@@ -460,6 +465,10 @@ async function startGameCommon() {
     } catch (error) {
         console.error("Erro ao inicializar o jogo:", error);
     } finally {
+        // Aplicar o estado das luzes imediatamente
+        console.log("Aplicando estado das luzes imediatamente após carregamento:", window.gameState.lights);
+        applyLightStates();
+        
         // Esconder a tela de loading
         document.getElementById('loadingScreen').classList.add('hidden');
     }
@@ -506,27 +515,59 @@ window.pauseMenu = function () {
     }
 };
 
-// Function to update light toggle buttons based on current state
+// Function to update in-game light buttons based on current state
 function updateLightToggleButtons() {
-    const ambientToggle = document.getElementById('ambientLightToggle');
-    const directionalToggle = document.getElementById('directionalLightToggle');
-    const pointToggle = document.getElementById('pointLightToggle');
+    const ingameAmbientLight = document.getElementById('ingameAmbientLight');
+    const ingameDirectionalLight = document.getElementById('ingameDirectionalLight');
+    const ingamePointLight = document.getElementById('ingamePointLight');
     
-    if (ambientToggle) {
-        ambientToggle.textContent = window.gameState.lights.ambient ? 'ON' : 'OFF';
-        ambientToggle.className = window.gameState.lights.ambient ? 'toggle-button on' : 'toggle-button off';
+    if (ingameAmbientLight) {
+        ingameAmbientLight.className = window.gameState.lights.ambient ? 'light-button' : 'light-button off';
     }
     
-    if (directionalToggle) {
-        directionalToggle.textContent = window.gameState.lights.directional ? 'ON' : 'OFF';
-        directionalToggle.className = window.gameState.lights.directional ? 'toggle-button on' : 'toggle-button off';
+    if (ingameDirectionalLight) {
+        ingameDirectionalLight.className = window.gameState.lights.directional ? 'light-button' : 'light-button off';
     }
     
-    if (pointToggle) {
-        pointToggle.textContent = window.gameState.lights.point ? 'ON' : 'OFF';
-        pointToggle.className = window.gameState.lights.point ? 'toggle-button on' : 'toggle-button off';
+    if (ingamePointLight) {
+        ingamePointLight.className = window.gameState.lights.point ? 'light-button' : 'light-button off';
     }
 };
+
+// Function to apply light states to all lights in the scene
+function applyLightStates() {
+    console.log("Applying light states:", window.gameState.lights);
+    
+    // Apply ambient light state
+    if (luzAmbiente) {
+        luzAmbiente.visible = window.gameState.lights.ambient;
+    }
+    
+    // Apply directional lights state
+    if (luzDirecional1) luzDirecional1.visible = window.gameState.lights.directional;
+    if (luzDirecional2) luzDirecional2.visible = window.gameState.lights.directional;
+    if (luzDirecional3) luzDirecional3.visible = window.gameState.lights.directional;
+    
+    // Collect all point lights first
+    let pointLights = [];
+    cena.traverse(function(object) {
+        if (object.isLight && object.type === 'PointLight') {
+            pointLights.push(object);
+        }
+    });
+    
+    // Apply point lights state
+    console.log(`Aplicando estado ${window.gameState.lights.point ? 'ON' : 'OFF'} para ${pointLights.length} point lights`);
+    pointLights.forEach(light => {
+        light.visible = window.gameState.lights.point;
+    });
+    
+    // Update UI buttons
+    updateLightToggleButtons();
+    
+    // Dispatch custom event for light state change
+    window.dispatchEvent(new CustomEvent('lightStateChanged'));
+}
 
 window.resumeGame = function () {
     // Esconder o menu de pausa
@@ -612,37 +653,21 @@ window.resumeGame = function () {
 };
 
 window.restartGame = async function () {
-    // Manter o nível atual
+    // Manter o nível atual e o estado das luzes
     const currentLevel = window.gameState.currentLevel;
-
-    // Reset Mario's position and rotation
-    if (objetoImportado) {
-        // Posicionar o Mario com base no nível atual
-        if (window.gameState.currentLevel === 1) {
-            objetoImportado.position.set(-10, -9.7, -3.0);
-        } else if (window.gameState.currentLevel === 2) {
-            // Posição ajustada para ficar mais à esquerda, próximo à ponta inferior da plataforma
-            objetoImportado.position.set(-8, -9.7, -3.0);
-        }
-        objetoImportado.rotation.set(0, Math.PI / 2, 0);
-
-        // Reset Mario's texture back to normal
-        const marioTexture = textureLoader.load('./textures/mario_texture.png');
-        objetoImportado.traverse(function (child) {
-            if (child.isMesh) {
-                child.material = new THREE.MeshPhongMaterial({
-                    map: marioTexture,
-                    side: THREE.DoubleSide
-                });
-            }
-        });
-    }
+    const lightStates = {
+        ambient: window.gameState.lights.ambient,
+        directional: window.gameState.lights.directional,
+        point: window.gameState.lights.point
+    };
+    
+    console.log("Salvando estado das luzes antes do restart:", lightStates);
 
     // Reiniciar o jogo com o mesmo nível
     if (currentLevel === 1) {
-        window.startGameLevel1();
+        await window.startGameLevel1();
     } else if (currentLevel === 2) {
-        window.startGameLevel2();
+        await window.startGameLevel2();
     }
 
     // Reset game state
@@ -650,6 +675,15 @@ window.restartGame = async function () {
     window.gameState.isInMainMenu = false;
     window.gameState.isGameOver = false;
     window.gameState.isWin = false;
+    
+    // Restaurar o estado das luzes e aplicar imediatamente
+    console.log("Restaurando estado das luzes após restart:", lightStates);
+    window.gameState.lights.ambient = lightStates.ambient;
+    window.gameState.lights.directional = lightStates.directional;
+    window.gameState.lights.point = lightStates.point;
+    
+    // Aplicar o estado das luzes imediatamente
+    applyLightStates();
     window.gameState.score = 0;
     updateScoreDisplay();
 
@@ -758,6 +792,12 @@ var camaraOrto = new THREE.OrthographicCamera(
 
 var cameraAtual = camaraPerspectiva; // Define a câmera inicial como a perspectiva
 
+// ATIVAR sombras de forma segura
+renderer.shadowMap.enabled = true;
+
+// TROCAR tipo de sombra para mais leve, evitando bugs em hardwares mais limitados
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
 renderer.setSize(window.innerWidth - 15, window.innerHeight - 80);
 renderer.setClearColor(0xaaaaaa);
 document.body.appendChild(renderer.domElement);
@@ -770,10 +810,21 @@ var andando = false;
 var pulando = false;
 var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
-var gravidade = -0.001; // Voltando para o valor original
-var forcaPulo = 0.15; // Aumentado significativamente para garantir que o pulo seja perceptível
+var gravidade = -0.01; // Voltando para o valor original
+var forcaPuloLevel1 = 0.15; // Força do pulo para o nível 1
+var forcaPuloLevel2 = 0.13; // Força do pulo para o nível 2
 var velocidadeMovimento = 0.02;
 var velocidadeMovimentoAr = 0.01;
+
+// Função para obter a força do pulo com base no nível atual
+function getForcaPulo() {
+    if (window.gameState.currentLevel === 1) {
+        return forcaPuloLevel1;
+    } else if (window.gameState.currentLevel === 2) {
+        return forcaPuloLevel2;
+    }
+    return forcaPuloLevel1; // Valor padrão caso não esteja em nenhum nível específico
+}
 var teclasPressionadas = {}; // Objeto para rastrear teclas pressionadas
 var teclasPressionadasAnterior = {}; // Track previous frame's key states
 var raycaster = new THREE.Raycaster();
@@ -872,7 +923,7 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
         object.traverse(function (child) {
             if (child.isMesh) {
                 child.castShadow = true;
-                child.receiveShadow = true;
+                child.receiveShadow = false;
             }
         });
 
@@ -884,6 +935,8 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
             }
         });
 
+        object.castShadow = true;
+        object.receiveShadow = true;
         object.scale.set(escala.x, escala.y, escala.z);
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
@@ -956,6 +1009,9 @@ function lançarBarril() {
     if (!barrilImportado) return;
 
     const novoBarril = barrilImportado.clone();
+    novoBarril.visible = true; // Torna o barril visível    
+    novoBarril.castShadow = true;
+    novoBarril.receiveShadow = false;
     novoBarril.position.set(-7, 5.25, barrilZPorPlataforma['8']); // Usar o z correto para a plataforma inicial
     novoBarril.rotation.set(Math.PI / 2, 0, 0);
     novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0); // Velocidade horizontal inicial
@@ -1006,12 +1062,16 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
             if (child.isMesh) {
                 child.castShadow = true;
                 child.receiveShadow = true;
+                child.material = new THREE.MeshPhongMaterial({
+                    color: barrelColor,
+                    shininess: 30,
+                    side: THREE.DoubleSide
+                });
             }
         });
 
-        // Remover as luzes encontradas
+        // Remover luzes
         lightsFound.forEach(light => {
-            console.log(`Removendo luz do barril: ${light.name} (${light.type})`);
             if (light.parent) {
                 light.parent.remove(light);
             }
@@ -1021,123 +1081,168 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
 
+        object.visible = false; // 👈 Torna o barril invisível
+
         objetosColisao.push(object);
         barrilImportado = object;
-        cena.add(object); // Adicionar o barril à cena imediatamente
+        cena.add(object);
     });
 }
 
 // O modelo tentativa1.fbx será carregado pelo módulo platformLevel1.js
 
-importer.load('./Objetos/Donkey Kong.fbx', function (object) {
-    // Procurar e remover luzes do modelo FBX
-    let lightsFound = [];
+// Variável para armazenar o modelo do Donkey Kong
+let donkeyKongModel = null;
 
-    // Função recursiva para encontrar todas as luzes, mesmo em grupos aninhados
-    function findLightsRecursively(obj) {
-        if (obj.isLight) {
-            console.log(`Luz encontrada no modelo Donkey Kong:`, obj);
-            lightsFound.push(obj);
-        }
-
-        // Se for um grupo ou objeto com filhos, procurar recursivamente
-        if (obj.children && obj.children.length > 0) {
-            obj.children.forEach(child => findLightsRecursively(child));
-        }
+// Função para carregar o Donkey Kong
+function loadDonkeyKong() {
+    // Se já temos o modelo carregado, remova-o da cena primeiro
+    if (donkeyKongModel && donkeyKongModel.parent) {
+        donkeyKongModel.parent.remove(donkeyKongModel);
     }
+    
+    importer.load('./Objetos/Donkey Kong.fbx', function (object) {
+        // Procurar e remover luzes do modelo FBX
+        let lightsFound = [];
 
-    // Iniciar busca recursiva
-    findLightsRecursively(object);
+        // Função recursiva para encontrar todas as luzes, mesmo em grupos aninhados
+        function findLightsRecursively(obj) {
+            if (obj.isLight) {
+                console.log(`Luz encontrada no modelo Donkey Kong:`, obj);
+                lightsFound.push(obj);
+            }
 
-    // Aplicar propriedades às meshes
-    object.traverse(child => {
-        if (child.isMesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
+            // Se for um grupo ou objeto com filhos, procurar recursivamente
+            if (obj.children && obj.children.length > 0) {
+                obj.children.forEach(child => findLightsRecursively(child));
+            }
         }
-    });
 
-    // Remover as luzes encontradas
-    lightsFound.forEach(light => {
-        console.log(`Removendo luz do Donkey Kong: ${light.name} (${light.type})`);
-        if (light.parent) {
-            light.parent.remove(light);
+        // Iniciar busca recursiva
+        findLightsRecursively(object);
+
+        // Aplicar propriedades às meshes
+        object.traverse(child => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+
+        // Remover as luzes encontradas
+        lightsFound.forEach(light => {
+            console.log(`Removendo luz do Donkey Kong: ${light.name} (${light.type})`);
+            if (light.parent) {
+                light.parent.remove(light);
+            }
+        });
+        
+        object.castShadow = true;
+        object.receiveShadow = false;
+        // Definir escala padrão
+        object.scale.set(0.015, 0.015, 0.015);
+        
+        // Posicionar o Donkey Kong com base no nível atual
+        console.log("Posicionando Donkey Kong para o nível:", window.gameState.currentLevel);
+        if (window.gameState.currentLevel === 1) {
+            object.position.set(-6.5, 5.7, -9);
+        } else if (window.gameState.currentLevel === 2) {
+            object.position.set(-8.2, 6, -3.0);
+            object.scale.set(0.01, 0.01, 0.01); 
+            PlatformLevel2.createBarrelsAndCrates(cena);
+        } 
+
+        // Configurar o mixer de animação para o Donkey Kong
+        if (object.animations.length > 0) {
+            mixerDonkeyKong = new THREE.AnimationMixer(object);
+            const animacaoDonkeyKong = mixerDonkeyKong.clipAction(object.animations[0]); // Use a primeira animação
+            animacaoDonkeyKong.loop = THREE.LoopRepeat; // Configurar para repetir
+            animacaoDonkeyKong.play();
         }
+        
+        // Armazenar referência ao modelo
+        donkeyKongModel = object;
+        
+        // Adicionar à cena
+        cena.add(object);
+        
+        // Adicionar userData para identificar o nível
+        object.userData.levelId = window.gameState.currentLevel;
     });
-
-    object.scale.set(0.015, 0.015, 0.015);
-    object.position.set(-6.5, 5.7, -9);
-
-    // Configurar o mixer de animação para o Donkey Kong
-    if (object.animations.length > 0) {
-        mixerDonkeyKong = new THREE.AnimationMixer(object);
-        const animacaoDonkeyKong = mixerDonkeyKong.clipAction(object.animations[0]); // Use a primeira animação
-        animacaoDonkeyKong.loop = THREE.LoopRepeat; // Configurar para repetir
-        animacaoDonkeyKong.play();
-    }
-
-    cena.add(object);
 
     // Lançar um barril a cada 3 segundos
     setInterval(() => {
         lançarBarril();
     }, 3000); // 3000 ms = 3 segundos
-});
+};
 
-carregarObjetoFBX(
-    './Objetos/peach.fbx',
-    { x: 0.05, y: 0.05, z: 0.05 },
-    { x: 0, y: 7.0, z: -9.5 },
-    { x: 0, y: 0, z: 0 },
-    function (object) {
+// Função para carregar a Peach
+function loadPeach() {
+    carregarObjetoFBX(
+        './Objetos/peach.fbx',
+        { x: 0.05, y: 0.05, z: 0.05 },
+        { x: 0, y: 7.0, z: -9.5 },
+        { x: 0, y: 0, z: 0 },
+        function (object) {
+            // Load textures
+            const textureLoader = new THREE.TextureLoader();
+            const bodyTexture = textureLoader.load('./textures/peach_body.png');
+            const eyeTexture = textureLoader.load('./textures/peach_eye.0.png');
 
-        // Load textures
-        const textureLoader = new THREE.TextureLoader();
-        const bodyTexture = textureLoader.load('./textures/peach_body.png');
-        const eyeTexture = textureLoader.load('./textures/peach_eye.0.png');
+            // Contagem de meshes para debug
+            let contadorMeshes = 0;
 
-        // Contagem de meshes para debug
-        let contadorMeshes = 0;
+            // Apply appropriate textures based on mesh names
+            object.traverse(function (child) {
+                if (child.isMesh) {
+                    contadorMeshes++;
 
-        // Apply appropriate textures based on mesh names
-        object.traverse(function (child) {
-            if (child.isMesh) {
-                contadorMeshes++;
-
-                // Create materials with textures
-                if (child.name.toLowerCase().includes('eye')) {
-                    // Eye material
-                    child.material = new THREE.MeshPhongMaterial({
-                        map: eyeTexture,
-                        shininess: 50,
-                        side: THREE.DoubleSide
-                    });
-                } else {
-                    // Body material
-                    child.material = new THREE.MeshPhongMaterial({
-                        map: bodyTexture,
-                        shininess: 30,
-                        side: THREE.DoubleSide
-                    });
+                    // Create materials with textures
+                    if (child.name.toLowerCase().includes('eye')) {
+                        // Eye material
+                        child.material = new THREE.MeshPhongMaterial({
+                            map: eyeTexture,
+                            shininess: 50,
+                            side: THREE.DoubleSide
+                        });
+                    } else {
+                        // Body material
+                        child.material = new THREE.MeshPhongMaterial({
+                            map: bodyTexture,
+                            shininess: 30,
+                            side: THREE.DoubleSide
+                        });
+                    }
                 }
+            });
+            object.scale.set(0.05, 0.05, 0.05);
+            // Posicionar a Peach com base no nível atual
+            console.log("Posicionando Peach para o nível:", window.gameState.currentLevel);
+            if (window.gameState.currentLevel === 1) {
+                object.position.set(0, 7.0, -9.5);
+            } else if (window.gameState.currentLevel === 2) {
+                object.position.set(0, 8.2, -3.0);
             }
-        });
 
-        // Configurar o mixer de animação para a Peach
-        if (object.animations.length > 0) {
-            mixerPeach = new THREE.AnimationMixer(object);
-            const animacaoPeach = mixerPeach.clipAction(object.animations[0]); // Use a primeira animação
-            animacaoPeach.loop = THREE.LoopRepeat; // Configurar para repetir
-            animacaoPeach.play();
+            // Configurar o mixer de animação para a Peach
+            if (object.animations.length > 0) {
+                mixerPeach = new THREE.AnimationMixer(object);
+                const animacaoPeach = mixerPeach.clipAction(object.animations[0]); // Use a primeira animação
+                animacaoPeach.loop = THREE.LoopRepeat; // Configurar para repetir
+                animacaoPeach.play();
+            }
+
+            // Adicionar userData para identificar o nível
+            object.userData.levelId = window.gameState.currentLevel;
+            
+            // Adicionar o objeto à cena explicitamente
+            cena.add(object);
+            
+            console.log("Peach carregada com sucesso para o nível:", window.gameState.currentLevel);
         }
-
-        // Adicionar o objeto à cena explicitamente
-        cena.add(object);
-    }
-);
-
-// Skybox
-function criarSkybox(caminhoTexturas, tamanho) {
+    );
+};
+function criarSkybox(caminhoTexturas, tamanho) { 
     const loader = new THREE.TextureLoader();
     const materialArray = [
         new THREE.MeshBasicMaterial({ map: loader.load(caminhoTexturas.posx) }),
@@ -1312,34 +1417,23 @@ var luzDirecional3 = new THREE.DirectionalLight(0xffffee, 0.2);
 // Light toggle functions
 window.toggleAmbientLight = function() {
     window.gameState.lights.ambient = !window.gameState.lights.ambient;
-    updateLightToggleButtons();
     
-    // Toggle ambient light visibility
-    if (luzAmbiente) {
-        luzAmbiente.visible = window.gameState.lights.ambient;
-    }
+    // Apply all light states to ensure consistency
+    applyLightStates();
 };
 
 window.toggleDirectionalLights = function() {
     window.gameState.lights.directional = !window.gameState.lights.directional;
-    updateLightToggleButtons();
     
-    // Toggle directional lights visibility
-    if (luzDirecional1) luzDirecional1.visible = window.gameState.lights.directional;
-    if (luzDirecional2) luzDirecional2.visible = window.gameState.lights.directional;
-    if (luzDirecional3) luzDirecional3.visible = window.gameState.lights.directional;
+    // Apply all light states to ensure consistency
+    applyLightStates();
 };
 
 window.togglePointLights = function() {
     window.gameState.lights.point = !window.gameState.lights.point;
-    updateLightToggleButtons();
     
-    // Find and toggle all point lights in the scene
-    cena.traverse(function(object) {
-        if (object.isLight && object.type === 'PointLight') {
-            object.visible = window.gameState.lights.point;
-        }
-    });
+    // Apply all light states to ensure consistency
+    applyLightStates();
 };
 
 // Função principal - agora assíncrona
@@ -1625,7 +1719,7 @@ async function Start() {
     function criarLuzPontual(x, y, z, cor, intensidade, alcance) {
         const luz = new THREE.PointLight(cor, intensidade, alcance);
         luz.position.set(x, y, z);
-        luz.castShadow = true;
+        luz.castShadow = false;
         
         // Removida a criação da esfera visível - apenas o efeito de luz permanece
         
@@ -1723,28 +1817,65 @@ async function Start() {
 
     cena.add(luzAmbiente);
 
-    luzDirecional1.position.set(5, 0, 8);
-    luzDirecional1.target.position.set(1, -1, 0);
+    // === LUZ DIRECIONAL 1 – principal: de frente para o Mario ===
+    luzDirecional1.color = new THREE.Color(0xffffff);
+    luzDirecional1.intensity = 1.8;
+    luzDirecional1.position.set(0, 15, 12); // Luz elevada e vindo da frente
+    luzDirecional1.target.position.set(0, 0, 0); // Foco no Mario
+    luzDirecional1.castShadow = true;
+
+    // Sombra poderosa
+    luzDirecional1.shadow.mapSize.width = 2048;
+    luzDirecional1.shadow.mapSize.height = 2048;
+    luzDirecional1.shadow.bias = -0.0005; // Corrige artefatos (shadow acne)
+
+    // Shadow camera – cobre bem a área onde Mario se move
+    luzDirecional1.shadow.camera.near = 1;
+    luzDirecional1.shadow.camera.far = 50;
+    luzDirecional1.shadow.camera.left = -15;
+    luzDirecional1.shadow.camera.right = 15;
+    luzDirecional1.shadow.camera.top = 15;
+    luzDirecional1.shadow.camera.bottom = -15;
+
     cena.add(luzDirecional1);
     cena.add(luzDirecional1.target);
 
-    luzDirecional2.position.set(-8, 6, 4);
-    luzDirecional2.target.position.set(0, -5, 0);
+    // === LUZ DIRECIONAL 2 – lateral preenchimento (suaviza sombras fortes) ===
+    luzDirecional2.color = new THREE.Color(0xfff6cc); // luz mais quente
+    luzDirecional2.intensity = 0.6;
+    luzDirecional2.position.set(8, 10, 4); // lateral direita e acima
+    luzDirecional2.target.position.set(0, 0, 0);
+    luzDirecional2.castShadow = false;
+
     cena.add(luzDirecional2);
     cena.add(luzDirecional2.target);
 
-    luzDirecional3.position.set(0, 4, -5);
+    // === LUZ DIRECIONAL 3 – contraluz para destacar silhueta ===
+    luzDirecional3.color = new THREE.Color(0xddddff); // luz fria
+    luzDirecional3.intensity = 0.5;
+    luzDirecional3.position.set(-6, 8, -10); // vindo de trás e da esquerda
+    luzDirecional3.target = new THREE.Object3D();
+    luzDirecional3.target.position.set(0, 0, 0);
+    luzDirecional3.castShadow = false;
+
     cena.add(luzDirecional3);
+    cena.add(luzDirecional3.target);
 
-    carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -10, y: 5.7, z: -9 }, { x: 0, y: 0, z: 0 });
+    carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -11, y: 5.7, z: -3 }, { x: 0, y: 0, z: 0 });
 
+    // Aplicar o estado das luzes imediatamente
+    console.log("Aplicando estado das luzes imediatamente após carregamento do nível:", window.gameState.lights);
+    applyLightStates();
+    
     // Aguardar um pouco para garantir que todos os modelos foram carregados
     setTimeout(() => {
         // Verificar e remover luzes indesejadas
         console.log("Verificando e removendo luzes indesejadas...");
         window.findAllLights(); // Listar todas as luzes para debug
         window.cleanupUnwantedLights(); // Remover luzes não essenciais
-    }, 2000); // Esperar 2 segundos
+        
+        // O cleanupUnwantedLights já aplica o estado das luzes
+    }, 1000); // Reduzido para 1 segundo para ser mais responsivo
 
     requestAnimationFrame(loop);
 }
@@ -1815,23 +1946,33 @@ window.cleanupUnwantedLights = function () {
         essentialLights.push(...window.luzesEssenciais);
     }
     
+    // Salvar referências a todas as point lights antes da limpeza
+    let pointLights = [];
+    cena.traverse(function(object) {
+        if (object.isLight && object.type === 'PointLight') {
+            pointLights.push(object);
+        }
+    });
 
     let lightsRemoved = 0;
 
-    cena.traverse(function (object) {
-        if (object.isLight) {
-            // Se não for uma luz essencial e for do tipo PointLight
-            if (!essentialLights.includes(object.uuid) && object.type === 'PointLight') {
-                console.log(`Removendo luz não essencial: ${object.name} (${object.type})`);
-                if (object.parent) {
-                    object.parent.remove(object);
-                    lightsRemoved++;
-                }
+    // Remover apenas as point lights não essenciais
+    pointLights.forEach(light => {
+        if (!essentialLights.includes(light.uuid)) {
+            console.log(`Removendo luz não essencial: ${light.name} (${light.type})`);
+            if (light.parent) {
+                light.parent.remove(light);
+                lightsRemoved++;
             }
         }
     });
 
     console.log(`${lightsRemoved} luzes não essenciais foram removidas.`);
+    
+    // Aplicar o estado das luzes imediatamente após a limpeza
+    console.log("Aplicando estado das luzes após limpeza:", window.gameState.lights);
+    applyLightStates();
+    
     return lightsRemoved;
 };
 
@@ -1993,7 +2134,7 @@ function loop() {
                 puloPendente = false;
                 pulando = true;
                 podePular = false;
-                velocidadeY = forcaPulo;
+                velocidadeY = getForcaPulo();
                 ultimoPulo = relogio.getElapsedTime();
                 // Play jump sound
                 if (jumpSound && !jumpSound.isPlaying) {
@@ -2014,7 +2155,7 @@ function loop() {
                 // Iniciar um novo pulo - melhorado para evitar colisões indesejadas
                 pulando = true;
                 podePular = false;
-                velocidadeY = forcaPulo; // Usar a força de pulo aumentada
+                velocidadeY = getForcaPulo(); // Usar a força de pulo específica do nível
                 ultimoPulo = tempoAtual;
                 objetoImportado.userData.tempoInicioPulo = tempoAtual; // Registrar o tempo de início do pulo
                 objetoImportado.userData.duracaoPulo = 0.8; // Definir duração fixa para o pulo (em segundos)
@@ -2470,20 +2611,37 @@ function loop() {
             atualizarZDoBarril(barril);
         });
 
-        // Check if Mario has reached the win position (2, 7, -9.5)
+        // Check if Mario has reached the win position based on current level
         if (objetoImportado) {
-            // Check if Mario is at position (2, 7, -9.5) with some tolerance
+            // Check if Mario is at win position with some tolerance (level 1)
             const marioPos = objetoImportado.position;
-            if (Math.abs(marioPos.x - 2) < 1.0 &&
+            if (window.gameState.currentLevel === 1 &&
+                Math.abs(marioPos.x - 2) < 1.0 &&
                 Math.abs(marioPos.y - 7) < 1.0 &&
                 Math.abs(marioPos.z - (-9.5)) < 1.0) {
-                // Player has reached the win position
+                // Player has reached the win position for level 1
                 window.gameWin();
             }
 
-            // Also check proximity to Princess Peach as an alternative win condition
-            const distanceToPeach = objetoImportado.position.distanceTo(new THREE.Vector3(0, 7, -9.5));
-            if (distanceToPeach < 2.0) {
+            // Check proximity to Princess Peach as win condition based on current level
+            let peachPosition;
+            if (window.gameState.currentLevel === 1) {
+                peachPosition = new THREE.Vector3(0, 7, -9.5);
+            } else if (window.gameState.currentLevel === 2) {
+                peachPosition = new THREE.Vector3(0, 8.2, -3.0);
+            }
+            
+            // Calculate horizontal distance (ignoring Y axis)
+            const horizontalDistance = Math.sqrt(
+                Math.pow(objetoImportado.position.x - peachPosition.x, 2) + 
+                Math.pow(objetoImportado.position.z - peachPosition.z, 2)
+            );
+            
+            // Calculate vertical distance (Y axis only)
+            const verticalDistance = Math.abs(objetoImportado.position.y - peachPosition.y);
+            
+            // Check if Mario is close to Peach horizontally, on the same platform (similar Y), and not jumping
+            if (horizontalDistance < 1.5 && verticalDistance < 0.5 && !pulando) {
                 // Stop current theme and play ending theme
                 if (window.stageTheme && window.stageTheme.isPlaying) {
                     window.stageTheme.stop();

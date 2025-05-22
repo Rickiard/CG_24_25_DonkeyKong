@@ -190,6 +190,51 @@
             .sound-button.muted {
                 background-color: #F44336;
             }
+            
+        /* In-game Light Controls */
+        .ingame-light-controls {
+            position: fixed;
+            bottom: 20px;
+            right: 80px; /* Posicionado à esquerda do botão de som */
+            display: flex;
+            gap: 10px;
+            z-index: 2000;
+        }
+        
+        .light-button {
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), 0 0 15px rgba(76, 175, 80, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s ease;
+            font-size: 24px;
+            background-color: #4CAF50;
+            color: white;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.7);
+        }
+        
+        .light-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(76, 175, 80, 0.7);
+        }
+        
+        .light-button:active {
+            transform: scale(0.9);
+        }
+        
+        .light-button.off {
+            background-color: #F44336;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2), 0 0 15px rgba(244, 67, 54, 0.5);
+        }
+        
+        .light-button.off:hover {
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3), 0 0 20px rgba(244, 67, 54, 0.7);
+        }
         /* Pause Menu Specific Styles */
         #pauseMenu {
             background: #000000;
@@ -358,50 +403,7 @@
             text-align: center;
         }
 
-        /* Light Controls Styling */
-        .light-controls {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: rgba(0, 0, 0, 0.5);
-            border-radius: 10px;
-            width: 80%;
-            max-width: 400px;
-        }
-        
-        .light-section-title {
-            color: #ffffff;
-            font-size: 1.2em;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        
-        .light-toggle {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-            color: #ffffff;
-            font-size: 0.9em;
-        }
-        
-        .toggle-button {
-            padding: 5px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.2s ease;
-        }
-        
-        .toggle-button.on {
-            background-color: #4CAF50;
-            color: white;
-        }
-        
-        .toggle-button.off {
-            background-color: #f44336;
-            color: white;
-        }
+
     </style>
 
 </head>
@@ -414,6 +416,13 @@
 
     <!-- Sound Button - Sempre visível -->
     <button id="soundButton" class="sound-button">🔊</button>
+    
+    <!-- In-game Light Controls - Sempre visíveis -->
+    <div class="ingame-light-controls">
+        <button id="ingameAmbientLight" class="light-button" title="Ambient Light">☀️</button>
+        <button id="ingameDirectionalLight" class="light-button" title="Directional Light">↘️</button>
+        <button id="ingamePointLight" class="light-button" title="Point Light">💡</button>
+    </div>
 
     <!-- Loading Screen -->
     <div id="loadingScreen" class="menu-container hidden">
@@ -440,22 +449,7 @@
         <button id="restartButton" class="menu-button">RESTART GAME</button>
         <button id="mainMenuButton" class="menu-button">MAIN MENU</button>
         
-        <!-- Light Controls Section -->
-        <div class="light-controls">
-            <h2 class="light-section-title">LIGHT CONTROLS</h2>
-            <div class="light-toggle">
-                <span>Ambient Light:</span>
-                <button id="ambientLightToggle" class="toggle-button on">ON</button>
-            </div>
-            <div class="light-toggle">
-                <span>Directional Lights:</span>
-                <button id="directionalLightToggle" class="toggle-button on">ON</button>
-            </div>
-            <div class="light-toggle">
-                <span>Point Lights:</span>
-                <button id="pointLightToggle" class="toggle-button on">ON</button>
-            </div>
-        </div>
+
     </div>
 
     <!-- Game Over Menu Container -->
@@ -531,34 +525,40 @@
         
         // Light toggle buttons
         document.addEventListener('DOMContentLoaded', function() {
-            // Add event listeners for light toggle buttons
-            const ambientLightToggle = document.getElementById('ambientLightToggle');
-            const directionalLightToggle = document.getElementById('directionalLightToggle');
-            const pointLightToggle = document.getElementById('pointLightToggle');
+            // Add event listeners for in-game light toggle buttons
+            const ingameAmbientLight = document.getElementById('ingameAmbientLight');
+            const ingameDirectionalLight = document.getElementById('ingameDirectionalLight');
+            const ingamePointLight = document.getElementById('ingamePointLight');
             
-            if (ambientLightToggle) {
-                ambientLightToggle.addEventListener('click', function() {
+            // In-game light toggle buttons
+            if (ingameAmbientLight) {
+                ingameAmbientLight.addEventListener('click', function() {
                     if (typeof window.toggleAmbientLight === 'function') {
                         window.toggleAmbientLight();
                     }
                 });
             }
             
-            if (directionalLightToggle) {
-                directionalLightToggle.addEventListener('click', function() {
+            if (ingameDirectionalLight) {
+                ingameDirectionalLight.addEventListener('click', function() {
                     if (typeof window.toggleDirectionalLights === 'function') {
                         window.toggleDirectionalLights();
                     }
                 });
             }
             
-            if (pointLightToggle) {
-                pointLightToggle.addEventListener('click', function() {
+            if (ingamePointLight) {
+                ingamePointLight.addEventListener('click', function() {
                     if (typeof window.togglePointLights === 'function') {
                         window.togglePointLights();
                     }
                 });
             }
+            
+            // Listen for light state changes to update button appearance
+            window.addEventListener('lightStateChanged', function() {
+                // This will be handled by the applyLightStates function in the JS file
+            });
         });
 
         document.getElementById('resumeButton').addEventListener('click', function () {
