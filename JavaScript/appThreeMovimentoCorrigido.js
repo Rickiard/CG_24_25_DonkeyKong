@@ -792,6 +792,12 @@ var camaraOrto = new THREE.OrthographicCamera(
 
 var cameraAtual = camaraPerspectiva; // Define a câmera inicial como a perspectiva
 
+// ATIVAR sombras de forma segura
+renderer.shadowMap.enabled = true;
+
+// TROCAR tipo de sombra para mais leve, evitando bugs em hardwares mais limitados
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
 renderer.setSize(window.innerWidth - 15, window.innerHeight - 80);
 renderer.setClearColor(0xaaaaaa);
 document.body.appendChild(renderer.domElement);
@@ -902,7 +908,7 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
         object.traverse(function (child) {
             if (child.isMesh) {
                 child.castShadow = true;
-                child.receiveShadow = true;
+                child.receiveShadow = false;
             }
         });
 
@@ -914,6 +920,8 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
             }
         });
 
+        object.castShadow = true;
+        object.receiveShadow = true;
         object.scale.set(escala.x, escala.y, escala.z);
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
@@ -986,6 +994,8 @@ function lançarBarril() {
     if (!barrilImportado) return;
 
     const novoBarril = barrilImportado.clone();
+    novoBarril.castShadow = true;
+    novoBarril.receiveShadow = false;
     novoBarril.position.set(-7, 5.25, barrilZPorPlataforma['8']); // Usar o z correto para a plataforma inicial
     novoBarril.rotation.set(Math.PI / 2, 0, 0);
     novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0); // Velocidade horizontal inicial
@@ -1111,6 +1121,8 @@ function loadDonkeyKong() {
             }
         });
         
+        object.castShadow = true;
+        object.receiveShadow = false;
         // Definir escala padrão
         object.scale.set(0.015, 0.015, 0.015);
         
@@ -1685,7 +1697,7 @@ async function Start() {
     function criarLuzPontual(x, y, z, cor, intensidade, alcance) {
         const luz = new THREE.PointLight(cor, intensidade, alcance);
         luz.position.set(x, y, z);
-        luz.castShadow = true;
+        luz.castShadow = false;
         
         // Removida a criação da esfera visível - apenas o efeito de luz permanece
         
@@ -1783,17 +1795,60 @@ async function Start() {
 
     cena.add(luzAmbiente);
 
+    // LUZ DIRECIONAL 1
+    luzDirecional1.color = new THREE.Color(0xffffff);
+    luzDirecional1.intensity = 1;
+    luzDirecional1.castShadow = true;
     luzDirecional1.position.set(5, 0, 8);
     luzDirecional1.target.position.set(1, -1, 0);
+
+    // Shadow params
+    luzDirecional1.shadow.mapSize.width = 1024;
+    luzDirecional1.shadow.mapSize.height = 1024;
+    luzDirecional1.shadow.camera.near = 0.5;
+    luzDirecional1.shadow.camera.far = 30;
+    luzDirecional1.shadow.camera.left = -10;
+    luzDirecional1.shadow.camera.right = 10;
+    luzDirecional1.shadow.camera.top = 10;
+    luzDirecional1.shadow.camera.bottom = -10;
+
     cena.add(luzDirecional1);
     cena.add(luzDirecional1.target);
 
+    // LUZ DIRECIONAL 2
+    luzDirecional2.color = new THREE.Color(0xffffff);
+    luzDirecional2.intensity = 0.6;
+    luzDirecional2.castShadow = true;
     luzDirecional2.position.set(-8, 6, 4);
     luzDirecional2.target.position.set(0, -5, 0);
+
+    luzDirecional2.shadow.mapSize.width = 1024;
+    luzDirecional2.shadow.mapSize.height = 1024;
+    luzDirecional2.shadow.camera.near = 0.5;
+    luzDirecional2.shadow.camera.far = 30;
+    luzDirecional2.shadow.camera.left = -10;
+    luzDirecional2.shadow.camera.right = 10;
+    luzDirecional2.shadow.camera.top = 10;
+    luzDirecional2.shadow.camera.bottom = -10;
+
     cena.add(luzDirecional2);
     cena.add(luzDirecional2.target);
 
+    // LUZ DIRECIONAL 3 (sem target definido – usará por padrão [0, 0, 0])
+    luzDirecional3.color = new THREE.Color(0xffffff);
+    luzDirecional3.intensity = 0.4;
+    luzDirecional3.castShadow = true;
     luzDirecional3.position.set(0, 4, -5);
+
+    luzDirecional3.shadow.mapSize.width = 1024;
+    luzDirecional3.shadow.mapSize.height = 1024;
+    luzDirecional3.shadow.camera.near = 0.5;
+    luzDirecional3.shadow.camera.far = 30;
+    luzDirecional3.shadow.camera.left = -10;
+    luzDirecional3.shadow.camera.right = 10;
+    luzDirecional3.shadow.camera.top = 10;
+    luzDirecional3.shadow.camera.bottom = -10;
+
     cena.add(luzDirecional3);
 
     carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -11, y: 5.7, z: -3 }, { x: 0, y: 0, z: 0 });

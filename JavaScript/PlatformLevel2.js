@@ -34,6 +34,8 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
         const geometry = new THREE.BoxGeometry(largura, altura, 1);
         const mesh = new THREE.Mesh(geometry, platformMaterial);
         mesh.position.set(x, y, -3); // Ajustado para ficar ainda mais para trás
+        mesh.castShadow = false;
+        mesh.receiveShadow = true;
         cena.add(mesh);
         objetosColisao.push(mesh);
     }
@@ -47,13 +49,13 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
 
     // Configuração das plataformas com posições e tamanhos variados
     const plataformasConfig = [
-        { y: -10, x: 0, largura: 24 },      // Base (mantida grande)
-        { y: -7, x: -3, largura: 18 },      // Um pouco para a esquerda
-        { y: -4, x: 3, largura: 18 },       // Um pouco para a direita
-        { y: -1, x: -2, largura: 20 },      // Um pouco para a esquerda
-        { y: 2, x: 2, largura: 20 },        // Um pouco para a direita
-        { y: 5, x: -1, largura: 22 },       // Um pouco para a esquerda
-        { y: 8, x: 1, largura: 22 }         // Um pouco para a direita
+        { y: -10.15, x: 0, largura: 24 },      // Base (mantida grande)
+        { y: -7.15, x: -3, largura: 18 },      // Um pouco para a esquerda
+        { y: -4.15, x: 3, largura: 18 },       // Um pouco para a direita
+        { y: -1.15, x: -2, largura: 20 },      // Um pouco para a esquerda
+        { y: 1.85, x: 2, largura: 20 },        // Um pouco para a direita
+        { y: 4.85, x: -1, largura: 22 },       // Um pouco para a esquerda
+        { y: 7.85, x: 1, largura: 22 }         // Um pouco para a direita
     ];
     
     // Criar plataformas com configurações variadas

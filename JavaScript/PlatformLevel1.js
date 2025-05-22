@@ -29,6 +29,8 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
     // Carregar o modelo 3D "tentativa1.fbx"
     const importer = new FBXLoader();
     importer.load('./Objetos/tentativa1.fbx', function (object) {
+        object.castShadow = false;
+        object.receiveShadow = true;
         object.scale.set(0.03, 0.03, 0.03);
         object.position.set(1.5, -0.5, -6.0);
         object.rotation.set(-Math.PI / 2, 0, 0);
