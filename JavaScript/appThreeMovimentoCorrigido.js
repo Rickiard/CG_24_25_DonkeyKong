@@ -652,185 +652,63 @@ window.resumeGame = function () {
     }, 1000);
 };
 
-// Variável para controlar o intervalo de lançamento de barris
-var barrelSpawnInterval = null;
-
 window.restartGame = async function () {
-    console.log("Iniciando restart do jogo...");
-    
     // Manter o nível atual e o estado das luzes
-    const currentLevel = window.gameState.currentLevel || 1; // Default to level 1 if not set
+    const currentLevel = window.gameState.currentLevel;
     const lightStates = {
         ambient: window.gameState.lights.ambient,
         directional: window.gameState.lights.directional,
         point: window.gameState.lights.point
     };
     
-    // Parar o loop de animação temporariamente para evitar problemas durante a limpeza
-    animationLoopActive = false;
-    
-    // Parar o intervalo de lançamento de barris para evitar múltiplos intervalos
-    if (barrelSpawnInterval) {
-        console.log("Limpando intervalo de barris existente");
-        clearInterval(barrelSpawnInterval);
-        barrelSpawnInterval = null;
-    }
-    
-    // Limpar barris ativos
-    console.log("Limpando barris ativos: " + (barrisAtivos ? barrisAtivos.length : 0));
-    if (barrisAtivos && barrisAtivos.length > 0) {
-        barrisAtivos.forEach(barril => {
-            if (barril && barril.parent) {
-                barril.parent.remove(barril);
-            }
-        });
-        barrisAtivos = [];
-    }
-    barrilColisao = false;
-    
-    // Limpar a cena completamente (exceto skybox e luzes)
-    console.log("Limpando a cena...");
-    for (let i = cena.children.length - 1; i >= 0; i--) {
-        const obj = cena.children[i];
-        
-        // Verificar se é a skybox (que deve ser preservada)
-        const isSkybox = obj.geometry && 
-                        obj.geometry.type === 'BoxGeometry' && 
-                        obj.geometry.parameters.width === 100 &&
-                        obj.geometry.parameters.height === 100 &&
-                        obj.geometry.parameters.depth === 100;
-        
-        // Pular a skybox e as luzes
-        if (isSkybox || obj.type === 'PerspectiveCamera' || obj.type === 'AmbientLight' || 
-            obj.type === 'DirectionalLight' || obj.type === 'PointLight') {
-            continue;
-        }
-        
-        // Remover o objeto da cena
-        cena.remove(obj);
-    }
-    
-    // Limpar variáveis importantes
-    objetoImportado = null; // Limpar referência ao Mario para que seja recarregado
-    mixerAnimacao = null;
-    barrilImportado = null; // Limpar referência ao barril para que seja recarregado
-    
-    // Limpar arrays de objetos
-    plataformas = [];
-    objetosColisao = [];
-    if (window.planosInvisiveis) {
-        window.planosInvisiveis = [];
-    }
-    
-    // Forçar reinicialização completa do jogo
-    window.gameState.isInitialized = false;
-    
-    console.log("Reiniciando o jogo para o nível: " + currentLevel);
-    
-    try {
-        // Recarregar o Mario
-        carregarObjetoFBX(
-            './Objetos/Mario.fbx',
-            { x: 0.008, y: 0.008, z: 0.008 },
-            { x: -10, y: -9.7, z: -3.0 },
-            { x: 0, y: Math.PI / 2, z: 0 },
-            function (object) {
-                // Aplicar textura ao Mario
-                object.traverse(function (child) {
-                    if (child.isMesh) {
-                        const materialTexturizado = new THREE.MeshPhongMaterial({
-                            map: marioTexture,
-                            side: THREE.DoubleSide
-                        });
-                        child.material = materialTexturizado;
-                    }
-                });
+    console.log("Salvando estado das luzes antes do restart:", lightStates);
 
-                objetoImportado = object;
-                if (object.animations && object.animations.length > 0) {
-                    mixerAnimacao = new THREE.AnimationMixer(object);
-                    
-                    // Encontrar animações idle e running
-                    let idleAnim = object.animations.find(a => a.name && a.name.toLowerCase().includes('idle')) || object.animations[3];
-                    let runningAnim = object.animations.find(a => a.name && a.name.toLowerCase().includes('run')) || object.animations[7];
-                    
-                    // Armazenar referências às animações para uso posterior
-                    object.userData.idleAnimation = idleAnim;
-                    object.userData.runningAnimation = runningAnim;
-                    
-                    // Iniciar com a animação idle
-                    animacaoAtual = mixerAnimacao.clipAction(idleAnim);
-                    animacaoAtual.play();
-                }
-                
-                // Adicionar propriedade para identificar como Mario
-                object.userData.isMario = true;
-            }
-        );
-        
-        // Recarregar o barril
-        carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -11, y: 5.7, z: -3 }, { x: 0, y: 0, z: 0 });
-        
-        // Reiniciar o jogo com o mesmo nível
-        if (currentLevel === 1) {
-            await window.startGameLevel1();
-        } else if (currentLevel === 2) {
-            await window.startGameLevel2();
-        } else {
-            // Fallback para o nível 1 se o nível atual não for válido
-            console.warn("Nível inválido, reiniciando para o nível 1");
-            await window.startGameLevel1();
-        }
-    
-        // Reset game state
-        window.gameState.isPaused = false;
-        window.gameState.isInMainMenu = false;
-        window.gameState.isGameOver = false;
-        window.gameState.isWin = false;
-        
-        // Restaurar o estado das luzes e aplicar imediatamente
-        console.log("Restaurando estado das luzes após restart");
-        window.gameState.lights.ambient = lightStates.ambient;
-        window.gameState.lights.directional = lightStates.directional;
-        window.gameState.lights.point = lightStates.point;
-        
-        // Aplicar o estado das luzes imediatamente
-        applyLightStates();
-        window.gameState.score = 0;
-        updateScoreDisplay();
-    
-        // Stop all music first
-        window.stopAllMusic();
-    
-        // Wait a brief moment to ensure all music has stopped
-        await new Promise(resolve => setTimeout(resolve, 100));
-    
-        // Now play the stage theme
-        await safePlayAudio(window.stageTheme, 'Stage Theme');
-    
-        // Hide menus
-        document.getElementById('pauseMenu').classList.add('hidden');
-        document.getElementById('gameOverMenu').classList.add('hidden');
-        document.getElementById('winMenu').classList.add('hidden');
-    
-        // Garantir que o loop de animação esteja ativo
-        animationLoopActive = true;
-        requestAnimationFrame(loop);
-        
-        // Reiniciar o intervalo de lançamento de barris
-        if (barrelSpawnInterval === null) {
-            barrelSpawnInterval = setInterval(() => {
-                lançarBarril();
-            }, 3000); // 3000 ms = 3 segundos
-        }
-        
-        console.log("Restart completo!");
-    } catch (error) {
-        console.error("Erro durante o restart do jogo:", error);
-        // Tentar recuperar de alguma forma
-        animationLoopActive = true;
-        requestAnimationFrame(loop);
+    // Reiniciar o jogo com o mesmo nível
+    if (currentLevel === 1) {
+        await window.startGameLevel1();
+    } else if (currentLevel === 2) {
+        await window.startGameLevel2();
     }
+
+    // Reset game state
+    window.gameState.isPaused = false;
+    window.gameState.isInMainMenu = false;
+    window.gameState.isGameOver = false;
+    window.gameState.isWin = false;
+    
+    // Restaurar o estado das luzes e aplicar imediatamente
+    console.log("Restaurando estado das luzes após restart:", lightStates);
+    window.gameState.lights.ambient = lightStates.ambient;
+    window.gameState.lights.directional = lightStates.directional;
+    window.gameState.lights.point = lightStates.point;
+    
+    // Aplicar o estado das luzes imediatamente
+    applyLightStates();
+    window.gameState.score = 0;
+    updateScoreDisplay();
+
+    // Reset barrel collisions and remove active barrels
+    barrilColisao = false;
+    barrisAtivos.forEach(barril => cena.remove(barril));
+    barrisAtivos = [];
+
+    // Stop all music first
+    window.stopAllMusic();
+
+    // Wait a brief moment to ensure all music has stopped
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Now play the stage theme
+    await safePlayAudio(window.stageTheme, 'Stage Theme');
+
+    // Hide menus
+    document.getElementById('pauseMenu').classList.add('hidden');
+    document.getElementById('gameOverMenu').classList.add('hidden');
+    document.getElementById('winMenu').classList.add('hidden');
+
+    // Garantir que o loop de animação esteja ativo
+    animationLoopActive = true;
+    requestAnimationFrame(loop);
 };
 
 window.gameOver = async function () {
@@ -1031,7 +909,6 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
             if (child.isMesh) {
                 child.castShadow = true;
                 child.receiveShadow = false;
-                child.visible = true; // Garantir que cada mesh seja visível
             }
         });
 
@@ -1048,14 +925,7 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
         object.scale.set(escala.x, escala.y, escala.z);
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
-        object.visible = true; // Garantir que o objeto principal seja visível
-        
-        // Inicializar userData se não existir
-        object.userData = object.userData || {};
-        
         cena.add(object);
-        
-        console.log(`Objeto FBX carregado com sucesso: ${caminho}`);
 
         if (callback) {
             callback(object);
@@ -1121,33 +991,22 @@ carregarObjetoFBX(
 );
 
 function lançarBarril() {
-    if (!barrilImportado) {
-        console.warn("Modelo de barril não carregado ainda!");
-        return;
-    }
+    if (!barrilImportado) return;
 
-    console.log("Lançando novo barril...");
-    
     const novoBarril = barrilImportado.clone();
     novoBarril.visible = true; // Torna o barril visível    
     novoBarril.castShadow = true;
     novoBarril.receiveShadow = false;
     novoBarril.position.set(-7, 5.25, barrilZPorPlataforma['8']); // Usar o z correto para a plataforma inicial
     novoBarril.rotation.set(Math.PI / 2, 0, 0);
-    
-    // Garantir que o userData seja inicializado corretamente
-    novoBarril.userData = {
-        velocidade: new THREE.Vector3(0.025, 0, 0), // Velocidade horizontal inicial
-        plataformaAtual: 0,
-        isBarrel: true, // Marcar como barril para usar detecção de colisão original
-        scored: false
-    };
+    novoBarril.userData.velocidade = new THREE.Vector3(0.025, 0, 0); // Velocidade horizontal inicial
+    novoBarril.userData.plataformaAtual = 0;
+    novoBarril.userData.isBarrel = true; // Marcar como barril para usar detecção de colisão original
 
     novoBarril.traverse(child => {
         if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
-            child.visible = true; // Garantir que cada mesh seja visível
 
             // Aplicar cor castanha aos barris
             child.material = new THREE.MeshPhongMaterial({
@@ -1160,8 +1019,6 @@ function lançarBarril() {
 
     cena.add(novoBarril);
     barrisAtivos.push(novoBarril);
-    
-    console.log("Barril lançado com sucesso! Velocidade:", novoBarril.userData.velocidade);
 }
 
 function carregarBarril(caminho, escala, posicao, rotacao) {
@@ -1195,7 +1052,6 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
                     shininess: 30,
                     side: THREE.DoubleSide
                 });
-                child.visible = true; // Garantir que cada mesh seja visível
             }
         });
 
@@ -1210,19 +1066,11 @@ function carregarBarril(caminho, escala, posicao, rotacao) {
         object.position.set(posicao.x, posicao.y, posicao.z);
         object.rotation.set(rotacao.x, rotacao.y, rotacao.z);
 
-        // O barril original deve ser invisível, mas garantimos que ele seja clonado corretamente
-        object.visible = false;
-        
-        // Garantir que o objeto tenha a propriedade userData inicializada
-        object.userData = object.userData || {};
-        object.userData.velocidade = new THREE.Vector3(0.025, 0, 0);
-        object.userData.isBarrel = true;
+        object.visible = false; // 👈 Torna o barril invisível
 
         objetosColisao.push(object);
         barrilImportado = object;
         cena.add(object);
-        
-        console.log("Barril carregado com sucesso!");
     });
 }
 
@@ -1307,13 +1155,8 @@ function loadDonkeyKong() {
         object.userData.levelId = window.gameState.currentLevel;
     });
 
-    // Limpar qualquer intervalo existente de lançamento de barris
-    if (barrelSpawnInterval) {
-        clearInterval(barrelSpawnInterval);
-    }
-    
     // Lançar um barril a cada 3 segundos
-    barrelSpawnInterval = setInterval(() => {
+    setInterval(() => {
         lançarBarril();
     }, 3000); // 3000 ms = 3 segundos
 };
