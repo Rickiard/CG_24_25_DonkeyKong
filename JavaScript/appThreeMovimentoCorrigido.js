@@ -1109,7 +1109,10 @@ var barrisAtivos = [];
 var mixerPeach, mixerDonkeyKong;
 
 // Configuração das coordenadas z do barril por plataforma
+// Mapeamento de coordenadas Z para as plataformas
+// Usado para posicionar os barris corretamente em cada nível
 const barrilZPorPlataforma = {
+    // Nível 1
     '-10': -3.3,  // Primeiro plano (base)
     '-7': -4.2,   // Segundo plano
     '-4': -5.0,   // Terceiro plano
@@ -1119,7 +1122,17 @@ const barrilZPorPlataforma = {
     '8': -3.0,    // Sétimo plano (topo)
     '9': -3.0,    // Plataforma superior (adicional)
     '10': -3.0,   // Plataforma superior (adicional)
-    '11': -3.0    // Plataforma superior (adicional)
+    '11': -3.0,   // Plataforma superior (adicional)
+    
+    // Nível 2 - usando as mesmas coordenadas Z para garantir consistência
+    // Isso garante que os barris tenham uma coordenada Z válida em todas as plataformas do nível 2
+    'level2_-10': -3.3,  // Base do nível 2
+    'level2_-7': -4.2,   // Segunda plataforma do nível 2
+    'level2_-4': -5.0,   // Terceira plataforma do nível 2
+    'level2_-1': -5.9,   // Quarta plataforma do nível 2
+    'level2_2': -6.6,    // Quinta plataforma do nível 2
+    'level2_5': -8.4,    // Sexta plataforma do nível 2
+    'level2_8': -3.0     // Topo do nível 2
 };
 
 // Função para verificar se um objeto está visível na câmera
@@ -1143,25 +1156,62 @@ function isObjectVisible(object, camera) {
 // Função para atualizar a coordenada z do barril
 function atualizarZDoBarril(barril) {
     const alturaAtual = Math.round(barril.position.y);
-    if (barrilZPorPlataforma[alturaAtual] !== undefined) {
-        barril.position.z = barrilZPorPlataforma[alturaAtual];
+    const nivel = window.gameState.currentLevel;
+    
+    // Chave para buscar no mapeamento, considerando o nível atual
+    let chave = alturaAtual.toString();
+    if (nivel === 2) {
+        chave = `level2_${alturaAtual}`;
+    }
+    
+    // Verificar se existe um valor específico para esta altura neste nível
+    if (barrilZPorPlataforma[chave] !== undefined) {
+        barril.position.z = barrilZPorPlataforma[chave];
     } else {
-        // Se não encontrar uma altura específica, usar o valor mais próximo
-        // Isso é importante para garantir que os barris na parte superior tenham uma coordenada Z válida
-        const alturas = Object.keys(barrilZPorPlataforma).map(Number);
-        let alturaProxima = alturas[0];
-        let menorDiferenca = Math.abs(alturaAtual - alturas[0]);
-        
-        for (let i = 1; i < alturas.length; i++) {
-            const diferenca = Math.abs(alturaAtual - alturas[i]);
-            if (diferenca < menorDiferenca) {
-                menorDiferenca = diferenca;
-                alturaProxima = alturas[i];
+        // Se não encontrar uma altura específica para este nível, usar o valor do nível 1
+        if (nivel === 2 && barrilZPorPlataforma[alturaAtual] !== undefined) {
+            barril.position.z = barrilZPorPlataforma[alturaAtual];
+        } else {
+            // Se ainda não encontrar, buscar o valor mais próximo
+            // Filtrar apenas as chaves que são números (nível 1) ou do nível atual
+            const chavesValidas = Object.keys(barrilZPorPlataforma).filter(k => {
+                if (nivel === 1) {
+                    return !isNaN(Number(k));
+                } else {
+                    return k.startsWith('level2_') || !isNaN(Number(k));
+                }
+            });
+            
+            // Converter para números apenas as chaves que são números
+            const alturas = chavesValidas.map(k => {
+                if (!isNaN(Number(k))) {
+                    return Number(k);
+                } else if (k.startsWith('level2_')) {
+                    return Number(k.replace('level2_', ''));
+                }
+                return 0;
+            });
+            
+            // Encontrar a altura mais próxima
+            let alturaProxima = alturas[0];
+            let menorDiferenca = Math.abs(alturaAtual - alturas[0]);
+            let indiceProximo = 0;
+            
+            for (let i = 1; i < alturas.length; i++) {
+                const diferenca = Math.abs(alturaAtual - alturas[i]);
+                if (diferenca < menorDiferenca) {
+                    menorDiferenca = diferenca;
+                    alturaProxima = alturas[i];
+                    indiceProximo = i;
+                }
             }
+            
+            // Obter a chave original para buscar o valor Z
+            const chaveProxima = chavesValidas[indiceProximo];
+            barril.position.z = barrilZPorPlataforma[chaveProxima];
+            
+            console.log(`Ajustando Z do barril na altura ${alturaAtual} (nível ${nivel}) para valor da chave ${chaveProxima}: ${barril.position.z}`);
         }
-        
-        barril.position.z = barrilZPorPlataforma[alturaProxima];
-        console.log(`Ajustando Z do barril na altura ${alturaAtual} para valor da altura ${alturaProxima}: ${barril.position.z}`);
     }
 }
 
@@ -1334,10 +1384,24 @@ function lançarBarril() {
         novoBarril.visible = true; // Torna o barril visível    
         novoBarril.castShadow = true;
         novoBarril.receiveShadow = false;
-        // Definir a posição inicial do barril com coordenada Z correta
-        const zInicial = barrilZPorPlataforma['8'] || -3.0;
-        novoBarril.position.set(-7, 5.25, zInicial);
-        console.log(`Barril criado na posição inicial com Z=${zInicial}`);
+        // Definir a posição inicial do barril com coordenada Z correta, considerando o nível atual
+        let zInicial;
+        let posicaoX, posicaoY;
+        
+        if (window.gameState.currentLevel === 2) {
+            // Usar coordenadas específicas para o nível 2
+            zInicial = barrilZPorPlataforma['level2_8'] || barrilZPorPlataforma['8'] || -3.0;
+            posicaoX = -8; // Ajustado para o nível 2
+            posicaoY = 6;  // Ajustado para o nível 2
+        } else {
+            // Nível 1 (padrão)
+            zInicial = barrilZPorPlataforma['8'] || -3.0;
+            posicaoX = -7;
+            posicaoY = 5.25;
+        }
+        
+        novoBarril.position.set(posicaoX, posicaoY, zInicial);
+        console.log(`Barril criado na posição inicial (nível ${window.gameState.currentLevel}) com Z=${zInicial}`);
         // Rotação inicial para alinhar o barril corretamente conforme solicitado
         // Alinhando o barril para que fique virado para o jogador (topo para a câmera)
         novoBarril.rotation.set(Math.PI/2, 0, 0);
@@ -1837,8 +1901,11 @@ function atualizarBarril() {
             // Calcular a distância real entre Mario e o barril
             const distancia = objetoImportado.position.distanceTo(barril.position);
             
-            // Verificação de distância mais restritiva para evitar colisões com barris não visíveis
-            if (distancia < 1.2) {
+            // Ajustar a distância de verificação com base no nível atual
+            const distanciaMaxima = window.gameState.currentLevel === 2 ? 1.5 : 1.2;
+            
+            // Verificação de distância para evitar colisões com barris não visíveis
+            if (distancia < distanciaMaxima) {
                 // Calcular a distância horizontal (ignorando a componente Y)
                 const distanciaHorizontal = Math.sqrt(
                     Math.pow(objetoImportado.position.x - barril.position.x, 2) + 
@@ -1852,8 +1919,11 @@ function atualizarBarril() {
                 // Isso é importante para evitar colisões com barris que não são visíveis
                 const barrilVisivel = isObjectVisible(barril, cameraAtual);
                 
+                // Ajustar o limite de diferença de altura com base no nível
+                const limiteAltura = window.gameState.currentLevel === 2 ? 0.7 : 0.5;
+                
                 // Check if Mario is above the barrel (only vertical check)
-                if (diferencaAltura > 0.5) { // Mario is above the barrel
+                if (diferencaAltura > limiteAltura) { // Mario is above the barrel
                     if (!barril.userData.scored) {
                         window.gameState.score += 100;
                         updateScoreDisplay();
@@ -1861,11 +1931,14 @@ function atualizarBarril() {
                         console.log("Mario pulou sobre o barril! +100 pontos");
                     }
                 } else {
+                    // Ajustar a distância horizontal com base no nível
+                    const limiteHorizontal = window.gameState.currentLevel === 2 ? 1.0 : 0.8;
+                    
                     // Verificar se a colisão é realmente próxima o suficiente para ser válida
-                    // Usando uma distância horizontal menor para maior precisão
+                    // Usando uma distância horizontal ajustada para o nível
                     // E verificando se o barril está visível
-                    if (distanciaHorizontal < 0.8 && barrilVisivel) {
-                        console.log("COLISÃO REAL DETECTADA COM BARRIL:", barril.id);
+                    if (distanciaHorizontal < limiteHorizontal && barrilVisivel) {
+                        console.log(`COLISÃO REAL DETECTADA COM BARRIL (Nível ${window.gameState.currentLevel}):`, barril.id);
                         console.log("Distância:", distancia);
                         console.log("Distância horizontal:", distanciaHorizontal);
                         console.log("Diferença de altura:", diferencaAltura);
@@ -3037,8 +3110,11 @@ function loop() {
                 // Calcular a distância entre Mario e o barril
                 const distancia = marioPos.distanceTo(barrilPos);
                 
+                // Ajustar a distância de verificação com base no nível atual
+                const distanciaMaxima = window.gameState.currentLevel === 2 ? 1.5 : 1.0;
+                
                 // Verificar se estão próximos o suficiente para uma possível colisão
-                if (distancia < 1.0) {
+                if (distancia < distanciaMaxima) {
                     // Verificar se o barril está visível na tela
                     const barrilVisivel = isObjectVisible(barril, cameraAtual);
                     
@@ -3051,30 +3127,41 @@ function loop() {
                     // Calcular a diferença de altura
                     const diferencaAltura = marioPos.y - barrilPos.y;
                     
+                    // Ajustar o limite de diferença de altura com base no nível
+                    const limiteAltura = window.gameState.currentLevel === 2 ? 0.7 : 0.5;
+                    
                     // Verificar se Mario está acima do barril (pontuação) ou ao lado (colisão)
-                    if (diferencaAltura > 0.5) {
+                    if (diferencaAltura > limiteAltura) {
                         // Mario está acima do barril - pontuação
                         if (!barril.userData.scored) {
                             window.gameState.score += 100;
                             updateScoreDisplay();
                             barril.userData.scored = true;
-                            console.log("Mario pulou sobre o barril! +100 pontos");
+                            console.log(`Mario pulou sobre o barril (Nível ${window.gameState.currentLevel})! +100 pontos`);
                         }
-                    } else if (distanciaHorizontal < 0.8 && barrilVisivel) {
-                        // Mario está ao lado do barril - colisão
-                        // Apenas se o barril estiver visível na tela
-                        console.log("COLISÃO DETECTADA NO LOOP PRINCIPAL!");
-                        console.log("Distância horizontal:", distanciaHorizontal);
-                        console.log("Diferença de altura:", diferencaAltura);
-                        console.log("Barril visível:", barrilVisivel);
+                    } else {
+                        // Ajustar a distância horizontal com base no nível
+                        const limiteHorizontal = window.gameState.currentLevel === 2 ? 1.0 : 0.8;
                         
-                        // Marcar o barril como colidido
-                        barril.userData.hasCollided = true;
-                        barrilColisao = true;
-                        
-                        // Chamar gameOver
-                        window.gameOver();
-                        break; // Sair do loop após detectar colisão
+                        if (distanciaHorizontal < limiteHorizontal && barrilVisivel) {
+                            // Mario está ao lado do barril - colisão
+                            // Apenas se o barril estiver visível na tela
+                            console.log(`COLISÃO DETECTADA NO LOOP PRINCIPAL (Nível ${window.gameState.currentLevel})!`);
+                            console.log("Distância:", distancia);
+                            console.log("Distância horizontal:", distanciaHorizontal);
+                            console.log("Diferença de altura:", diferencaAltura);
+                            console.log("Barril visível:", barrilVisivel);
+                            console.log("Posição do Mario:", marioPos.toArray());
+                            console.log("Posição do barril:", barrilPos.toArray());
+                            
+                            // Marcar o barril como colidido
+                            barril.userData.hasCollided = true;
+                            barrilColisao = true;
+                            
+                            // Chamar gameOver
+                            window.gameOver();
+                            break; // Sair do loop após detectar colisão
+                        }
                     }
                 }
             }
