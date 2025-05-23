@@ -656,295 +656,178 @@ window.resumeGame = function () {
 var barrelSpawnInterval = null;
 
 window.restartGame = async function () {
-    console.log("Iniciando restart do jogo (nova implementação)...");
+    console.log("Iniciando restart do jogo...");
     
-    // 1. Salvar o nível atual para reiniciar no mesmo nível
-    const currentLevel = window.gameState.currentLevel || 1;
+    // Manter o nível atual e o estado das luzes
+    const currentLevel = window.gameState.currentLevel || 1; // Default to level 1 if not set
+    const lightStates = {
+        ambient: window.gameState.lights.ambient,
+        directional: window.gameState.lights.directional,
+        point: window.gameState.lights.point
+    };
     
-    // 2. Parar o loop de animação
+    // Parar o loop de animação temporariamente para evitar problemas durante a limpeza
     animationLoopActive = false;
     
-    // 3. Parar o intervalo de lançamento de barris
+    // Parar o intervalo de lançamento de barris para evitar múltiplos intervalos
     if (barrelSpawnInterval) {
-        console.log("Parando intervalo de lançamento de barris");
+        console.log("Limpando intervalo de barris existente");
         clearInterval(barrelSpawnInterval);
         barrelSpawnInterval = null;
     }
     
-    // 4. Parar todos os sons
-    window.stopAllMusic();
+    // Limpar barris ativos
+    console.log("Limpando barris ativos: " + (barrisAtivos ? barrisAtivos.length : 0));
+    if (barrisAtivos && barrisAtivos.length > 0) {
+        barrisAtivos.forEach(barril => {
+            if (barril && barril.parent) {
+                barril.parent.remove(barril);
+            }
+        });
+        barrisAtivos = [];
+    }
+    barrilColisao = false;
     
-    // 5. Mostrar tela de carregamento
-    document.getElementById('pauseMenu').classList.add('hidden');
-    document.getElementById('gameOverMenu').classList.add('hidden');
-    document.getElementById('winMenu').classList.add('hidden');
-    document.getElementById('loadingScreen').classList.remove('hidden');
-    document.getElementById('loadingProgress').textContent = "Reiniciando jogo...";
+    // Limpar a cena completamente (exceto skybox e luzes)
+    console.log("Limpando a cena...");
+    for (let i = cena.children.length - 1; i >= 0; i--) {
+        const obj = cena.children[i];
+        
+        // Verificar se é a skybox (que deve ser preservada)
+        const isSkybox = obj.geometry && 
+                        obj.geometry.type === 'BoxGeometry' && 
+                        obj.geometry.parameters.width === 100 &&
+                        obj.geometry.parameters.height === 100 &&
+                        obj.geometry.parameters.depth === 100;
+        
+        // Pular a skybox e as luzes
+        if (isSkybox || obj.type === 'PerspectiveCamera' || obj.type === 'AmbientLight' || 
+            obj.type === 'DirectionalLight' || obj.type === 'PointLight') {
+            continue;
+        }
+        
+        // Remover o objeto da cena
+        cena.remove(obj);
+    }
     
-    // 6. Pequena pausa para garantir que a tela de loading seja exibida
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Limpar variáveis importantes
+    objetoImportado = null; // Limpar referência ao Mario para que seja recarregado
+    mixerAnimacao = null;
+    barrilImportado = null; // Limpar referência ao barril para que seja recarregado
+    
+    // Limpar arrays de objetos
+    plataformas = [];
+    objetosColisao = [];
+    if (window.planosInvisiveis) {
+        window.planosInvisiveis = [];
+    }
+    
+    // Forçar reinicialização completa do jogo
+    window.gameState.isInitialized = false;
+    
+    console.log("Reiniciando o jogo para o nível: " + currentLevel);
     
     try {
-        // 7. Limpar barris ativos - verificação mais robusta
-        console.log("Iniciando limpeza de barris...");
-        
-        // Primeiro, remover todos os barris da lista barrisAtivos
-        if (barrisAtivos && barrisAtivos.length > 0) {
-            console.log(`Removendo ${barrisAtivos.length} barris da lista barrisAtivos`);
-            barrisAtivos.forEach(barril => {
-                if (barril && barril.parent) {
-                    // Remover o barril da cena
-                    barril.parent.remove(barril);
-                    console.log(`Barril ${barril.id} removido da cena`);
-                    
-                    // Limpar quaisquer referências ao barril
-                    if (barril.geometry) {
-                        barril.geometry.dispose();
+        // Recarregar o Mario
+        carregarObjetoFBX(
+            './Objetos/Mario.fbx',
+            { x: 0.008, y: 0.008, z: 0.008 },
+            { x: -10, y: -9.7, z: -3.0 },
+            { x: 0, y: Math.PI / 2, z: 0 },
+            function (object) {
+                // Aplicar textura ao Mario
+                object.traverse(function (child) {
+                    if (child.isMesh) {
+                        const materialTexturizado = new THREE.MeshPhongMaterial({
+                            map: marioTexture,
+                            side: THREE.DoubleSide
+                        });
+                        child.material = materialTexturizado;
                     }
+                });
+
+                objetoImportado = object;
+                if (object.animations && object.animations.length > 0) {
+                    mixerAnimacao = new THREE.AnimationMixer(object);
                     
-                    if (barril.material) {
-                        if (Array.isArray(barril.material)) {
-                            barril.material.forEach(m => m.dispose());
-                        } else {
-                            barril.material.dispose();
-                        }
-                    }
-                } else {
-                    console.warn(`Barril ${barril ? barril.id : 'indefinido'} não tem parent ou é inválido`);
+                    // Encontrar animações idle e running
+                    let idleAnim = object.animations.find(a => a.name && a.name.toLowerCase().includes('idle')) || object.animations[3];
+                    let runningAnim = object.animations.find(a => a.name && a.name.toLowerCase().includes('run')) || object.animations[7];
+                    
+                    // Armazenar referências às animações para uso posterior
+                    object.userData.idleAnimation = idleAnim;
+                    object.userData.runningAnimation = runningAnim;
+                    
+                    // Iniciar com a animação idle
+                    animacaoAtual = mixerAnimacao.clipAction(idleAnim);
+                    animacaoAtual.play();
                 }
-            });
-        }
-        
-        // Segundo, verificar se há barris remanescentes na cena e removê-los
-        let barrisRemanescentes = [];
-        cena.traverse(obj => {
-            if (obj.userData && obj.userData.isBarrel) {
-                barrisRemanescentes.push(obj);
+                
+                // Adicionar propriedade para identificar como Mario
+                object.userData.isMario = true;
             }
-        });
+        );
         
-        if (barrisRemanescentes.length > 0) {
-            console.warn(`Encontrados ${barrisRemanescentes.length} barris remanescentes na cena. Removendo...`);
-            barrisRemanescentes.forEach(barril => {
-                if (barril.parent) {
-                    barril.parent.remove(barril);
-                    console.log(`Barril remanescente ${barril.id} removido da cena`);
-                }
-            });
-        }
+        // Recarregar o barril
+        carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -11, y: 5.7, z: -3 }, { x: 0, y: 0, z: 0 });
         
-        // Limpar o array de barris ativos
-        barrisAtivos = [];
-        
-        // Resetar a flag de colisão global
-        barrilColisao = false;
-        console.log("Flag de colisão global resetada");
-        
-        // 8. Limpar a cena, mantendo apenas a skybox e a câmera
-        console.log("Limpando a cena...");
-        for (let i = cena.children.length - 1; i >= 0; i--) {
-            const obj = cena.children[i];
-            
-            // Verificar se é a skybox (que deve ser preservada)
-            const isSkybox = obj.geometry && 
-                            obj.geometry.type === 'BoxGeometry' && 
-                            obj.geometry.parameters.width === 100 &&
-                            obj.geometry.parameters.height === 100 &&
-                            obj.geometry.parameters.depth === 100;
-            
-            // Pular a skybox e a câmera
-            if (isSkybox || obj.type === 'PerspectiveCamera') {
-                continue;
-            }
-            
-            // Remover todos os outros objetos
-            cena.remove(obj);
-        }
-        
-        // 9. Limpar mixers de animação
-        if (mixerAnimacao) {
-            mixerAnimacao.stopAllAction();
-            mixerAnimacao = null;
-        }
-        
-        if (mixerPeach) {
-            mixerPeach.stopAllAction();
-            mixerPeach = null;
-        }
-        
-        if (mixerDonkeyKong) {
-            mixerDonkeyKong.stopAllAction();
-            mixerDonkeyKong = null;
-        }
-        
-        // 10. Limpar variáveis importantes
-        objetoImportado = null;
-        barrilImportado = null;
-        donkeyKongModel = null;
-        plataformas = [];
-        objetosColisao = [];
-        if (window.planosInvisiveis) {
-            window.planosInvisiveis = [];
-        }
-        
-        // 11. Resetar variáveis de movimento e pulo
-        andando = false;
-        pulando = false;
-        podePular = true;
-        velocidadeY = 0;
-        pulandoBarril = false;
-        ultimoPulo = 0;
-        puloPendente = false;
-        tentandoSubirEscada = false;
-        animacaoAtual = null;
-        
-        // 12. Resetar teclas pressionadas
-        teclasPressionadas = {};
-        teclasPressionadasAnterior = {};
-        
-        // 13. Resetar a câmera para a perspectiva padrão
-        cameraAtual = camaraPerspectiva;
-        camaraPerspectiva.position.set(0, 1, 5);
-        camaraPerspectiva.lookAt(0, 0, 0);
-        
-        // 14. Resetar o relógio do jogo
-        relogio = new THREE.Clock();
-        
-        // 15. Forçar coleta de lixo
-        if (window.gc) {
-            window.gc();
-        }
-        
-        // 16. Resetar o estado do jogo
-        window.gameState.isInitialized = false;
-        window.gameState.isPaused = false;
-        window.gameState.isInMainMenu = false;
-        window.gameState.isGameOver = false;
-        window.gameState.isWin = false;
-        window.gameState.score = 0;
-        updateScoreDisplay();
-        
-        // 17. Recarregar o Mario explicitamente
-        console.log("Recarregando o Mario explicitamente...");
-        document.getElementById('loadingProgress').textContent = "Carregando Mario...";
-        
-        // Carregar o Mario antes de iniciar o jogo
-        await new Promise((resolve) => {
-            carregarObjetoFBX(
-                './Objetos/Mario.fbx',
-                { x: 0.008, y: 0.008, z: 0.008 },
-                { x: -10, y: -9.7, z: -3.0 },
-                { x: 0, y: Math.PI / 2, z: 0 },
-                function (object) {
-                    // Aplicar textura ao Mario
-                    object.traverse(function (child) {
-                        if (child.isMesh) {
-                            const materialTexturizado = new THREE.MeshPhongMaterial({
-                                map: marioTexture,
-                                side: THREE.DoubleSide
-                            });
-                            child.material = materialTexturizado;
-                        }
-                    });
-    
-                    objetoImportado = object;
-                    if (object.animations && object.animations.length > 0) {
-                        mixerAnimacao = new THREE.AnimationMixer(object);
-    
-                        try {
-                            // Find idle and running animations by name or fallback to indices
-                            let idleAnim = object.animations.find(a => a.name && a.name.toLowerCase().includes('idle')) || object.animations[3];
-                            let runningAnim = object.animations.find(a => a.name && a.name.toLowerCase().includes('run')) || object.animations[7];
-    
-                            if (idleAnim) {
-                                animacaoAtual = mixerAnimacao.clipAction(idleAnim);
-                                animacaoAtual.play();
-                            } else {
-                                animacaoAtual = mixerAnimacao.clipAction(object.animations[0]);
-                                animacaoAtual.play();
-                            }
-    
-                            // Store running animation for later use
-                            object.userData.runningAnimation = runningAnim;
-                        } catch (error) {
-                            console.error('Error setting up animations:', error);
-                        }
-                    }
-                    
-                    console.log("Mario carregado com sucesso!");
-                    resolve();
-                }
-            );
-        });
-        
-        // 18. Recarregar o barril explicitamente
-        console.log("Recarregando o barril explicitamente...");
-        document.getElementById('loadingProgress').textContent = "Carregando barril...";
-        
-        await new Promise((resolve) => {
-            carregarBarril(
-                './Objetos/Barril.fbx', // Corrigido de Barrel.fbx para Barril.fbx
-                { x: 0.01, y: 0.01, z: 0.01 },
-                { x: -7, y: 5.25, z: -3.0 },
-                { x: Math.PI/2, y: 0, z: 0 }, // Rotação para alinhar o barril corretamente
-                function(object) {
-                    console.log("Barril carregado com sucesso no restart!");
-                    resolve();
-                }
-            );
-        });
-        
-        // 19. Reiniciar o jogo com o mesmo nível
-        console.log("Reiniciando o jogo para o nível: " + currentLevel);
-        document.getElementById('loadingProgress').textContent = "Carregando nível " + currentLevel + "...";
-        
+        // Reiniciar o jogo com o mesmo nível
         if (currentLevel === 1) {
             await window.startGameLevel1();
         } else if (currentLevel === 2) {
             await window.startGameLevel2();
         } else {
+            // Fallback para o nível 1 se o nível atual não for válido
             console.warn("Nível inválido, reiniciando para o nível 1");
             await window.startGameLevel1();
         }
+    
+        // Reset game state
+        window.gameState.isPaused = false;
+        window.gameState.isInMainMenu = false;
+        window.gameState.isGameOver = false;
+        window.gameState.isWin = false;
         
-        // 20. Garantir que o Mario esteja na posição correta
-        if (objetoImportado) {
-            // Posicionar o Mario com base no nível atual
-            if (currentLevel === 1) {
-                objetoImportado.position.set(-10, -9.7, -3.0);
-            } else if (currentLevel === 2) {
-                objetoImportado.position.set(-8, -9.7, -3.0);
-            }
-            objetoImportado.rotation.set(0, Math.PI / 2, 0);
-            console.log("Mario posicionado para o nível " + currentLevel);
-        } else {
-            console.error("Mario não foi carregado corretamente!");
-        }
+        // Restaurar o estado das luzes e aplicar imediatamente
+        console.log("Restaurando estado das luzes após restart");
+        window.gameState.lights.ambient = lightStates.ambient;
+        window.gameState.lights.directional = lightStates.directional;
+        window.gameState.lights.point = lightStates.point;
         
-        // 21. Garantir que o loop de animação esteja ativo novamente
+        // Aplicar o estado das luzes imediatamente
+        applyLightStates();
+        window.gameState.score = 0;
+        updateScoreDisplay();
+    
+        // Stop all music first
+        window.stopAllMusic();
+    
+        // Wait a brief moment to ensure all music has stopped
+        await new Promise(resolve => setTimeout(resolve, 100));
+    
+        // Now play the stage theme
+        await safePlayAudio(window.stageTheme, 'Stage Theme');
+    
+        // Hide menus
+        document.getElementById('pauseMenu').classList.add('hidden');
+        document.getElementById('gameOverMenu').classList.add('hidden');
+        document.getElementById('winMenu').classList.add('hidden');
+    
+        // Garantir que o loop de animação esteja ativo
         animationLoopActive = true;
         requestAnimationFrame(loop);
         
-        // 22. Reiniciar o intervalo de lançamento de barris
-        setTimeout(() => {
-            if (barrelSpawnInterval === null) {
-                barrelSpawnInterval = setInterval(() => {
-                    lançarBarril();
-                }, 3000);
-            }
-        }, 1000);
+        // Reiniciar o intervalo de lançamento de barris
+        if (barrelSpawnInterval === null) {
+            barrelSpawnInterval = setInterval(() => {
+                lançarBarril();
+            }, 3000); // 3000 ms = 3 segundos
+        }
         
-        console.log("Restart completo com sucesso!");
+        console.log("Restart completo!");
     } catch (error) {
         console.error("Erro durante o restart do jogo:", error);
-        
-        // Esconder a tela de carregamento em caso de erro
-        document.getElementById('loadingScreen').classList.add('hidden');
-        
-        // Tentar recuperação de emergência
-        alert("Ocorreu um erro ao reiniciar o jogo. Tente novamente.");
-        
-        // Garantir que o loop de animação seja reativado mesmo em caso de erro
+        // Tentar recuperar de alguma forma
         animationLoopActive = true;
         requestAnimationFrame(loop);
     }
@@ -1077,7 +960,7 @@ var tentandoSubirEscada = false; // Nova variável para rastrear tentativa de su
 var barrilImportado;
 var velocidadeBarrilY = 0; // Velocidade vertical do barril
 var pulandoBarril = false;
-var barrilColisao = false; // Flag global para verificar se houve colisão com qualquer barril (usada para game over)
+var barrilColisao = false; // Flag para verificar se houve colisão com o barril
 var barrisAtivos = [];
 // Variáveis para os mixers de animação
 var mixerPeach, mixerDonkeyKong;
@@ -1180,16 +1063,12 @@ function carregarObjetoFBX(caminho, escala, posicao, rotacao, callback) {
     });
 }
 
-// Carregar o Mario
-console.log("Carregando o Mario...");
 carregarObjetoFBX(
     './Objetos/Mario.fbx',
     { x: 0.008, y: 0.008, z: 0.008 },
     { x: -10, y: -9.7, z: -3.0 },
     { x: 0, y: Math.PI / 2, z: 0 },
     function (object) {
-        console.log("Mario carregado com sucesso!");
-        
         // Contagem de meshes para debug
         let contadorMeshes = 0;
 
@@ -1238,110 +1117,54 @@ carregarObjetoFBX(
             console.warn('No animations found in the model');
         }
         objetosColisao.push(object);
-        
-        // Garantir que o Mario esteja visível
-        object.visible = true;
-        
-        // Adicionar o Mario à cena
-        if (!object.parent) {
-            cena.add(object);
-        }
     }
 );
 
 function lançarBarril() {
-    // Verificar se o modelo de barril está carregado
     if (!barrilImportado) {
         console.warn("Modelo de barril não carregado ainda!");
         return;
     }
 
-    // Verificar se já existem muitos barris ativos (limitar para evitar sobrecarga)
-    if (barrisAtivos.length >= 10) {
-        console.warn("Muitos barris ativos, pulando lançamento para evitar sobrecarga");
-        return;
-    }
-
     console.log("Lançando novo barril...");
     
-    try {
-        // Clonar o barril modelo
-        const novoBarril = barrilImportado.clone();
-        novoBarril.visible = true; // Torna o barril visível    
-        novoBarril.castShadow = true;
-        novoBarril.receiveShadow = false;
-        novoBarril.position.set(-7, 5.25, barrilZPorPlataforma['8'] || -3.0); // Usar o z correto para a plataforma inicial
-        // Rotação inicial para alinhar o barril corretamente conforme solicitado
-        // Alinhando o barril para que fique virado para o jogador (topo para a câmera)
-        novoBarril.rotation.set(Math.PI/2, 0, 0);
+    const novoBarril = barrilImportado.clone();
+    novoBarril.visible = true; // Torna o barril visível    
+    novoBarril.castShadow = true;
+    novoBarril.receiveShadow = false;
+    novoBarril.position.set(-7, 5.25, barrilZPorPlataforma['8']); // Usar o z correto para a plataforma inicial
+    novoBarril.rotation.set(Math.PI / 2, 0, 0);
     
     // Garantir que o userData seja inicializado corretamente
     novoBarril.userData = {
         velocidade: new THREE.Vector3(0.025, 0, 0), // Velocidade horizontal inicial
         plataformaAtual: 0,
         isBarrel: true, // Marcar como barril para usar detecção de colisão original
-        scored: false,
-        hasCollided: false, // Flag para rastrear se este barril específico já colidiu com o Mario
-        rotacaoAcumulada: 0, // Inicializar a rotação acumulada para o rolamento
-        creationTime: Date.now() // Registrar quando o barril foi criado
+        scored: false
     };
 
-    // Aplicar materiais otimizados para evitar duplicação
     novoBarril.traverse(child => {
         if (child.isMesh) {
             child.castShadow = true;
             child.receiveShadow = true;
             child.visible = true; // Garantir que cada mesh seja visível
 
-            // Usar um material compartilhado para todos os barris
-            // Isso reduz o uso de memória, pois todos os barris compartilham o mesmo material
-            if (!window.barrelSharedMaterial) {
-                window.barrelSharedMaterial = new THREE.MeshPhongMaterial({
-                    color: barrelColor,
-                    shininess: 30,
-                    side: THREE.DoubleSide
-                });
-            }
-            
-            // Aplicar o material compartilhado
-            child.material = window.barrelSharedMaterial;
+            // Aplicar cor castanha aos barris
+            child.material = new THREE.MeshPhongMaterial({
+                color: barrelColor,
+                shininess: 30,
+                side: THREE.DoubleSide
+            });
         }
     });
 
-    // Adicionar o barril à cena e à lista de barris ativos
     cena.add(novoBarril);
     barrisAtivos.push(novoBarril);
     
-    console.log("Barril lançado com sucesso! Total de barris ativos:", barrisAtivos.length);
-    } catch (error) {
-        console.error("Erro ao lançar barril:", error);
-    }
-    
-    // Limpar barris antigos se houver muitos
-    if (barrisAtivos.length > 8) {
-        // Encontrar o barril mais antigo que está fora da tela
-        const now = Date.now();
-        for (let i = 0; i < barrisAtivos.length; i++) {
-            const barril = barrisAtivos[i];
-            // Se o barril existe há mais de 10 segundos e está fora da tela
-            if (now - barril.userData.creationTime > 10000 && 
-                (barril.position.y < -10 || barril.position.y > 10 || 
-                 barril.position.x < -15 || barril.position.x > 15)) {
-                
-                // Remover o barril da cena
-                cena.remove(barril);
-                
-                // Remover da lista de barris ativos
-                barrisAtivos.splice(i, 1);
-                
-                console.log("Removido barril antigo para otimizar performance");
-                break; // Remover apenas um por vez para evitar problemas
-            }
-        }
-    }
+    console.log("Barril lançado com sucesso! Velocidade:", novoBarril.userData.velocidade);
 }
 
-function carregarBarril(caminho, escala, posicao, rotacao, callback) {
+function carregarBarril(caminho, escala, posicao, rotacao) {
     importer.load(caminho, function (object) {
         // Procurar e remover luzes do modelo FBX
         let lightsFound = [];
@@ -1400,11 +1223,6 @@ function carregarBarril(caminho, escala, posicao, rotacao, callback) {
         cena.add(object);
         
         console.log("Barril carregado com sucesso!");
-        
-        // Chamar o callback se fornecido
-        if (typeof callback === 'function') {
-            callback(object);
-        }
     });
 }
 
@@ -1634,10 +1452,8 @@ document.addEventListener("keydown", function (event) {
 document.addEventListener("keyup", function (event) {
     teclasPressionadas[event.which] = false;
     pararAnimacao();
-    if (objetoImportado && objetoImportado.rotation) {
-        if (objetoImportado.rotation.y === Math.PI)
-            objetoImportado.rotation.y = Math.PI / 2;
-    }
+    if (objetoImportado.rotation.y === Math.PI)
+        objetoImportado.rotation.y = Math.PI / 2;
 });
 
 // Funções de animação
@@ -1694,117 +1510,39 @@ function pararAnimacao() {
 
 // Atualizar posição do barril no loop
 function atualizarBarril() {
-    // Atualizar todos os barris ativos
-    for (let i = 0; i < barrisAtivos.length; i++) {
-        const barril = barrisAtivos[i];
-        
-        // Verificar se o barril existe
-        if (!barril || !barril.parent) continue;
-        
+    if (barrilImportado) {
         // Raycasting para verificar o chão
-        raycaster.set(barril.position, new THREE.Vector3(0, -1, 0));
+        raycaster.set(barrilImportado.position, new THREE.Vector3(0, -1, 0));
         const intersects = raycaster.intersectObjects(objetosColisao, true);
         const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
 
-        // Inicializar velocidade se não existir
-        if (!barril.userData.velocidade) {
-            barril.userData.velocidade = new THREE.Vector3(0.025, 0, 0);
-            console.log("Velocidade do barril inicializada");
-        }
-
-        // Se estiver no ar, aplica gravidade
         if (!noChao) {
-            barril.userData.velocidade.y += gravidade;
-            barril.position.y += barril.userData.velocidade.y;
+            velocidadeBarrilY += gravidade;
+            barrilImportado.position.y += velocidadeBarrilY;
         } else {
-            // Se estiver no chão, move horizontalmente
-            barril.position.x += barril.userData.velocidade.x;
-            
-            // Verifica se atingiu os limites da plataforma
-            if (barril.position.x <= -10 || barril.position.x >= 12) {
-                // Limitar a posição do barril às paredes invisíveis
-                if (barril.position.x < -10) barril.position.x = -10;
-                if (barril.position.x > 12) barril.position.x = 12;
-
-                // Fazer o barril descer para a próxima plataforma
-                barril.position.y -= 3;
-                barril.position.z += 1.8;
-                
-                // Alternar direção do movimento
-                barril.userData.velocidade.x *= -1;
+            if (pulandoBarril) {
+                barrilImportado.position.y = barrilImportado.position.y;
+                pulandoBarril = false;
+                velocidadeBarrilY = 0;
             }
-            
-            // Reset vertical velocity when on the ground
-            barril.userData.velocidade.y = 0;
         }
-
-        // Manter a orientação fixa do barril conforme solicitado
-        // Sem rotação de rolamento - apenas manter a orientação fixa
-        
-        // Definir a orientação específica solicitada e mantê-la fixa
-        // Barril virado para o jogador (topo para a câmera)
-        barril.rotation.x = Math.PI / 2; // 90° em radianos - vira o barril para a câmera
-        barril.rotation.y = 0;
-        barril.rotation.z = 0;
-        
-        // Remover qualquer rotação acumulada
-        barril.userData.rotacaoAcumulada = 0;
-        
-        // Atualizar a coordenada z do barril com base na altura atual
-        atualizarZDoBarril(barril);
 
         // Check for collision with Mario using bounding box intersection
-        if (objetoImportado && !window.gameState.isGameOver && !barril.userData.hasCollided && barril.visible) {
-            // Verificar se o barril está realmente na cena
-            if (!barril.parent) {
-                console.warn("Barril sem parent na verificação de colisão:", barril.id);
-                return; // Pular este barril
-            }
-            
-            // Verificar se o barril está muito longe do Mario (otimização)
-            const distanciaRapida = objetoImportado.position.distanceTo(barril.position);
-            if (distanciaRapida > 5) {
-                return; // Barril muito longe, não precisa verificar colisão
-            }
-            
+        if (objetoImportado && !barrilColisao) {
             // Create bounding boxes for Mario and the barrel
             const marioBox = new THREE.Box3().setFromObject(objetoImportado);
-            const barrilBox = new THREE.Box3().setFromObject(barril);
+            const barrilBox = new THREE.Box3().setFromObject(barrilImportado);
 
-            // Calcular a distância real entre Mario e o barril
-            const distancia = objetoImportado.position.distanceTo(barril.position);
-            
             // Check if the bounding boxes intersect
-            if (marioBox.intersectsBox(barrilBox) && distancia < 1.5) {
+            if (marioBox.intersectsBox(barrilBox)) {
                 // Check if Mario is above the barrel (only vertical check)
-                if (objetoImportado.position.y > barril.position.y + 0.5) { // Mario is above the barrel
-                    if (!barril.userData.scored) {
-                        window.gameState.score += 100;
-                        updateScoreDisplay();
-                        barril.userData.scored = true;
-                    }
-                } else {
-                    // Verificar se a colisão é realmente próxima o suficiente para ser válida
-                    if (distancia < 0.8) {
-                        console.log("Colisão real detectada com barril:", barril.id);
-                        console.log("Distância:", distancia);
-                        console.log("Posição do Mario:", objetoImportado.position.toArray());
-                        console.log("Posição do barril:", barril.position.toArray());
-                        
-                        // Colisão lateral - game over
-                        // Marcar este barril específico como tendo colidido
-                        barril.userData.hasCollided = true;
-                        barrilColisao = true;
-                        window.gameOver();
-                    }
+                if (objetoImportado.position.y > barrilImportado.position.y + 100) { // Mario is above the barrel with a large range
+                    window.gameState.score += 100;
+                    updateScoreDisplay();
+                    barrilImportado.userData.scored = true;
                 }
             }
         }
-    }
-    
-    // Também atualizar o barril modelo se existir (mas não é usado para colisões)
-    if (barrilImportado) {
-        barrilImportado.visible = false; // Garantir que o barril modelo esteja invisível
     }
 }
 
@@ -2259,16 +1997,7 @@ async function Start() {
     cena.add(luzDirecional3);
     cena.add(luzDirecional3.target);
 
-    carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -11, y: 5.7, z: -3 }, { x: Math.PI/2, y: 0, z: 0 }, function(object) {
-        console.log("Barril carregado com sucesso na inicialização!");
-        
-        // Iniciar o intervalo de lançamento de barris após o carregamento
-        if (barrelSpawnInterval === null) {
-            barrelSpawnInterval = setInterval(() => {
-                lançarBarril();
-            }, 3000);
-        }
-    });
+    carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -11, y: 5.7, z: -3 }, { x: 0, y: 0, z: 0 });
 
     // Aplicar o estado das luzes imediatamente
     console.log("Aplicando estado das luzes imediatamente após carregamento do nível:", window.gameState.lights);
@@ -2384,88 +2113,9 @@ window.cleanupUnwantedLights = function () {
 };
 
 function loop() {
-    // Verificação rápida para garantir que não haja barris fantasmas
-    // Remover barris sem parent da lista barrisAtivos
-    barrisAtivos = barrisAtivos.filter(barril => {
-        if (!barril || !barril.parent) {
-            return false; // Remover da lista
-        }
-        return true; // Manter na lista
-    });
-    
-    // Resetar a flag de colisão se não houver barris ativos
-    if (barrisAtivos.length === 0 && barrilColisao) {
-        console.log("Resetando flag de colisão global pois não há barris ativos");
-        barrilColisao = false;
-    }
-    
-    // Log de informações de performance a cada 100 frames para não sobrecarregar o console
+    // Log de luzes apenas a cada 100 frames para não sobrecarregar o console
     if (lightLogCounter % 100 === 0) {
-        console.log("Estatísticas da cena:", {
-            luzes: renderer.info.lights,
-            geometrias: renderer.info.memory.geometries,
-            texturas: renderer.info.memory.textures,
-            objetos: cena.children.length,
-            barrisAtivos: barrisAtivos.length,
-            renderInfo: renderer.info.render,
-            barrilColisao: barrilColisao
-        });
-        
-        // Verificar se há barris sem referência na cena
-        let barrisNaCena = 0;
-        cena.traverse(obj => {
-            if (obj.userData && obj.userData.isBarrel) {
-                barrisNaCena++;
-            }
-        });
-        
-        // Se houver discrepância entre barrisAtivos e barris na cena, corrigir
-        if (barrisNaCena !== barrisAtivos.length) {
-            console.warn(`Discrepância detectada: ${barrisAtivos.length} barris ativos, mas ${barrisNaCena} barris na cena. Corrigindo...`);
-            
-            // Verificar se há barris fantasmas (barris na lista barrisAtivos que não estão na cena)
-            const barrisNaCenaIds = new Set();
-            cena.traverse(obj => {
-                if (obj.userData && obj.userData.isBarrel) {
-                    barrisNaCenaIds.add(obj.id);
-                }
-            });
-            
-            // Identificar barris fantasmas
-            const barrisFantasmas = barrisAtivos.filter(barril => !barrisNaCenaIds.has(barril.id));
-            if (barrisFantasmas.length > 0) {
-                console.error("Barris fantasmas detectados:", barrisFantasmas.length);
-                console.log("Detalhes dos barris fantasmas:", barrisFantasmas.map(b => ({
-                    id: b.id,
-                    position: b.position,
-                    visible: b.visible,
-                    hasCollided: b.userData.hasCollided
-                })));
-            }
-            
-            // Limpar barrisAtivos e reconstruir com base nos barris realmente na cena
-            barrisAtivos = [];
-            cena.traverse(obj => {
-                if (obj.userData && obj.userData.isBarrel) {
-                    // Garantir que o barril tenha todas as propriedades necessárias
-                    if (!obj.userData.creationTime) {
-                        obj.userData.creationTime = Date.now();
-                    }
-                    // Garantir que a orientação esteja correta - virado para o jogador
-                    obj.rotation.x = Math.PI / 2; // 90° em radianos - vira o barril para a câmera
-                    obj.rotation.y = 0;
-                    obj.rotation.z = 0;
-                    
-                    barrisAtivos.push(obj);
-                }
-            });
-            
-            // Resetar a flag de colisão global se não houver barris na cena
-            if (barrisNaCena === 0) {
-                barrilColisao = false;
-                console.log("Resetando flag de colisão global pois não há barris na cena");
-            }
-        }
+        console.log("Número de luzes na cena:", renderer.info.lights);
     }
     lightLogCounter++;
 
@@ -2934,13 +2584,7 @@ function loop() {
 
         // Check for scoring with all active barrels
         if (objetoImportado && !barrilColisao) {
-            // Usar for loop em vez de forEach para evitar problemas
-            for (let i = 0; i < barrisAtivos.length; i++) {
-                const barril = barrisAtivos[i];
-                
-                // Verificar se o barril existe
-                if (!barril || !barril.parent) continue;
-                
+            barrisAtivos.forEach((barril) => {
                 // Verifica se o jogador está acima do barril dentro de um range vertical e horizontal
                 if (!barril.userData.scored) {
                     const marioPos = objetoImportado.position;
@@ -2966,40 +2610,17 @@ function loop() {
                         barril.userData.scored = true; // Marca o barril como já pontuado
                     }
                 }
-            }
+            });
         }
 
 
 
-        // Usar for loop reverso para evitar problemas ao remover elementos durante a iteração
-        for (let i = barrisAtivos.length - 1; i >= 0; i--) {
-            const barril = barrisAtivos[i];
-            
-            // Verificar se o barril ainda existe (pode ter sido removido em outro lugar)
-            if (!barril || !barril.parent) {
-                barrisAtivos.splice(i, 1);
-                continue;
-            }
-            
-            // Remove o barril se estiver muito abaixo ou fora da cena
-            if (barril.position.y < -10 || barril.position.y > 10 || 
-                barril.position.x < -15 || barril.position.x > 15) {
-                
-                // Remover o barril da cena
+        barrisAtivos.forEach((barril, index) => {
+            // Remove o barril se estiver muito abaixo (fora da cena)
+            if (barril.position.y < -10) {
                 cena.remove(barril);
-                
-                // Não precisamos liberar os materiais se estamos usando materiais compartilhados
-                // Apenas remover da lista de barris ativos
-                barrisAtivos.splice(i, 1);
-                continue;
-            }
-            
-            // Verificar se o barril existe há muito tempo (mais de 30 segundos)
-            if (barril.userData.creationTime && Date.now() - barril.userData.creationTime > 30000) {
-                // Remover barris antigos para evitar acúmulo
-                cena.remove(barril);
-                barrisAtivos.splice(i, 1);
-                continue;
+                barrisAtivos.splice(index, 1);
+                return;
             }
 
             // Inicializa a plataforma atual se não existir
@@ -3091,12 +2712,38 @@ function loop() {
                 }
             }
 
-            // Não verificamos colisão aqui - a colisão já é verificada na função atualizarBarril
-            // Isso evita colisões duplicadas ou fantasmas
+            // Check for collision with Mario
+            if (objetoImportado && !barrilColisao) {
+                const marioBox = new THREE.Box3().setFromObject(objetoImportado);
+                const barrilBox = new THREE.Box3().setFromObject(barril);
+
+                // Make collision detection more precise
+                if (marioBox.intersectsBox(barrilBox)) {
+                    // Calculate actual distance between Mario and barrel
+                    const distancia = objetoImportado.position.distanceTo(barril.position);
+
+                    // Only trigger collision if Mario is very close to the barrel
+                    if (distancia < 0.8 && !(pulando &&
+                        objetoImportado.position.y > barril.position.y - 2 &&
+                        Math.abs(objetoImportado.position.x - barril.position.x) < 3 &&
+                        Math.abs(objetoImportado.position.z - barril.position.z) < 3)) {
+                        barrilColisao = true;
+
+                        // Stop all music first
+                        window.stopAllMusic();
+
+                        // Play Dead Mario sound
+                        safePlayAudio(deadMarioSound, 'Dead Mario Sound');
+
+                        // Show game over screen
+                        window.gameOver();
+                    }
+                }
+            }
 
             // Atualizar a coordenada z do barril baseado na altura atual
             atualizarZDoBarril(barril);
-        }
+        });
 
         // Check if Mario has reached the win position based on current level
         if (objetoImportado) {
