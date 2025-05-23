@@ -728,49 +728,6 @@ window.restartGame = async function () {
     console.log("Reiniciando o jogo para o nível: " + currentLevel);
     
     try {
-        // Recarregar o Mario
-        carregarObjetoFBX(
-            './Objetos/Mario.fbx',
-            { x: 0.008, y: 0.008, z: 0.008 },
-            { x: -10, y: -9.7, z: -3.0 },
-            { x: 0, y: Math.PI / 2, z: 0 },
-            function (object) {
-                // Aplicar textura ao Mario
-                object.traverse(function (child) {
-                    if (child.isMesh) {
-                        const materialTexturizado = new THREE.MeshPhongMaterial({
-                            map: marioTexture,
-                            side: THREE.DoubleSide
-                        });
-                        child.material = materialTexturizado;
-                    }
-                });
-
-                objetoImportado = object;
-                if (object.animations && object.animations.length > 0) {
-                    mixerAnimacao = new THREE.AnimationMixer(object);
-                    
-                    // Encontrar animações idle e running
-                    let idleAnim = object.animations.find(a => a.name && a.name.toLowerCase().includes('idle')) || object.animations[3];
-                    let runningAnim = object.animations.find(a => a.name && a.name.toLowerCase().includes('run')) || object.animations[7];
-                    
-                    // Armazenar referências às animações para uso posterior
-                    object.userData.idleAnimation = idleAnim;
-                    object.userData.runningAnimation = runningAnim;
-                    
-                    // Iniciar com a animação idle
-                    animacaoAtual = mixerAnimacao.clipAction(idleAnim);
-                    animacaoAtual.play();
-                }
-                
-                // Adicionar propriedade para identificar como Mario
-                object.userData.isMario = true;
-            }
-        );
-        
-        // Recarregar o barril
-        carregarBarril('./Objetos/Barril.fbx', { x: 0.35, y: 0.35, z: 0.35 }, { x: -11, y: 5.7, z: -3 }, { x: 0, y: 0, z: 0 });
-        
         // Reiniciar o jogo com o mesmo nível
         if (currentLevel === 1) {
             await window.startGameLevel1();
@@ -816,13 +773,6 @@ window.restartGame = async function () {
         // Garantir que o loop de animação esteja ativo
         animationLoopActive = true;
         requestAnimationFrame(loop);
-        
-        // Reiniciar o intervalo de lançamento de barris
-        if (barrelSpawnInterval === null) {
-            barrelSpawnInterval = setInterval(() => {
-                lançarBarril();
-            }, 3000); // 3000 ms = 3 segundos
-        }
         
         console.log("Restart completo!");
     } catch (error) {
