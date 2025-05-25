@@ -398,32 +398,32 @@ async function startGameCommon() {
             barrisAtivos = [];
         }
         barrilColisao = false;
-        
+
         // Limpar objetos específicos do nível anterior
         // Isso garante que não haja objetos duplicados ao mudar de nível
         for (let i = cena.children.length - 1; i >= 0; i--) {
             const obj = cena.children[i];
-            
+
             // Verificar se é a skybox (que deve ser preservada)
-            const isSkybox = obj.geometry && 
-                            obj.geometry.type === 'BoxGeometry' && 
-                            obj.geometry.parameters.width === 100 &&
-                            obj.geometry.parameters.height === 100 &&
-                            obj.geometry.parameters.depth === 100;
-            
+            const isSkybox = obj.geometry &&
+                obj.geometry.type === 'BoxGeometry' &&
+                obj.geometry.parameters.width === 100 &&
+                obj.geometry.parameters.height === 100 &&
+                obj.geometry.parameters.depth === 100;
+
             // Pular a skybox
             if (isSkybox) {
                 continue;
             }
-            
+
             // Remover objetos com userData.levelId que não correspondem ao nível atual
-            if (obj.userData && obj.userData.levelId !== undefined && 
+            if (obj.userData && obj.userData.levelId !== undefined &&
                 obj.userData.levelId !== window.gameState.currentLevel) {
                 cena.remove(obj);
             }
-            
+
             // Remover modelos FBX e outros objetos específicos de nível
-            if (obj.type === 'Group' && obj.name && 
+            if (obj.type === 'Group' && obj.name &&
                 (obj.name.includes('fbx') || obj.name === "level1_fbx_model")) {
                 cena.remove(obj);
             }
@@ -435,11 +435,11 @@ async function startGameCommon() {
         // Aguardar a inicialização assíncrona
         await Start();
         window.gameState.isInitialized = true;
-        
+
         // Carregar o Donkey Kong e a Peach com as posições corretas para o nível atual
         loadDonkeyKong();
         loadPeach();
-        
+
         // Garantir que o Mario esteja na posição correta
         if (objetoImportado) {
             // Posicionar o Mario com base no nível atual
@@ -468,7 +468,7 @@ async function startGameCommon() {
         // Aplicar o estado das luzes imediatamente
         console.log("Aplicando estado das luzes imediatamente após carregamento:", window.gameState.lights);
         applyLightStates();
-        
+
         // Esconder a tela de loading
         document.getElementById('loadingScreen').classList.add('hidden');
     }
@@ -509,7 +509,7 @@ window.pauseMenu = function () {
         window.gameState.isPaused = true;
         window.pauseAudio();
         document.getElementById('pauseMenu').classList.remove('hidden');
-        
+
         // Update light toggle buttons to reflect current state
         updateLightToggleButtons();
     }
@@ -520,15 +520,15 @@ function updateLightToggleButtons() {
     const ingameAmbientLight = document.getElementById('ingameAmbientLight');
     const ingameDirectionalLight = document.getElementById('ingameDirectionalLight');
     const ingamePointLight = document.getElementById('ingamePointLight');
-    
+
     if (ingameAmbientLight) {
         ingameAmbientLight.className = window.gameState.lights.ambient ? 'light-button' : 'light-button off';
     }
-    
+
     if (ingameDirectionalLight) {
         ingameDirectionalLight.className = window.gameState.lights.directional ? 'light-button' : 'light-button off';
     }
-    
+
     if (ingamePointLight) {
         ingamePointLight.className = window.gameState.lights.point ? 'light-button' : 'light-button off';
     }
@@ -537,34 +537,34 @@ function updateLightToggleButtons() {
 // Function to apply light states to all lights in the scene
 function applyLightStates() {
     console.log("Applying light states:", window.gameState.lights);
-    
+
     // Apply ambient light state
     if (luzAmbiente) {
         luzAmbiente.visible = window.gameState.lights.ambient;
     }
-    
+
     // Apply directional lights state
     if (luzDirecional1) luzDirecional1.visible = window.gameState.lights.directional;
     if (luzDirecional2) luzDirecional2.visible = window.gameState.lights.directional;
     if (luzDirecional3) luzDirecional3.visible = window.gameState.lights.directional;
-    
+
     // Collect all point lights first
     let pointLights = [];
-    cena.traverse(function(object) {
+    cena.traverse(function (object) {
         if (object.isLight && object.type === 'PointLight') {
             pointLights.push(object);
         }
     });
-    
+
     // Apply point lights state
     console.log(`Aplicando estado ${window.gameState.lights.point ? 'ON' : 'OFF'} para ${pointLights.length} point lights`);
     pointLights.forEach(light => {
         light.visible = window.gameState.lights.point;
     });
-    
+
     // Update UI buttons
     updateLightToggleButtons();
-    
+
     // Dispatch custom event for light state change
     window.dispatchEvent(new CustomEvent('lightStateChanged'));
 }
@@ -1155,62 +1155,11 @@ function isObjectVisible(object, camera) {
 
 // Função para atualizar a coordenada z do barril
 function atualizarZDoBarril(barril) {
-    const alturaAtual = Math.round(barril.position.y);
-    const nivel = window.gameState.currentLevel;
-    
-    // Chave para buscar no mapeamento, considerando o nível atual
-    let chave = alturaAtual.toString();
-    if (nivel === 2) {
-        chave = `level2_${alturaAtual}`;
-    }
-    
-    // Verificar se existe um valor específico para esta altura neste nível
-    if (barrilZPorPlataforma[chave] !== undefined) {
-        barril.position.z = barrilZPorPlataforma[chave];
-    } else {
-        // Se não encontrar uma altura específica para este nível, usar o valor do nível 1
-        if (nivel === 2 && barrilZPorPlataforma[alturaAtual] !== undefined) {
+    // Só atualiza o z do barril automaticamente no nível 1
+    if (window.gameState.currentLevel === 1) {
+        const alturaAtual = Math.round(barril.position.y);
+        if (barrilZPorPlataforma[alturaAtual] !== undefined) {
             barril.position.z = barrilZPorPlataforma[alturaAtual];
-        } else {
-            // Se ainda não encontrar, buscar o valor mais próximo
-            // Filtrar apenas as chaves que são números (nível 1) ou do nível atual
-            const chavesValidas = Object.keys(barrilZPorPlataforma).filter(k => {
-                if (nivel === 1) {
-                    return !isNaN(Number(k));
-                } else {
-                    return k.startsWith('level2_') || !isNaN(Number(k));
-                }
-            });
-            
-            // Converter para números apenas as chaves que são números
-            const alturas = chavesValidas.map(k => {
-                if (!isNaN(Number(k))) {
-                    return Number(k);
-                } else if (k.startsWith('level2_')) {
-                    return Number(k.replace('level2_', ''));
-                }
-                return 0;
-            });
-            
-            // Encontrar a altura mais próxima
-            let alturaProxima = alturas[0];
-            let menorDiferenca = Math.abs(alturaAtual - alturas[0]);
-            let indiceProximo = 0;
-            
-            for (let i = 1; i < alturas.length; i++) {
-                const diferenca = Math.abs(alturaAtual - alturas[i]);
-                if (diferenca < menorDiferenca) {
-                    menorDiferenca = diferenca;
-                    alturaProxima = alturas[i];
-                    indiceProximo = i;
-                }
-            }
-            
-            // Obter a chave original para buscar o valor Z
-            const chaveProxima = chavesValidas[indiceProximo];
-            barril.position.z = barrilZPorPlataforma[chaveProxima];
-            
-            console.log(`Ajustando Z do barril na altura ${alturaAtual} (nível ${nivel}) para valor da chave ${chaveProxima}: ${barril.position.z}`);
         }
     }
 }
@@ -1551,7 +1500,7 @@ function loadDonkeyKong() {
     if (donkeyKongModel && donkeyKongModel.parent) {
         donkeyKongModel.parent.remove(donkeyKongModel);
     }
-    
+
     importer.load('./Objetos/Donkey Kong.fbx', function (object) {
         // Procurar e remover luzes do modelo FBX
         let lightsFound = [];
@@ -1587,21 +1536,21 @@ function loadDonkeyKong() {
                 light.parent.remove(light);
             }
         });
-        
+
         object.castShadow = true;
         object.receiveShadow = false;
         // Definir escala padrão
         object.scale.set(0.015, 0.015, 0.015);
-        
+
         // Posicionar o Donkey Kong com base no nível atual
         console.log("Posicionando Donkey Kong para o nível:", window.gameState.currentLevel);
         if (window.gameState.currentLevel === 1) {
             object.position.set(-6.5, 5.7, -9);
         } else if (window.gameState.currentLevel === 2) {
             object.position.set(-8.2, 6, -3.0);
-            object.scale.set(0.01, 0.01, 0.01); 
+            object.scale.set(0.01, 0.01, 0.01);
             PlatformLevel2.createBarrelsAndCrates(cena);
-        } 
+        }
 
         // Configurar o mixer de animação para o Donkey Kong
         if (object.animations.length > 0) {
@@ -1610,13 +1559,13 @@ function loadDonkeyKong() {
             animacaoDonkeyKong.loop = THREE.LoopRepeat; // Configurar para repetir
             animacaoDonkeyKong.play();
         }
-        
+
         // Armazenar referência ao modelo
         donkeyKongModel = object;
-        
+
         // Adicionar à cena
         cena.add(object);
-        
+
         // Adicionar userData para identificar o nível
         object.userData.levelId = window.gameState.currentLevel;
     });
@@ -1690,15 +1639,15 @@ function loadPeach() {
 
             // Adicionar userData para identificar o nível
             object.userData.levelId = window.gameState.currentLevel;
-            
+
             // Adicionar o objeto à cena explicitamente
             cena.add(object);
-            
+
             console.log("Peach carregada com sucesso para o nível:", window.gameState.currentLevel);
         }
     );
 };
-function criarSkybox(caminhoTexturas, tamanho) { 
+function criarSkybox(caminhoTexturas, tamanho) {
     const loader = new THREE.TextureLoader();
     const materialArray = [
         new THREE.MeshBasicMaterial({ map: loader.load(caminhoTexturas.posx) }),
@@ -1977,23 +1926,23 @@ var luzDirecional2 = new THREE.DirectionalLight(0xffffff, 0.4);
 var luzDirecional3 = new THREE.DirectionalLight(0xffffee, 0.2);
 
 // Light toggle functions
-window.toggleAmbientLight = function() {
+window.toggleAmbientLight = function () {
     window.gameState.lights.ambient = !window.gameState.lights.ambient;
-    
+
     // Apply all light states to ensure consistency
     applyLightStates();
 };
 
-window.toggleDirectionalLights = function() {
+window.toggleDirectionalLights = function () {
     window.gameState.lights.directional = !window.gameState.lights.directional;
-    
+
     // Apply all light states to ensure consistency
     applyLightStates();
 };
 
-window.togglePointLights = function() {
+window.togglePointLights = function () {
     window.gameState.lights.point = !window.gameState.lights.point;
-    
+
     // Apply all light states to ensure consistency
     applyLightStates();
 };
@@ -2034,26 +1983,26 @@ async function Start() {
         }
     }
     plataformas = [];
-    
+
     // Limpar completamente objetosColisao para evitar duplicação
     objetosColisao.length = 0;
-    
+
     // Remover todos os objetos que possam ser plataformas, escadas, planos invisíveis ou modelos FBX
     for (let i = cena.children.length - 1; i >= 0; i--) {
         const obj = cena.children[i];
-        
+
         // Verificar se é a skybox (que deve ser preservada)
-        const isSkybox = obj.geometry && 
-                        obj.geometry.type === 'BoxGeometry' && 
-                        obj.geometry.parameters.width === 100 &&
-                        obj.geometry.parameters.height === 100 &&
-                        obj.geometry.parameters.depth === 100;
-        
+        const isSkybox = obj.geometry &&
+            obj.geometry.type === 'BoxGeometry' &&
+            obj.geometry.parameters.width === 100 &&
+            obj.geometry.parameters.height === 100 &&
+            obj.geometry.parameters.depth === 100;
+
         // Pular a skybox
         if (isSkybox) {
             continue;
         }
-        
+
         // Remover objetos de geometria (plataformas/escadas)
         if (obj.geometry) {
             // Remover BoxGeometry (plataformas/escadas)
@@ -2071,7 +2020,7 @@ async function Start() {
                 }
             }
         }
-        
+
         // Remover também modelos FBX e outros grupos
         else if (obj.type === 'Group') {
             // Remover modelos FBX pelo nome
@@ -2079,13 +2028,13 @@ async function Start() {
                 cena.remove(obj);
             }
             // Remover modelos pelo userData.levelId
-            else if (obj.userData && obj.userData.levelId !== undefined && 
-                    obj.userData.levelId !== window.gameState.currentLevel) {
+            else if (obj.userData && obj.userData.levelId !== undefined &&
+                obj.userData.levelId !== window.gameState.currentLevel) {
                 cena.remove(obj);
             }
         }
     }
-    
+
     // Carregar plataformas de acordo com o nível atual
     if (window.gameState.currentLevel === 1) {
         plataformasInfo = PlatformLevel1.getPlataformasInfo();
@@ -2102,16 +2051,16 @@ async function Start() {
             cena.remove(window.planosInvisiveis[i]);
         }
     }
-    
+
     // Inicializar ou limpar o array de planos invisíveis
     window.planosInvisiveis = [];
-    
+
     // Criar novos planos invisíveis para o nível atual
     // Inicializar array de luzes essenciais se não existir
     if (!window.luzesEssenciais) {
         window.luzesEssenciais = [];
     }
-    
+
     // Configuração personalizada das luzes pontuais por plataforma
     // Formato: [índice da plataforma, posição X esquerda, posição X direita, altura Y esquerda, altura Y direita, cor, intensidade, alcance]
     const configLuzes = [
@@ -2129,17 +2078,17 @@ async function Start() {
         [5, -11, 12.3, 1.0, 1.5, 0xffaa00, 6, 45]
         // Plataforma 6 (Top platform, y = 8) - não tem luzes
     ];
-    
+
     // Função para ajustar a altura de uma luz específica
     // Parâmetros: índice da plataforma, 'esquerda' ou 'direita', nova altura
-    window.ajustarAlturaLuz = function(plataformaIndex, lado, novaAltura) {
+    window.ajustarAlturaLuz = function (plataformaIndex, lado, novaAltura) {
         // Verificar se a plataforma existe na configuração
         const configIndex = configLuzes.findIndex(config => config[0] === plataformaIndex);
         if (configIndex === -1) {
             console.error(`Plataforma ${plataformaIndex} não encontrada na configuração de luzes.`);
             return false;
         }
-        
+
         // Atualizar a altura na configuração
         if (lado.toLowerCase() === 'esquerda') {
             configLuzes[configIndex][3] = novaAltura;
@@ -2149,63 +2098,63 @@ async function Start() {
             console.error(`Lado inválido: ${lado}. Use 'esquerda' ou 'direita'.`);
             return false;
         }
-        
+
         // Remover as luzes existentes
         atualizarLuzes();
-        
+
         return true;
     };
-    
+
     // Variável global para controlar o número de luzes adicionais por plataforma
     window.numLuzesAdicionaisPorPlataforma = 3;
-    
+
     // Função para ajustar o número de luzes adicionais em todas as plataformas
-    window.ajustarNumeroLuzes = function(novoNumero) {
+    window.ajustarNumeroLuzes = function (novoNumero) {
         if (novoNumero < 0) {
             console.error("O número de luzes adicionais não pode ser negativo.");
             return false;
         }
-        
+
         window.numLuzesAdicionaisPorPlataforma = novoNumero;
         atualizarLuzes();
         return true;
     };
-    
+
     // Função para atualizar todas as luzes com base na configuração atual
     function atualizarLuzes() {
         // Remover todas as luzes pontuais existentes
         const luzesParaRemover = [];
-        cena.traverse(function(object) {
+        cena.traverse(function (object) {
             if (object.isLight && object.type === 'PointLight') {
                 luzesParaRemover.push(object);
             }
         });
-        
+
         luzesParaRemover.forEach(luz => {
             if (luz.parent) {
                 luz.parent.remove(luz);
             }
         });
-        
+
         // Limpar o array de luzes essenciais
         window.luzesEssenciais = [];
-        
+
         // Recriar as luzes com base na configuração atual
         configLuzes.forEach(config => {
             const [plataformaIndex, xEsquerda, xDireita, alturaEsquerda, alturaDireita, cor, intensidade, alcance] = config;
             const plataforma = plataformasInfo[plataformaIndex];
-            
+
             // Obter o valor Z correto para a plataforma atual, usando o mesmo que está definido para o barril
             // ou usar -3 como fallback se não estiver definido
             const plataformaY = plataforma.y.toString();
             const zValue = barrilZPorPlataforma[plataformaY] !== undefined ? barrilZPorPlataforma[plataformaY] : -3;
-            
+
             // Criar luz na extremidade esquerda
             // Não criar a luz da extremidade esquerda para a plataforma 5
             if (plataformaIndex !== 5) {
                 criarLuzPontual(xEsquerda, plataforma.y + alturaEsquerda, zValue, cor, intensidade, alcance);
             }
-            
+
             // Criar luzes adicionais ao longo da plataforma
             const numLuzesAdicionais = window.numLuzesAdicionaisPorPlataforma || 3; // Usar a variável global ou o valor padrão
             if (numLuzesAdicionais > 0) {
@@ -2215,13 +2164,13 @@ async function Start() {
                     const startX = xEsquerda + 3; // Começar 3 unidades à direita da posição onde estaria a luz esquerda
                     const distanciaTotal = xDireita - startX;
                     const intervalo = distanciaTotal / (numLuzesAdicionais + 1);
-                    
+
                     // Reduzir a altura das luzes na plataforma 5
                     const alturaReduzida = 0.5; // Reduzir para 0.5 unidades acima da plataforma
-                    
+
                     for (let i = 1; i <= numLuzesAdicionais; i++) {
                         const posX = startX + (intervalo * i);
-                        
+
                         // Criar luz com intensidade ligeiramente reduzida para as luzes intermediárias
                         const intensidadeAjustada = intensidade * 0.8;
                         criarLuzPontual(posX, plataforma.y + alturaReduzida, zValue, cor, intensidadeAjustada, alcance);
@@ -2230,29 +2179,29 @@ async function Start() {
                     // Para as outras plataformas, manter o comportamento normal
                     const distanciaTotal = xDireita - xEsquerda;
                     const intervalo = distanciaTotal / (numLuzesAdicionais + 1);
-                    
+
                     for (let i = 1; i <= numLuzesAdicionais; i++) {
                         const posX = xEsquerda + (intervalo * i);
                         // Calcular altura interpolada entre as extremidades
                         const progress = i / (numLuzesAdicionais + 1);
                         const alturaInterpolada = alturaEsquerda + (alturaDireita - alturaEsquerda) * progress;
-                        
+
                         // Criar luz com intensidade ligeiramente reduzida para as luzes intermediárias
                         const intensidadeAjustada = intensidade * 0.8;
                         criarLuzPontual(posX, plataforma.y + alturaInterpolada, zValue, cor, intensidadeAjustada, alcance);
                     }
                 }
             }
-            
+
             // Criar luz na extremidade direita
             criarLuzPontual(xDireita, plataforma.y + alturaDireita, zValue, cor, intensidade, alcance);
         });
-        
+
         // Após criar todas as luzes pontuais para o nível 2, alinhar o z de todas
         if (window.gameState.currentLevel === 2) {
             // Filtrar todas as luzes pontuais criadas neste momento
             const pointLights = [];
-            cena.traverse(function(obj) {
+            cena.traverse(function (obj) {
                 if (obj.isLight && obj.type === 'PointLight') {
                     pointLights.push(obj);
                 }
@@ -2270,23 +2219,23 @@ async function Start() {
             }
         }
     }
-    
+
     // Função para criar uma luz pontual (sem esfera visível)
     function criarLuzPontual(x, y, z, cor, intensidade, alcance) {
         const luz = new THREE.PointLight(cor, intensidade, alcance);
         luz.position.set(x, y, z);
         luz.castShadow = false;
-        
+
         // Removida a criação da esfera visível - apenas o efeito de luz permanece
-        
+
         cena.add(luz);
-        
+
         // Adicionar ao array de luzes essenciais
         window.luzesEssenciais.push(luz.uuid);
-        
+
         return luz;
     }
-    
+
     // Criar as plataformas
     for (let i = 0; i < plataformasInfo.length; i++) {
         const info = plataformasInfo[i];
@@ -2298,23 +2247,23 @@ async function Start() {
         plataformas.push(plano);
         window.planosInvisiveis.push(plano); // Armazenar referência para limpeza futura
     }
-    
+
     // Adicionar luzes pontuais conforme configuração
     configLuzes.forEach(config => {
         const [plataformaIndex, xEsquerda, xDireita, alturaEsquerda, alturaDireita, cor, intensidade, alcance] = config;
         const plataforma = plataformasInfo[plataformaIndex];
-        
+
         // Obter o valor Z correto para a plataforma atual, usando o mesmo que está definido para o barril
         // ou usar -3 como fallback se não estiver definido
         const plataformaY = plataforma.y.toString();
         const zValue = barrilZPorPlataforma[plataformaY] !== undefined ? barrilZPorPlataforma[plataformaY] : -3;
-        
+
         // Criar luz na extremidade esquerda
         // Não criar a luz da extremidade esquerda para a plataforma 5
         if (plataformaIndex !== 5) {
             criarLuzPontual(xEsquerda, plataforma.y + alturaEsquerda, zValue, cor, intensidade, alcance);
         }
-        
+
         // Criar luzes adicionais ao longo da plataforma
         const numLuzesAdicionais = window.numLuzesAdicionaisPorPlataforma || 3; // Usar a variável global ou o valor padrão
         if (numLuzesAdicionais > 0) {
@@ -2324,35 +2273,35 @@ async function Start() {
                 const startX = xEsquerda + 3; // Começar 3 unidades à direita da posição onde estaria a luz esquerda
                 const distanciaTotal = xDireita - startX;
                 const intervalo = distanciaTotal / (numLuzesAdicionais + 1);
-                
+
                 // Reduzir a altura das luzes na plataforma 5
                 const alturaReduzida = 0.5; // Reduzir para 0.5 unidades acima da plataforma
-                
+
                 for (let i = 1; i <= numLuzesAdicionais; i++) {
                     const posX = startX + (intervalo * i);
-                    
+
                     // Criar luz com intensidade ligeiramente reduzida para as luzes intermediárias
                     const intensidadeAjustada = intensidade * 0.8;
                     criarLuzPontual(posX, plataforma.y + alturaReduzida, zValue, cor, intensidadeAjustada, alcance);
                 }
-          } else {
+            } else {
                 // Para as outras plataformas, manter o comportamento normal
-                  const distanciaTotal = xDireita - xEsquerda;
+                const distanciaTotal = xDireita - xEsquerda;
                 const intervalo = distanciaTotal / (numLuzesAdicionais + 1);
-                
+
                 for (let i = 1; i <= numLuzesAdicionais; i++) {
                     const posX = xEsquerda + (intervalo * i);
                     // Calcular altura interpolada entre as extremidades
                     const progress = i / (numLuzesAdicionais + 1);
                     const alturaInterpolada = alturaEsquerda + (alturaDireita - alturaEsquerda) * progress;
-                    
+
                     // Criar luz com intensidade ligeiramente reduzida para as luzes intermediárias
                     const intensidadeAjustada = intensidade * 0.8;
                     criarLuzPontual(posX, plataforma.y + alturaInterpolada, zValue, cor, intensidadeAjustada, alcance);
                 }
             }
         }
-        
+
         // Criar luz na extremidade direita
         // Para a plataforma 5, usar altura reduzida
         if (plataformaIndex === 5) {
@@ -2431,14 +2380,14 @@ async function Start() {
     // Aplicar o estado das luzes imediatamente
     console.log("Aplicando estado das luzes imediatamente após carregamento do nível:", window.gameState.lights);
     applyLightStates();
-    
+
     // Aguardar um pouco para garantir que todos os modelos foram carregados
     setTimeout(() => {
         // Verificar e remover luzes indesejadas
         console.log("Verificando e removendo luzes indesejadas...");
         window.findAllLights(); // Listar todas as luzes para debug
         window.cleanupUnwantedLights(); // Remover luzes não essenciais
-        
+
         // O cleanupUnwantedLights já aplica o estado das luzes
     }, 1000); // Reduzido para 1 segundo para ser mais responsivo
 
@@ -2505,15 +2454,15 @@ window.cleanupUnwantedLights = function () {
         luzDirecional2.uuid,
         luzDirecional3.uuid
     ];
-    
+
     // Adicionar as luzes das plataformas à lista de luzes essenciais
     if (window.luzesEssenciais && window.luzesEssenciais.length > 0) {
         essentialLights.push(...window.luzesEssenciais);
     }
-    
+
     // Salvar referências a todas as point lights antes da limpeza
     let pointLights = [];
-    cena.traverse(function(object) {
+    cena.traverse(function (object) {
         if (object.isLight && object.type === 'PointLight') {
             pointLights.push(object);
         }
@@ -2533,11 +2482,11 @@ window.cleanupUnwantedLights = function () {
     });
 
     console.log(`${lightsRemoved} luzes não essenciais foram removidas.`);
-    
+
     // Aplicar o estado das luzes imediatamente após a limpeza
     console.log("Aplicando estado das luzes após limpeza:", window.gameState.lights);
     applyLightStates();
-    
+
     return lightsRemoved;
 };
 
@@ -2663,14 +2612,14 @@ function loop() {
         // Raycasting para verificar o chão - melhorado para detectar apenas plataformas válidas para Mario
         raycaster.set(objetoImportado.position, new THREE.Vector3(0, -1, 0));
         const intersects = raycaster.intersectObjects(objetosColisao, true);
-        
+
         // Verificar se a colisão é com uma plataforma válida
         let noChao = false;
         if (intersects.length > 0 && intersects[0].distance < 0.2) {
             // Verificar se a plataforma está em uma das alturas válidas
             const alturasValidas = [-10, -7, -4, -1, 2, 5, 8];
             const alturaAtual = Math.round(objetoImportado.position.y);
-            
+
             // Verificar se estamos próximos de uma altura válida (com margem de erro)
             for (let i = 0; i < alturasValidas.length; i++) {
                 if (Math.abs(alturaAtual - alturasValidas[i]) <= 0.5) {
@@ -2679,7 +2628,7 @@ function loop() {
                 }
             }
         }
-        
+
         // Adicionar uma propriedade ao objeto para indicar que é o Mario
         // Isso será usado para diferenciar a detecção de colisão entre Mario e barris
         objetoImportado.userData.isMario = true;
@@ -2692,23 +2641,23 @@ function loop() {
 
         // Abordagem melhorada para evitar que o Mario bata a cabeça
         // Verificar apenas plataformas válidas em alturas específicas
-        
+
         // Se o Mario está pulando e está subindo, verificar se ele está próximo de uma plataforma
         if (pulando && velocidadeY > 0) {
             // Lista de alturas válidas para plataformas
             const alturasValidas = [-10, -7, -4, -1, 2, 5, 8];
-            
+
             // Encontrar a próxima plataforma acima
             let proximaPlataformaAcima = null;
             let distanciaMinima = Infinity;
-            
+
             for (let i = 0; i < alturasValidas.length; i++) {
                 const alturaPlataforma = alturasValidas[i];
-                
+
                 // Verificar se a plataforma está acima do Mario
                 if (alturaPlataforma > objetoImportado.position.y) {
                     const distancia = alturaPlataforma - objetoImportado.position.y;
-                    
+
                     // Se esta plataforma está mais próxima que a anterior
                     if (distancia < distanciaMinima) {
                         distanciaMinima = distancia;
@@ -2716,14 +2665,14 @@ function loop() {
                     }
                 }
             }
-            
+
             // Se encontrou uma plataforma acima e está próxima o suficiente
             if (proximaPlataformaAcima !== null && distanciaMinima < 3.0) {
                 // Verificar se o Mario está dentro dos limites horizontais da plataforma (-12 a 12)
                 if (objetoImportado.position.x >= -12 && objetoImportado.position.x <= 12) {
                     // Definir uma altura máxima segura (um pouco abaixo da plataforma)
                     const alturaMaximaPulo = proximaPlataformaAcima - 0.5;
-                    
+
                     // Se o Mario está prestes a ultrapassar essa altura, ajustar
                     if (objetoImportado.position.y + velocidadeY > alturaMaximaPulo) {
                         // Ajustar a posição para a altura máxima segura
@@ -2738,7 +2687,7 @@ function loop() {
         if (!noChao) {
             velocidadeY += gravidade; // Aplica gravidade
             podePular = false; // Cannot jump while in the air
-            
+
             // Limitar a velocidade máxima de queda para evitar atravessar plataformas
             if (velocidadeY < -0.3) {
                 velocidadeY = -0.3;
@@ -2758,7 +2707,7 @@ function loop() {
             let alturaAtual = objetoImportado.position.y;
             let alturaCorreta = null;
             let distanciaMinima = Infinity;
-            
+
             // Encontrar a altura válida mais próxima
             for (let i = 0; i < alturasValidas.length; i++) {
                 const distancia = Math.abs(alturaAtual - alturasValidas[i]);
@@ -2767,7 +2716,7 @@ function loop() {
                     alturaCorreta = alturasValidas[i];
                 }
             }
-            
+
             // Se encontrou uma altura válida próxima, ajustar a posição
             if (alturaCorreta !== null && distanciaMinima < 0.5) {
                 objetoImportado.position.y = alturaCorreta + 0.1; // Pequeno offset para evitar flutuação
@@ -2795,7 +2744,7 @@ function loop() {
             // Se o espaço acabou de ser pressionado e podemos pular
             if (teclasPressionadas[32] && !teclasPressionadasAnterior[32] &&
                 tempoAtual - ultimoPulo > 0.2 && podePular && !pulando) {
-                
+
                 // Iniciar um novo pulo - melhorado para evitar colisões indesejadas
                 pulando = true;
                 podePular = false;
@@ -2803,19 +2752,19 @@ function loop() {
                 ultimoPulo = tempoAtual;
                 objetoImportado.userData.tempoInicioPulo = tempoAtual; // Registrar o tempo de início do pulo
                 objetoImportado.userData.duracaoPulo = 0.8; // Definir duração fixa para o pulo (em segundos)
-                
+
                 // Tocar som de pulo
                 if (jumpSound && !jumpSound.isPlaying) {
                     jumpSound.play();
                 }
-                
+
                 // Garantir que o personagem comece a subir imediatamente
                 // Impulso maior para garantir que saia do chão e evite colisões indesejadas
-                objetoImportado.position.y += 0.2; 
-                
+                objetoImportado.position.y += 0.2;
+
                 // Registrar a altura inicial do pulo para cálculos de colisão mais precisos
                 objetoImportado.userData.alturaInicioPulo = objetoImportado.position.y;
-                
+
                 // Verificar se há teclas direcionais pressionadas para pulo direcional
                 let puloComDirecao = false;
 
@@ -2935,10 +2884,10 @@ function loop() {
                         objetoImportado.position.z -= 1;
                     }
                     else if (PlatformLevel2.getEscadasInfo().some(escada =>
-                    objetoImportado.position.x >= escada.xMin &&
-                    objetoImportado.position.x <= escada.xMax &&
-                    objetoImportado.position.y >= escada.yMin &&
-                    objetoImportado.position.y <= escada.yMax) && window.gameState.currentLevel === 2) {
+                        objetoImportado.position.x >= escada.xMin &&
+                        objetoImportado.position.x <= escada.xMax &&
+                        objetoImportado.position.y >= escada.yMin &&
+                        objetoImportado.position.y <= escada.yMax) && window.gameState.currentLevel === 2) {
                         objetoImportado.position.y += 3.1;
                     }
                     iniciarAnimacao();
@@ -2960,18 +2909,17 @@ function loop() {
                         objetoImportado.position.z -= 1;
                     }
                     else if (PlatformLevel2.getEscadasInfo().some(escada =>
-                    objetoImportado.position.x >= escada.xMin &&
-                    objetoImportado.position.x <= escada.xMax &&
-                    objetoImportado.position.y >= escada.yMin &&
-                    objetoImportado.position.y <= escada.yMax) && window.gameState.currentLevel === 2) {
+                        objetoImportado.position.x >= escada.xMin &&
+                        objetoImportado.position.x <= escada.xMax &&
+                        objetoImportado.position.y >= escada.yMin &&
+                        objetoImportado.position.y <= escada.yMax) && window.gameState.currentLevel === 2) {
                         objetoImportado.position.y += 3.1;
                     }
                     iniciarAnimacao();
                 }
             }
-            
-            if (teclasPressionadas[17])
-            {
+
+            if (teclasPressionadas[17]) {
                 if (((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
                     (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
                     (objetoImportado.position.x >= 0 && objetoImportado.position.x <= 1 && objetoImportado.position.y < -1 && objetoImportado.position.y >= -4) ||
@@ -2986,10 +2934,10 @@ function loop() {
                     objetoImportado.position.z += 1;
                 }
                 else if (PlatformLevel2.getEscadasInfo().some(escada =>
-                objetoImportado.position.x >= escada.xMin &&
-                objetoImportado.position.x <= escada.xMax &&
-                objetoImportado.position.y - 3 >= escada.yMin &&
-                objetoImportado.position.y - 3 <= escada.yMax) && window.gameState.currentLevel === 2) {
+                    objetoImportado.position.x >= escada.xMin &&
+                    objetoImportado.position.x <= escada.xMax &&
+                    objetoImportado.position.y - 3 >= escada.yMin &&
+                    objetoImportado.position.y - 3 <= escada.yMax) && window.gameState.currentLevel === 2) {
                     objetoImportado.position.y -= 3.1;
                 }
                 iniciarAnimacao();
@@ -3010,7 +2958,7 @@ function loop() {
 
             if (teclasPressionadas[87]) { // W (frente)
                 objetoImportado.rotation.y = Math.PI;
-                if (window.gameState.currentLevel === 1){
+                if (window.gameState.currentLevel === 1) {
                     // Verificar se está em uma escada e só subir se estiver no chão e não estiver pulando
                     tentandoSubirEscada = ((objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < -7 && objetoImportado.position.y >= -10) ||
                         (objetoImportado.position.x >= -8 && objetoImportado.position.x <= -6 && objetoImportado.position.y < -4 && objetoImportado.position.y >= -7) ||
@@ -3022,19 +2970,18 @@ function loop() {
                         (objetoImportado.position.x >= 9 && objetoImportado.position.x <= 11 && objetoImportado.position.y < 5 && objetoImportado.position.y >= 2) ||
                         (objetoImportado.position.x >= 3 && objetoImportado.position.x <= 5 && objetoImportado.position.y < 8 && objetoImportado.position.y >= 5));
                 }
-                else if (window.gameState.currentLevel === 2)
-                {
+                else if (window.gameState.currentLevel === 2) {
                     tentandoSubirEscada = PlatformLevel2.getEscadasInfo().some(escada =>
-                    objetoImportado.position.x >= escada.xMin &&
-                    objetoImportado.position.x <= escada.xMax &&
-                    objetoImportado.position.y >= escada.yMin &&
-                    objetoImportado.position.y <= escada.yMax)
+                        objetoImportado.position.x >= escada.xMin &&
+                        objetoImportado.position.x <= escada.xMax &&
+                        objetoImportado.position.y >= escada.yMin &&
+                        objetoImportado.position.y <= escada.yMax)
                 }
-                
+
                 // Só permitir subir escadas se estiver no chão e não estiver pulando
                 if (tentandoSubirEscada && noChao && !pulando) {
                     objetoImportado.position.y += 3.1;
-                    if (window.gameState.currentLevel === 1){
+                    if (window.gameState.currentLevel === 1) {
                         objetoImportado.position.z -= 1;
                     }
                 }
@@ -3055,11 +3002,10 @@ function loop() {
                     objetoImportado.position.z += 1;
                 }
                 else if (PlatformLevel2.getEscadasInfo().some(escada =>
-                objetoImportado.position.x >= escada.xMin &&
-                objetoImportado.position.x <= escada.xMax &&
-                objetoImportado.position.y - 3 >= escada.yMin &&
-                objetoImportado.position.y - 3 <= escada.yMax) && window.gameState.currentLevel === 2)
-                {
+                    objetoImportado.position.x >= escada.xMin &&
+                    objetoImportado.position.x <= escada.xMax &&
+                    objetoImportado.position.y - 3 >= escada.yMin &&
+                    objetoImportado.position.y - 3 <= escada.yMax) && window.gameState.currentLevel === 2) {
                     objetoImportado.position.y -= 3;
                 }
                 iniciarAnimacao();
@@ -3230,92 +3176,145 @@ function loop() {
                 console.log("Barril removido por ser muito antigo");
                 continue;
             }
-
+            
             // Inicializa a plataforma atual se não existir
             if (barril.userData.plataformaAtual === undefined) {
                 barril.userData.plataformaAtual = 0;
             }
-
+            
             // Raycasting para verificar o chão - usando a versão original para barris
             raycaster.set(barril.position, new THREE.Vector3(0, -1, 0));
             const intersects = raycaster.intersectObjects(objetosColisao, true);
             // Para barris, usamos a detecção de colisão original sem verificar alturas específicas
             const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
-
+            
+            // Lógica de plataformas e escadas para o nível 2
+            let plataformasInfo = window.gameState.currentLevel === 2 && typeof PlatformLevel2 !== 'undefined' ? PlatformLevel2.getPlataformasInfo() : null;
+            let escadasInfo = window.gameState.currentLevel === 2 && typeof PlatformLevel2 !== 'undefined' ? PlatformLevel2.getEscadasInfo() : null;
+            
             // Verifica se está sobre uma escada para a plataforma atual
-            const laddersAtCurrentHeight = posicoesEscadas.filter(escada => {
-                const alturaCorreta = Math.abs(barril.position.y - escada.y) < 0.5;
-                const dentroDosLimites = barril.position.x >= escada.xMin && barril.position.x <= escada.xMax;
-                return alturaCorreta && dentroDosLimites;
-            });
-
+            let laddersAtCurrentHeight;
+            if (window.gameState.currentLevel === 2 && escadasInfo && plataformasInfo) {
+                laddersAtCurrentHeight = escadasInfo.filter(escada => {
+                    const dentroDosLimites = barril.position.x >= escada.xMin && barril.position.x <= escada.xMax;
+                    const pertoDoTopo = Math.abs(barril.position.y - escada.yMax) < 0.4;
+                    return dentroDosLimites && pertoDoTopo;
+                });
+            } else {
+                laddersAtCurrentHeight = posicoesEscadas.filter(escada => {
+                    const alturaCorreta = Math.abs(barril.position.y - escada.y) < 0.5;
+                    const dentroDosLimites = barril.position.x >= escada.xMin && barril.position.x <= escada.xMax;
+                    return alturaCorreta && dentroDosLimites;
+                });
+            }
+            
             // Se estiver no ar, aplica gravidade
             if (!noChao) {
                 barril.userData.velocidade.y += gravidade;
                 barril.position.y += barril.userData.velocidade.y;
             } else {
-                // Se estiver no chão
-                if (laddersAtCurrentHeight.length > 0) {
-                    // Randomly decide whether to fall down a ladder or continue moving
-                    if (Math.random() < 0.1) { // 10% chance to fall down a ladder
+                if (window.gameState.currentLevel === 2) {
+                    // Verifica PRIMEIRO se atingiu os limites da plataforma
+                    let atingiuLimite = false;
+                    if (plataformasInfo) {
+                        let plataforma = plataformasInfo.find(p => Math.abs(barril.position.y - p.y) < 0.7);
+                        if (plataforma) {
+                            if (barril.position.x <= plataforma.xMin || barril.position.x >= plataforma.xMax) {
+                                atingiuLimite = true;
+                                if (barril.position.x < plataforma.xMin) barril.position.x = plataforma.xMin;
+                                if (barril.position.x > plataforma.xMax) barril.position.x = plataforma.xMax;
+                            }
+                        }
+                    }
+                    
+                    // Se atingiu o limite, cai para a próxima plataforma
+                    if (atingiuLimite) {
+                        barril.position.y -= 3;
+                        barril.userData.plataformaAtual += 1;
+                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
+                    } 
+                    // Se NÃO atingiu o limite, verifica se deve cair por uma escada
+                    else if (laddersAtCurrentHeight.length > 0) {
+                        const escadaAtualY = laddersAtCurrentHeight[0].yMax !== undefined ? laddersAtCurrentHeight[0].yMax : (laddersAtCurrentHeight[0].y !== undefined ? laddersAtCurrentHeight[0].y : null);
+                        if (barril.userData.escadaAvaliadaY !== escadaAtualY) {
+                            barril.userData.escadaAvaliadaY = escadaAtualY;
+                            if (Math.random() < 0.4) {
+                                const chosenLadder = laddersAtCurrentHeight[Math.floor(Math.random() * laddersAtCurrentHeight.length)];
+                                barril.position.x = (chosenLadder.xMin + chosenLadder.xMax) / 2;
+                                barril.position.y -= 3;
+                                barril.userData.plataformaAtual += 1;
+                                barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
+                            } else {
+                                // Não caiu, segue andando normalmente
+                                barril.position.x += barril.userData.velocidade.x;
+                                let plataforma = plataformasInfo.find(p => Math.abs(barril.position.y - p.y) < 0.7);
+                                if (plataforma) {
+                                    barril.position.y = plataforma.y + 0.125;
+                                }
+                            }
+                        } else {
+                            // Já avaliou essa escada, segue andando normalmente
+                            barril.position.x += barril.userData.velocidade.x;
+                            let plataforma = plataformasInfo.find(p => Math.abs(barril.position.y - p.y) < 0.7);
+                            if (plataforma) {
+                                barril.position.y = plataforma.y + 0.125;
+                            }
+                        }
+                    } else {
+                        // Se não está mais sobre escada, reseta a flag para poder avaliar na próxima escada
+                        barril.userData.escadaAvaliadaY = null;
+                        barril.position.x += barril.userData.velocidade.x;
+                        // Mantém o barril alinhado à plataforma
+                        let plataforma = plataformasInfo.find(p => Math.abs(barril.position.y - p.y) < 0.7);
+                        if (plataforma) {
+                            barril.position.y = plataforma.y + 0.125;
+                        }
+                    }
+                } else {
+                    // Se estiver no chão
+                    if (laddersAtCurrentHeight.length > 0 && Math.random() < 0.1) {
                         // Randomly choose one of the available ladders
                         const chosenLadder = laddersAtCurrentHeight[Math.floor(Math.random() * laddersAtCurrentHeight.length)];
-
+                        
                         // Move to the chosen ladder's position
                         barril.position.x = (chosenLadder.xMin + chosenLadder.xMax) / 2;
-
-                        // Fall down (descida como antes)
+                        
+                        // Fall down (descida)
                         barril.position.y -= 3;
                         barril.position.z += 1.8;
                         barril.userData.plataformaAtual += 1;
-
+                        
                         // Alternate horizontal movement direction with reduced speed
                         barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
                     } else {
                         // Continue moving horizontally
                         barril.position.x += barril.userData.velocidade.x;
-                        // Manter barril rente ao plano - usando a lógica original
-                        // Verificar se o barril está em uma plataforma conhecida
+                        
+                        // Manter barril rente ao plano
                         if (intersects.length > 0 && intersects[0].object.userData.plataformaInfo) {
-                            // Usar a altura da plataforma detectada
                             barril.position.y = intersects[0].object.userData.plataformaInfo.y + 0.125;
                         } else {
-                            // Fallback para o método anterior
                             let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
-                            let planoMaisProximo = alturasPlanos.reduce((prev, curr) => 
+                            let planoMaisProximo = alturasPlanos.reduce((prev, curr) =>
                                 Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
                             let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
                             barril.position.y = planoMaisProximo + offset;
                         }
-                    }
-                } else {
-                    // No ladders available, continue moving horizontally
-                    barril.position.x += barril.userData.velocidade.x;
-                    // Manter barril rente ao plano - usando a lógica original
-                    // Verificar se o barril está em uma plataforma conhecida
-                    if (intersects.length > 0 && intersects[0].object.userData.plataformaInfo) {
-                        // Usar a altura da plataforma detectada
-                        barril.position.y = intersects[0].object.userData.plataformaInfo.y + 0.125;
-                    } else {
-                        // Fallback para o método anterior
-                        let alturasPlanos = [-10, -7, -4, -1, 2, 5, 8];
-                        let planoMaisProximo = alturasPlanos.reduce((prev, curr) => 
-                            Math.abs(curr - barril.position.y) < Math.abs(prev - barril.position.y) ? curr : prev);
-                        let offset = planoMaisProximo <= 2 ? 0.01 : 0.125;
-                        barril.position.y = planoMaisProximo + offset;
-                    }
-
-                    // Verifica se atingiu os limites da plataforma
-                    if (barril.position.x <= -10 || barril.position.x >= 12) {
-                        // Limitar a posição do barril às paredes invisíveis
-                        if (barril.position.x < -10) barril.position.x = -10;
-                        if (barril.position.x > 12) barril.position.x = 12;
-
-                        // Fazer o barril descer para a próxima plataforma
-                        barril.position.y -= 3;
-                        barril.position.z += 1.8;
-                        barril.userData.plataformaAtual += 1;
-                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
+                        
+                        // Verifica se atingiu os limites da plataforma
+                        if (barril.position.x <= -10 || barril.position.x >= 12) {
+                            let atingiuLimite = true;
+                            if (barril.position.x < -10) barril.position.x = -10;
+                            if (barril.position.x > 12) barril.position.x = 12;
+                            
+                            if (atingiuLimite) {
+                                // Fazer o barril descer para a próxima plataforma
+                                barril.position.y -= 3;
+                                barril.position.z += 1.8;
+                                barril.userData.plataformaAtual += 1;
+                                barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
+                            }
+                        }
                     }
                 }
             }
@@ -3346,16 +3345,16 @@ function loop() {
             } else if (window.gameState.currentLevel === 2) {
                 peachPosition = new THREE.Vector3(0, 8.2, -3.0);
             }
-            
+
             // Calculate horizontal distance (ignoring Y axis)
             const horizontalDistance = Math.sqrt(
-                Math.pow(objetoImportado.position.x - peachPosition.x, 2) + 
+                Math.pow(objetoImportado.position.x - peachPosition.x, 2) +
                 Math.pow(objetoImportado.position.z - peachPosition.z, 2)
             );
-            
+
             // Calculate vertical distance (Y axis only)
             const verticalDistance = Math.abs(objetoImportado.position.y - peachPosition.y);
-            
+
             // Check if Mario is close to Peach horizontally, on the same platform (similar Y), and not jumping
             if (horizontalDistance < 1.5 && verticalDistance < 0.5 && !pulando) {
                 // Stop current theme and play ending theme
