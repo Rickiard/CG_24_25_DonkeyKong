@@ -1358,10 +1358,9 @@ function lançarBarril() {
         // Rotação inicial para alinhar o barril corretamente conforme solicitado
         // Alinhando o barril para que fique virado para o jogador (topo para a câmera)
         novoBarril.rotation.set(Math.PI/2, 0, 0);
-    
-    // Garantir que o userData seja inicializado corretamente
+      // Garantir que o userData seja inicializado corretamente
     novoBarril.userData = {
-        velocidade: new THREE.Vector3(0.025, 0, 0), // Velocidade horizontal inicial
+        velocidade: new THREE.Vector3(0.015, 0, 0), // Velocidade horizontal inicial (reduzida de 0.025 para 0.015)
         plataformaAtual: 0,
         isBarrel: true, // Marcar como barril para usar detecção de colisão original
         scored: false,
@@ -1474,10 +1473,9 @@ function carregarBarril(caminho, escala, posicao, rotacao, callback) {
 
         // O barril original deve ser invisível, mas garantimos que ele seja clonado corretamente
         object.visible = false;
-        
-        // Garantir que o objeto tenha a propriedade userData inicializada
+          // Garantir que o objeto tenha a propriedade userData inicializada
         object.userData = object.userData || {};
-        object.userData.velocidade = new THREE.Vector3(0.025, 0, 0);
+        object.userData.velocidade = new THREE.Vector3(0.015, 0, 0); // Velocidade inicial reduzida
         object.userData.isBarrel = true;
 
         objetosColisao.push(object);
@@ -1789,11 +1787,9 @@ function atualizarBarril() {
         // Raycasting para verificar o chão
         raycaster.set(barril.position, new THREE.Vector3(0, -1, 0));
         const intersects = raycaster.intersectObjects(objetosColisao, true);
-        const noChao = intersects.length > 0 && intersects[0].distance < 0.6;
-
-        // Inicializar velocidade se não existir
+        const noChao = intersects.length > 0 && intersects[0].distance < 0.6;        // Inicializar velocidade se não existir
         if (!barril.userData.velocidade) {
-            barril.userData.velocidade = new THREE.Vector3(0.025, 0, 0);
+            barril.userData.velocidade = new THREE.Vector3(0.015, 0, 0); // Velocidade reduzida
             console.log("Velocidade do barril inicializada");
         }
 
@@ -1853,9 +1849,8 @@ function atualizarBarril() {
             
             // Calcular a distância real entre Mario e o barril
             const distancia = objetoImportado.position.distanceTo(barril.position);
-            
-            // Ajustar a distância de verificação com base no nível atual
-            const distanciaMaxima = window.gameState.currentLevel === 2 ? 1.5 : 1.2;
+              // Ajustar a distância de verificação com base no nível atual
+            const distanciaMaxima = window.gameState.currentLevel === 2 ? 1.0 : 0.8;
             
             // Verificação de distância para evitar colisões com barris não visíveis
             if (distancia < distanciaMaxima) {
@@ -1882,15 +1877,13 @@ function atualizarBarril() {
                         updateScoreDisplay();
                         barril.userData.scored = true;
                         console.log("Mario pulou sobre o barril! +100 pontos");
-                    }
-                } else {
+                    }                } else {
                     // Ajustar a distância horizontal com base no nível
-                    const limiteHorizontal = window.gameState.currentLevel === 2 ? 1.0 : 0.8;
-                    
-                    // Verificar se a colisão é realmente próxima o suficiente para ser válida
+                    const limiteHorizontal = window.gameState.currentLevel === 2 ? 0.7 : 0.5;
+                      // Verificar se a colisão é realmente próxima o suficiente para ser válida
                     // Usando uma distância horizontal ajustada para o nível
-                    // E verificando se o barril está visível
-                    if (distanciaHorizontal < limiteHorizontal && barrilVisivel) {
+                    // Removida verificação de visibilidade para permitir colisões mesmo quando o barril não está na tela
+                    if (distanciaHorizontal < limiteHorizontal) {
                         console.log(`COLISÃO REAL DETECTADA COM BARRIL (Nível ${window.gameState.currentLevel}):`, barril.id);
                         console.log("Distância:", distancia);
                         console.log("Distância horizontal:", distanciaHorizontal);
@@ -3055,9 +3048,8 @@ function loop() {
                 
                 // Calcular a distância entre Mario e o barril
                 const distancia = marioPos.distanceTo(barrilPos);
-                
-                // Ajustar a distância de verificação com base no nível atual
-                const distanciaMaxima = window.gameState.currentLevel === 2 ? 1.5 : 1.0;
+                  // Ajustar a distância de verificação com base no nível atual
+                const distanciaMaxima = window.gameState.currentLevel === 2 ? 1.0 : 0.7;
                 
                 // Verificar se estão próximos o suficiente para uma possível colisão
                 if (distancia < distanciaMaxima) {
@@ -3085,13 +3077,11 @@ function loop() {
                             barril.userData.scored = true;
                             console.log(`Mario pulou sobre o barril (Nível ${window.gameState.currentLevel})! +100 pontos`);
                         }
-                    } else {
-                        // Ajustar a distância horizontal com base no nível
-                        const limiteHorizontal = window.gameState.currentLevel === 2 ? 1.0 : 0.8;
-                        
-                        if (distanciaHorizontal < limiteHorizontal && barrilVisivel) {
+                    } else {                        // Ajustar a distância horizontal com base no nível
+                        const limiteHorizontal = window.gameState.currentLevel === 2 ? 0.7 : 0.5;
+                          if (distanciaHorizontal < limiteHorizontal) {
                             // Mario está ao lado do barril - colisão
-                            // Apenas se o barril estiver visível na tela
+                            // Removida verificação de visibilidade para permitir colisões mesmo quando o barril não está na tela
                             console.log(`COLISÃO DETECTADA NO LOOP PRINCIPAL (Nível ${window.gameState.currentLevel})!`);
                             console.log("Distância:", distancia);
                             console.log("Distância horizontal:", distanciaHorizontal);
@@ -3146,13 +3136,14 @@ function loop() {
             if (barril.userData.invisibleTime === undefined) {
                 barril.userData.invisibleTime = 0;
             }
-            
-            if (!barrilVisivel) {
+              if (!barrilVisivel) {
                 // Incrementar o contador se o barril estiver invisível
                 barril.userData.invisibleTime += 1;
                 
+                // Comentado: Não remover barris invisíveis para permitir movimento contínuo
                 // Se o barril estiver invisível por mais de 60 frames (aproximadamente 1 segundo),
                 // remover o barril para evitar colisões com barris invisíveis
+                /*
                 if (barril.userData.invisibleTime > 60) {
                     // Remover o barril da cena
                     cena.remove(barril);
@@ -3163,6 +3154,7 @@ function loop() {
                     console.log("Barril removido por estar invisível por muito tempo");
                     continue;
                 }
+                */
             } else {
                 // Resetar o contador se o barril estiver visível
                 barril.userData.invisibleTime = 0;
@@ -3226,13 +3218,12 @@ function loop() {
                             }
                         }
                     }
-                    
-                    // Se atingiu o limite, cai para a próxima plataforma
+                      // Se atingiu o limite, cai para a próxima plataforma
                     if (atingiuLimite) {
                         barril.position.y -= 3;
                         barril.userData.plataformaAtual += 1;
-                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
-                    } 
+                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.015 : -0.015; // Velocidade reduzida
+                    }
                     // Se NÃO atingiu o limite, verifica se deve cair por uma escada
                     else if (laddersAtCurrentHeight.length > 0) {
                         const escadaAtualY = laddersAtCurrentHeight[0].yMax !== undefined ? laddersAtCurrentHeight[0].yMax : (laddersAtCurrentHeight[0].y !== undefined ? laddersAtCurrentHeight[0].y : null);
@@ -3240,10 +3231,9 @@ function loop() {
                             barril.userData.escadaAvaliadaY = escadaAtualY;
                             if (Math.random() < 0.4) {
                                 const chosenLadder = laddersAtCurrentHeight[Math.floor(Math.random() * laddersAtCurrentHeight.length)];
-                                barril.position.x = (chosenLadder.xMin + chosenLadder.xMax) / 2;
-                                barril.position.y -= 3;
+                                barril.position.x = (chosenLadder.xMin + chosenLadder.xMax) / 2;                                barril.position.y -= 3;
                                 barril.userData.plataformaAtual += 1;
-                                barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
+                                barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.015 : -0.015; // Velocidade reduzida
                             } else {
                                 // Não caiu, segue andando normalmente
                                 barril.position.x += barril.userData.velocidade.x;
@@ -3283,9 +3273,8 @@ function loop() {
                         barril.position.y -= 3;
                         barril.position.z += 1.8;
                         barril.userData.plataformaAtual += 1;
-                        
-                        // Alternate horizontal movement direction with reduced speed
-                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
+                          // Alternate horizontal movement direction with reduced speed
+                        barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.015 : -0.015; // Velocidade reduzida
                     } else {
                         // Continue moving horizontally
                         barril.position.x += barril.userData.velocidade.x;
@@ -3307,12 +3296,11 @@ function loop() {
                             if (barril.position.x < -10) barril.position.x = -10;
                             if (barril.position.x > 12) barril.position.x = 12;
                             
-                            if (atingiuLimite) {
-                                // Fazer o barril descer para a próxima plataforma
+                            if (atingiuLimite) {                                // Fazer o barril descer para a próxima plataforma
                                 barril.position.y -= 3;
                                 barril.position.z += 1.8;
                                 barril.userData.plataformaAtual += 1;
-                                barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.025 : -0.025;
+                                barril.userData.velocidade.x = barril.userData.plataformaAtual % 2 === 0 ? 0.015 : -0.015; // Velocidade reduzida
                             }
                         }
                     }
