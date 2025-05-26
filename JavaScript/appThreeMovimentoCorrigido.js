@@ -23,6 +23,9 @@ window.gameState = {
     currentLevel: null // Armazena o nível atual (1 ou 2)
 };
 
+// Frame counter for debugging
+let frameCount = 0;
+
 // Audio setup
 let audioListener = null;
 let jumpSound = null;
@@ -1079,9 +1082,9 @@ var andando = false;
 var pulando = false;
 var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
-var gravidade = -0.01; // Voltando para o valor original
-var forcaPuloLevel1 = 0.15; // Força do pulo para o nível 1
-var forcaPuloLevel2 = 0.13; // Força do pulo para o nível 2
+var gravidade = -0.005; // Voltando para o valor original
+var forcaPuloLevel1 = 0.125; // Força do pulo para o nível 1
+var forcaPuloLevel2 = 0.1; // Força do pulo para o nível 2
 var velocidadeMovimento = 0.02;
 var velocidadeMovimentoAr = 0.01;
 
@@ -3359,15 +3362,7 @@ function loop() {
 
         // Check if Mario has reached the win position based on current level
         if (objetoImportado) {
-            // Check if Mario is at win position with some tolerance (level 1)
-            const marioPos = objetoImportado.position;
-            if (window.gameState.currentLevel === 1 &&
-                Math.abs(marioPos.x - 2) < 1.0 &&
-                Math.abs(marioPos.y - 7) < 1.0 &&
-                Math.abs(marioPos.z - (-9.5)) < 1.0) {
-                // Player has reached the win position for level 1
-                window.gameWin();
-            }
+            // Using the more flexible win condition check below instead of fixed coordinates
 
             // Check proximity to Princess Peach as win condition based on current level
             let peachPosition;
@@ -3386,8 +3381,49 @@ function loop() {
             // Calculate vertical distance (Y axis only)
             const verticalDistance = Math.abs(objetoImportado.position.y - peachPosition.y);
 
-            // Check if Mario is close to Peach horizontally, on the same platform (similar Y), and not jumping
-            if (horizontalDistance < 1.5 && verticalDistance < 0.5 && !pulando) {
+            // Calculate win condition based on level
+            let winConditionMet = false;
+            
+            if (window.gameState.currentLevel === 1) {
+                // In level 1, Mario can be on the same level OR slightly higher than Peach
+                // Make the horizontal distance check more lenient (2.0 instead of 1.5)
+                // Allow Mario to be up to 2.0 units higher than Peach
+                winConditionMet = horizontalDistance < 2.0 && 
+                                 (objetoImportado.position.y >= peachPosition.y - 0.5) && // Allow Mario to be slightly below Peach too
+                                 (objetoImportado.position.y - peachPosition.y < 2.0);
+                                 // Removed the !pulando check to make it easier to trigger
+            } else {
+                // In level 2, Mario needs to be on the same level as Peach (original condition)
+                winConditionMet = horizontalDistance < 1.5 && verticalDistance < 0.5 && !pulando;
+            }
+            
+            // Debug win condition check (log every 60 frames to avoid console spam)
+            if (frameCount % 60 === 0) {
+                console.log("Win condition check:", {
+                    level: window.gameState.currentLevel,
+                    marioPosition: {
+                        x: objetoImportado.position.x.toFixed(2),
+                        y: objetoImportado.position.y.toFixed(2),
+                        z: objetoImportado.position.z.toFixed(2)
+                    },
+                    peachPosition: {
+                        x: peachPosition.x.toFixed(2),
+                        y: peachPosition.y.toFixed(2),
+                        z: peachPosition.z.toFixed(2)
+                    },
+                    horizontalDistance: horizontalDistance.toFixed(2),
+                    verticalDistance: verticalDistance.toFixed(2),
+                    heightDifference: (objetoImportado.position.y - peachPosition.y).toFixed(2),
+                    isJumping: pulando,
+                    winConditionMet: winConditionMet
+                });
+            }
+            
+            // Increment frame counter for debugging
+            frameCount++;
+
+            // Use the winConditionMet variable calculated above
+            if (winConditionMet) {
                 // Stop current theme and play ending theme
                 if (window.stageTheme && window.stageTheme.isPlaying) {
                     window.stageTheme.stop();
