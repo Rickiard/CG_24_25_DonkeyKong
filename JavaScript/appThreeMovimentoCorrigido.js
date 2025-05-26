@@ -1923,11 +1923,10 @@ function atualizarBarril() {
                 } else {
                     // Ajustar a distância horizontal com base no nível (reduzido para hitbox mais justo)
                     const limiteHorizontal = window.gameState.currentLevel === 2 ? 0.8 : 0.6;
-                    
-                    // Verificar se a colisão é realmente próxima o suficiente para ser válida
-                    // Usando uma distância horizontal ajustada para o nível
-                    // E verificando se o barril está visível
-                    if (distanciaHorizontal < limiteHorizontal && barrilVisivel) {
+                      // Solution 1: Remove visibility dependency from collision detection
+                    // This fixes barrel movement limitations in perspective camera mode
+                    // Collision detection now works regardless of camera visibility
+                    if (distanciaHorizontal < limiteHorizontal) {
                         console.log(`COLISÃO REAL DETECTADA COM BARRIL (Nível ${window.gameState.currentLevel}):`, barril.id);
                         console.log("Distância:", distancia);
                         console.log("Distância horizontal:", distanciaHorizontal);
@@ -3118,14 +3117,13 @@ function loop() {
                             window.gameState.score += 100;
                             updateScoreDisplay();
                             barril.userData.scored = true;
-                            console.log(`Mario pulou sobre o barril (Nível ${window.gameState.currentLevel})! +100 pontos`);                        }
-                    } else {
+                            console.log(`Mario pulou sobre o barril (Nível ${window.gameState.currentLevel})! +100 pontos`);                        }                    } else {
                         // Ajustar a distância horizontal com base no nível (reduzido para hitbox mais justo)
                         const limiteHorizontal = window.gameState.currentLevel === 2 ? 0.8 : 0.6;
                         
-                        if (distanciaHorizontal < limiteHorizontal && barrilVisivel) {
+                        if (distanciaHorizontal < limiteHorizontal) {
                             // Mario está ao lado do barril - colisão
-                            // Apenas se o barril estiver visível na tela
+                            // Colisão independente da visibilidade do barril na câmera
                             console.log(`COLISÃO DETECTADA NO LOOP PRINCIPAL (Nível ${window.gameState.currentLevel})!`);
                             console.log("Distância:", distancia);
                             console.log("Distância horizontal:", distanciaHorizontal);
@@ -3172,34 +3170,23 @@ function loop() {
                 console.log("Barril removido por estar fora dos limites");
                 continue;
             }
+              // Solution 2: Remove camera visibility-based barrel removal
+            // This prevents barrels from being removed in perspective camera mode
+            // where they might be temporarily considered "invisible" by the frustum culling
             
-            // Verificar se o barril está visível na câmera
+            // Keep the visibility check for reference but don't use it for removal
             const barrilVisivel = isObjectVisible(barril, cameraAtual);
             
-            // Inicializar contador de tempo invisível se não existir
-            if (barril.userData.invisibleTime === undefined) {
-                barril.userData.invisibleTime = 0;
-            }
+            // Removed the barrel removal logic based on camera visibility
+            // This was causing barrels to disappear in perspective camera mode
+            // Barrels should only be removed when they fall off the platforms or are too old
             
-            if (!barrilVisivel) {
-                // Incrementar o contador se o barril estiver invisível
-                barril.userData.invisibleTime += 1;
-                
-                // Se o barril estiver invisível por mais de 60 frames (aproximadamente 1 segundo),
-                // remover o barril para evitar colisões com barris invisíveis
-                if (barril.userData.invisibleTime > 60) {
-                    // Remover o barril da cena
-                    cena.remove(barril);
-                    
-                    // Remover da lista de barris ativos
-                    barrisAtivos.splice(i, 1);
-                    
-                    console.log("Barril removido por estar invisível por muito tempo");
-                    continue;
-                }
-            } else {
-                // Resetar o contador se o barril estiver visível
-                barril.userData.invisibleTime = 0;
+            // Optional: Log visibility for debugging (can be removed later)
+            if (!barrilVisivel && barril.userData.lastVisibilityWarning !== true) {
+                console.log("Barril fora do campo de visão da câmera mas mantido ativo");
+                barril.userData.lastVisibilityWarning = true;
+            } else if (barrilVisivel) {
+                barril.userData.lastVisibilityWarning = false;
             }
             
             // Verificar se o barril existe há muito tempo (mais de 30 segundos)
