@@ -1141,20 +1141,41 @@ const barrilZPorPlataforma = {
 
 // Função para verificar se um objeto está visível na câmera
 function isObjectVisible(object, camera) {
-    // Criar um vetor temporário para armazenar a posição do objeto no espaço da câmera
-    const tempVector = new THREE.Vector3();
+    // Se não há câmera, considerar como visível (fail-safe)
+    if (!camera || !object) {
+        return true;
+    }
     
-    // Obter a posição do objeto no espaço da câmera
-    tempVector.copy(object.position);
-    tempVector.project(camera);
-    
-    // Verificar se o objeto está dentro do campo de visão da câmera
-    // As coordenadas projetadas estão no intervalo [-1, 1] para objetos visíveis
-    return (
-        tempVector.x >= -1.2 && tempVector.x <= 1.2 &&
-        tempVector.y >= -1.2 && tempVector.y <= 1.2 &&
-        tempVector.z >= -1 && tempVector.z <= 1
-    );
+    try {
+        // Para perspectiva, usar frustum culling mais preciso
+        if (camera.isPerspectiveCamera) {
+            // Criar frustum da câmera
+            const frustum = new THREE.Frustum();
+            const matrix = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+            frustum.setFromProjectionMatrix(matrix);
+            
+            // Verificar se o objeto está dentro do frustum
+            // Usar bounding sphere para teste de visibilidade
+            const sphere = new THREE.Sphere(object.position, 1.0); // raio de 1.0 unidade
+            return frustum.intersectsSphere(sphere);
+        }
+        
+        // Para câmera ortográfica, usar o método de projeção original com limites expandidos
+        const tempVector = new THREE.Vector3();
+        tempVector.copy(object.position);
+        tempVector.project(camera);
+        
+        // Verificar se o objeto está dentro do campo de visão da câmera
+        // Usando limites mais permissivos para melhor compatibilidade
+        return (
+            tempVector.x >= -1.5 && tempVector.x <= 1.5 &&
+            tempVector.y >= -1.5 && tempVector.y <= 1.5 &&
+            tempVector.z >= -1 && tempVector.z <= 1
+        );
+    } catch (error) {
+        console.warn("Erro na verificação de visibilidade:", error);
+        return true; // Fail-safe: considerar visível em caso de erro
+    }
 }
 
 // Função para atualizar a coordenada z do barril
@@ -1329,6 +1350,18 @@ function lançarBarril() {
         return;
     }
 
+    // Verificar se o jogo não está pausado ou em game over
+    if (window.gameState && (window.gameState.isPaused || window.gameState.isGameOver)) {
+        console.log("Jogo pausado ou game over, não lançando barril");
+        return;
+    }
+
+    // Verificar se a cena está válida
+    if (!cena) {
+        console.warn("Cena não está disponível para lançar barril");
+        return;
+    }
+
     console.log("Lançando novo barril...");
     
     try {
@@ -1337,7 +1370,9 @@ function lançarBarril() {
         novoBarril.visible = true; // Torna o barril visível    
         novoBarril.castShadow = true;
         novoBarril.receiveShadow = false;
+        
         // Definir a posição inicial do barril com coordenada Z correta, considerando o nível atual
+        // Esta posição é independente do tipo de câmera
         let zInicial;
         let posicaoX, posicaoY;
         
@@ -1353,8 +1388,10 @@ function lançarBarril() {
             posicaoY = 5.25;
         }
         
+        // Garantir que a posição seja válida independentemente da câmera
         novoBarril.position.set(posicaoX, posicaoY, zInicial);
-        console.log(`Barril criado na posição inicial (nível ${window.gameState.currentLevel}) com Z=${zInicial}`);
+        console.log(`Barril criado na posição inicial (nível ${window.gameState.currentLevel}) em (${posicaoX}, ${posicaoY}, ${zInicial})`);
+        
         // Rotação inicial para alinhar o barril corretamente conforme solicitado
         // Alinhando o barril para que fique virado para o jogador (topo para a câmera)
         novoBarril.rotation.set(Math.PI/2, 0, 0);
@@ -1853,9 +1890,8 @@ function atualizarBarril() {
             
             // Calcular a distância real entre Mario e o barril
             const distancia = objetoImportado.position.distanceTo(barril.position);
-            
-            // Ajustar a distância de verificação com base no nível atual
-            const distanciaMaxima = window.gameState.currentLevel === 2 ? 1.5 : 1.2;
+              // Ajustar a distância de verificação com base no nível atual (reduzido para hitbox mais justo)
+            const distanciaMaxima = window.gameState.currentLevel === 2 ? 1.2 : 1.0;
             
             // Verificação de distância para evitar colisões com barris não visíveis
             if (distancia < distanciaMaxima) {
@@ -1867,25 +1903,23 @@ function atualizarBarril() {
                 
                 // Calcular a diferença de altura
                 const diferencaAltura = objetoImportado.position.y - barril.position.y;
-                
-                // Verificar se o barril está visível na tela
+                  // Verificar se o barril está visível na tela
                 // Isso é importante para evitar colisões com barris que não são visíveis
                 const barrilVisivel = isObjectVisible(barril, cameraAtual);
                 
-                // Ajustar o limite de diferença de altura com base no nível
-                const limiteAltura = window.gameState.currentLevel === 2 ? 0.7 : 0.5;
+                // Ajustar o limite de diferença de altura com base no nível (reduzido para hitbox mais justo)
+                const limiteAltura = window.gameState.currentLevel === 2 ? 0.5 : 0.35;
                 
                 // Check if Mario is above the barrel (only vertical check)
                 if (diferencaAltura > limiteAltura) { // Mario is above the barrel
                     if (!barril.userData.scored) {
                         window.gameState.score += 100;
                         updateScoreDisplay();
-                        barril.userData.scored = true;
-                        console.log("Mario pulou sobre o barril! +100 pontos");
+                        barril.userData.scored = true;                        console.log("Mario pulou sobre o barril! +100 pontos");
                     }
                 } else {
-                    // Ajustar a distância horizontal com base no nível
-                    const limiteHorizontal = window.gameState.currentLevel === 2 ? 1.0 : 0.8;
+                    // Ajustar a distância horizontal com base no nível (reduzido para hitbox mais justo)
+                    const limiteHorizontal = window.gameState.currentLevel === 2 ? 0.8 : 0.6;
                     
                     // Verificar se a colisão é realmente próxima o suficiente para ser válida
                     // Usando uma distância horizontal ajustada para o nível
@@ -3052,12 +3086,11 @@ function loop() {
                 // Isso garante que colisões sejam detectadas mesmo se a função atualizarBarril falhar
                 const marioPos = objetoImportado.position;
                 const barrilPos = barril.position;
-                
-                // Calcular a distância entre Mario e o barril
+                  // Calcular a distância entre Mario e o barril
                 const distancia = marioPos.distanceTo(barrilPos);
                 
-                // Ajustar a distância de verificação com base no nível atual
-                const distanciaMaxima = window.gameState.currentLevel === 2 ? 1.5 : 1.0;
+                // Ajustar a distância de verificação com base no nível atual (reduzido para hitbox mais justo)
+                const distanciaMaxima = window.gameState.currentLevel === 2 ? 1.2 : 1.0;
                 
                 // Verificar se estão próximos o suficiente para uma possível colisão
                 if (distancia < distanciaMaxima) {
@@ -3069,12 +3102,11 @@ function loop() {
                         Math.pow(marioPos.x - barrilPos.x, 2) + 
                         Math.pow(marioPos.z - barrilPos.z, 2)
                     );
-                    
-                    // Calcular a diferença de altura
+                      // Calcular a diferença de altura
                     const diferencaAltura = marioPos.y - barrilPos.y;
                     
-                    // Ajustar o limite de diferença de altura com base no nível
-                    const limiteAltura = window.gameState.currentLevel === 2 ? 0.7 : 0.5;
+                    // Ajustar o limite de diferença de altura com base no nível (reduzido para hitbox mais justo)
+                    const limiteAltura = window.gameState.currentLevel === 2 ? 0.5 : 0.35;
                     
                     // Verificar se Mario está acima do barril (pontuação) ou ao lado (colisão)
                     if (diferencaAltura > limiteAltura) {
@@ -3083,11 +3115,10 @@ function loop() {
                             window.gameState.score += 100;
                             updateScoreDisplay();
                             barril.userData.scored = true;
-                            console.log(`Mario pulou sobre o barril (Nível ${window.gameState.currentLevel})! +100 pontos`);
-                        }
+                            console.log(`Mario pulou sobre o barril (Nível ${window.gameState.currentLevel})! +100 pontos`);                        }
                     } else {
-                        // Ajustar a distância horizontal com base no nível
-                        const limiteHorizontal = window.gameState.currentLevel === 2 ? 1.0 : 0.8;
+                        // Ajustar a distância horizontal com base no nível (reduzido para hitbox mais justo)
+                        const limiteHorizontal = window.gameState.currentLevel === 2 ? 0.8 : 0.6;
                         
                         if (distanciaHorizontal < limiteHorizontal && barrilVisivel) {
                             // Mario está ao lado do barril - colisão
