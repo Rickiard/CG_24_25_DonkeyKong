@@ -9,11 +9,11 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
     const texturaChao = textureLoader.load('./objetos/textures/platform_red.png');
     texturaChao.wrapS = THREE.RepeatWrapping;
     texturaChao.wrapT = THREE.RepeatWrapping;
-    texturaChao.repeat.set(4, 1);
-
-    const platformMaterial = new THREE.MeshPhongMaterial({
+    texturaChao.repeat.set(4, 1);    const platformMaterial = new THREE.MeshPhongMaterial({
         map: texturaChao,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
+        color: 0xffffff, // Cor branca para iluminar a textura
+        shininess: 30 // Brilho para melhor recepção de sombras
     });
 
     // TEXTURA PARA ESCADAS (azul com ranhuras)
@@ -27,7 +27,9 @@ export function adicionarPlataformasELadders(cena, objetosColisao) {
     const ladderMaterial = new THREE.MeshPhongMaterial({
         map: texturaEscada,
         side: THREE.DoubleSide,
-        flatShading: false // Suaviza a aparência
+        flatShading: false, // Suaviza a aparência
+        color: 0xffffff, // Cor branca para iluminar a textura
+        shininess: 20 // Brilho para melhor recepção de sombras
     });
 
     function criarPlataforma(x, y, largura = 12, altura = 0.4) {

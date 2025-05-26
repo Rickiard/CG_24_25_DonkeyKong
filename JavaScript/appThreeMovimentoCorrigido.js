@@ -392,9 +392,20 @@ async function startGameCommon() {
     document.getElementById('loadingProgress').textContent = "Carregando recursos de áudio...";
 
     // Pequeno atraso para garantir que a tela de loading seja exibida
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    try {
+    await new Promise(resolve => setTimeout(resolve, 100));    try {
+        // Parar e resetar o relógio do jogo para evitar saltos temporais entre fases
+        relogio.stop();
+        relogio = new THREE.Clock();
+        
+        // Resetar variáveis de tempo que dependem do relógio
+        ultimoPulo = 0;
+        
+        // Parar o intervalo de lançamento de barris da fase anterior
+        if (barrelSpawnInterval) {
+            clearInterval(barrelSpawnInterval);
+            barrelSpawnInterval = null;
+        }
+        
         // Limpar barris existentes
         if (barrisAtivos && barrisAtivos.length > 0) {
             barrisAtivos.forEach(barril => cena.remove(barril));
@@ -786,11 +797,11 @@ window.restartGame = async function () {
             mixerDonkeyKong.stopAllAction();
             mixerDonkeyKong = null;
         }
-        
-        // 10. Limpar variáveis importantes
+          // 10. Limpar variáveis importantes
         objetoImportado = null;
         barrilImportado = null;
         donkeyKongModel = null;
+        peachModel = null;
         plataformas = [];
         objetosColisao = [];
         if (window.planosInvisiveis) {
@@ -1021,6 +1032,10 @@ window.returnToMainMenu = async function () {
 
     // Parar o loop de animação atual
     animationLoopActive = false;
+
+    // Resetar o relógio do jogo
+    relogio.stop();
+    relogio = new THREE.Clock();
 
     // Definir flags de estado
     window.gameState.isPaused = true;
@@ -1537,6 +1552,8 @@ function carregarBarril(caminho, escala, posicao, rotacao, callback) {
 
 // Variável para armazenar o modelo do Donkey Kong
 let donkeyKongModel = null;
+// Variável para armazenar o modelo da Peach
+let peachModel = null;
 
 // Função para carregar o Donkey Kong
 function loadDonkeyKong() {
@@ -1627,6 +1644,11 @@ function loadDonkeyKong() {
 
 // Função para carregar a Peach
 function loadPeach() {
+    // Se já temos o modelo carregado, remova-o da cena primeiro
+    if (peachModel && peachModel.parent) {
+        peachModel.parent.remove(peachModel);
+    }
+    
     carregarObjetoFBX(
         './Objetos/peach.fbx',
         { x: 0.05, y: 0.05, z: 0.05 },
@@ -1809,10 +1831,11 @@ function loadPeach() {
             // Aplicar a animação
             const animacaoPeach = mixerPeach.clipAction(animationClip);
             animacaoPeach.loop = THREE.LoopRepeat; // Configurar para repetir
-            animacaoPeach.play();
-
-            // Adicionar userData para identificar o nível
+            animacaoPeach.play();            // Adicionar userData para identificar o nível
             object.userData.levelId = window.gameState.currentLevel;
+
+            // Armazenar referência ao modelo
+            peachModel = object;
 
             // Adicionar o objeto à cena explicitamente
             cena.add(object);
@@ -3630,7 +3653,16 @@ function atualizarCameraParaSeguirPersonagem(camera, personagem) {
         .add(direcaoFrente.multiplyScalar(10))
         .add(new THREE.Vector3(0, alturaOmbro, 0));
 
-    camera.lookAt(pontoFoco);
+    camera.lookAt(pontoFoco);    // Atualizar a luz direcional principal para seguir a câmera
+    if (luzDirecional1) {
+        // Posicionar a luz mais alta que a câmera para iluminar de cima
+        const alturaLuz = 15; // Altura adicional para a luz acima do Mario
+        luzDirecional1.position.copy(camera.position);
+        luzDirecional1.position.y += alturaLuz; // Elevar a luz
+        
+        // Fazer a luz apontar para o mesmo ponto que a câmera
+        luzDirecional1.target.position.copy(pontoFoco);
+    }
 }
 
 function criarChaoInvisivel(x, y, z) {
@@ -3689,10 +3721,12 @@ document.getElementById('winMainMenuButton').addEventListener('click', function 
         } catch (error) {
             console.error('Error playing Stage Theme from Win Main Menu:', error);
         }
-    }
-
-    // Reset the player position when returning to main menu
+    }    // Reset the player position when returning to main menu
     if (typeof restartGame === 'function') {
+        // Resetar o relógio do jogo
+        relogio.stop();
+        relogio = new THREE.Clock();
+        
         // Call restartGame without the audio part
         window.gameState.isPaused = false;
         window.gameState.isGameOver = false;
