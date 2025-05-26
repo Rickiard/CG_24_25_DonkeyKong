@@ -1680,13 +1680,59 @@ function loadPeach() {
                 object.position.set(0, 8.2, -3.0);
             }
 
-            // Configurar o mixer de animação para a Peach
-            if (object.animations.length > 0) {
-                mixerPeach = new THREE.AnimationMixer(object);
-                const animacaoPeach = mixerPeach.clipAction(object.animations[0]); // Use a primeira animação
-                animacaoPeach.loop = THREE.LoopRepeat; // Configurar para repetir
-                animacaoPeach.play();
-            }
+            // Configurar animação personalizada para a Peach (dois saltos e uma volta)
+            mixerPeach = new THREE.AnimationMixer(object);
+            
+            // Criar uma animação personalizada para a Peach
+            const jumpHeight = 0.5; // Altura do salto
+            const rotationAngle = Math.PI * 2; // Rotação completa (360 graus)
+            const jumpDuration = 0.5; // Duração de cada salto em segundos
+            const rotationDuration = 1.0; // Duração da rotação em segundos
+            const totalDuration = jumpDuration * 2 + rotationDuration; // Duração total da animação
+            
+            // Criar track de posição Y para os saltos
+            const positionTrack = new THREE.NumberKeyframeTrack(
+                '.position[y]', 
+                [
+                    0,                  // Tempo inicial
+                    jumpDuration * 0.5, // Meio do primeiro salto (ponto mais alto)
+                    jumpDuration,       // Fim do primeiro salto
+                    jumpDuration * 1.5, // Meio do segundo salto (ponto mais alto)
+                    jumpDuration * 2,   // Fim do segundo salto
+                    totalDuration       // Fim da animação
+                ],
+                [
+                    object.position.y,           // Posição inicial
+                    object.position.y + jumpHeight, // Ponto mais alto do primeiro salto
+                    object.position.y,           // Volta à posição original
+                    object.position.y + jumpHeight, // Ponto mais alto do segundo salto
+                    object.position.y,           // Volta à posição original
+                    object.position.y            // Mantém a posição original no final
+                ]
+            );
+            
+            // Criar track de rotação para a volta
+            const rotationTrack = new THREE.NumberKeyframeTrack(
+                '.rotation[y]',
+                [
+                    0,                  // Tempo inicial
+                    jumpDuration * 2,   // Início da rotação (após os dois saltos)
+                    totalDuration       // Fim da animação
+                ],
+                [
+                    0,                  // Rotação inicial
+                    0,                  // Mantém a rotação no início da volta
+                    rotationAngle       // Rotação completa
+                ]
+            );
+            
+            // Criar o clip de animação com as tracks
+            const animationClip = new THREE.AnimationClip('PeachCustomAnimation', totalDuration, [positionTrack, rotationTrack]);
+            
+            // Aplicar a animação
+            const animacaoPeach = mixerPeach.clipAction(animationClip);
+            animacaoPeach.loop = THREE.LoopRepeat; // Configurar para repetir
+            animacaoPeach.play();
 
             // Adicionar userData para identificar o nível
             object.userData.levelId = window.gameState.currentLevel;
