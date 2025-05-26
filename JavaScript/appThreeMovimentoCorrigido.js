@@ -3382,16 +3382,22 @@ function loop() {
             const verticalDistance = Math.abs(objetoImportado.position.y - peachPosition.y);
 
             // Calculate win condition based on level
+            // For both levels, we want to ensure Mario is:
+            // 1. Close enough horizontally to Peach
+            // 2. At an appropriate height (on the same platform)
+            // 3. Not currently jumping (to prevent triggering when jumping from below)
             let winConditionMet = false;
             
             if (window.gameState.currentLevel === 1) {
-                // In level 1, Mario can be on the same level OR slightly higher than Peach
-                // Make the horizontal distance check more lenient (2.0 instead of 1.5)
-                // Allow Mario to be up to 2.0 units higher than Peach
+                // In level 1, Mario needs to be on the same platform as Peach
+                // We need to check that:
+                // 1. Mario is close horizontally (within 2.0 units)
+                // 2. Mario is at an appropriate height (slightly above or at the same level as Peach)
+                // 3. Mario is not jumping (to prevent triggering when jumping from below)
                 winConditionMet = horizontalDistance < 2.0 && 
-                                 (objetoImportado.position.y >= peachPosition.y - 0.5) && // Allow Mario to be slightly below Peach too
-                                 (objetoImportado.position.y - peachPosition.y < 2.0);
-                                 // Removed the !pulando check to make it easier to trigger
+                                 (objetoImportado.position.y >= peachPosition.y) && // Must be at or above Peach's level
+                                 (objetoImportado.position.y - peachPosition.y < 2.0) && // But not too high above
+                                 !pulando; // Must not be jumping
             } else {
                 // In level 2, Mario needs to be on the same level as Peach (original condition)
                 winConditionMet = horizontalDistance < 1.5 && verticalDistance < 0.5 && !pulando;
