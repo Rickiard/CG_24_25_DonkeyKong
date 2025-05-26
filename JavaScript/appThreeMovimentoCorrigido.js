@@ -1680,15 +1680,29 @@ function loadPeach() {
                 object.position.set(0, 8.2, -3.0);
             }
 
-            // Configurar animação personalizada para a Peach (dois saltos e uma volta)
+            // Configurar animação personalizada para a Peach (dois saltos, uma volta e mudança de tamanho)
             mixerPeach = new THREE.AnimationMixer(object);
             
             // Criar uma animação personalizada para a Peach
             const jumpHeight = 0.5; // Altura do salto
             const rotationAngle = Math.PI * 2; // Rotação completa (360 graus)
+            const growthFactor = 1.2; // Quanto a Peach vai crescer (apenas 20% maior que o tamanho original)
+            
+            // Duração de cada parte da animação
             const jumpDuration = 0.5; // Duração de cada salto em segundos
             const rotationDuration = 1.0; // Duração da rotação em segundos
-            const totalDuration = jumpDuration * 2 + rotationDuration; // Duração total da animação
+            const growthDuration = 0.5; // Duração de cada crescimento/diminuição
+            
+            // Calcular a duração total da animação
+            const jumpsPart = jumpDuration * 2; // Dois saltos
+            const rotationPart = rotationDuration; // Uma volta
+            const growthPart = growthDuration * 4; // Dois crescimentos e duas diminuições
+            const totalDuration = jumpsPart + rotationPart + growthPart;
+            
+            // Tempos para cada parte da animação
+            const rotationStartTime = jumpsPart;
+            const rotationEndTime = rotationStartTime + rotationDuration;
+            const growthStartTime = rotationEndTime;
             
             // Criar track de posição Y para os saltos
             const positionTrack = new THREE.NumberKeyframeTrack(
@@ -1716,18 +1730,88 @@ function loadPeach() {
                 '.rotation[y]',
                 [
                     0,                  // Tempo inicial
-                    jumpDuration * 2,   // Início da rotação (após os dois saltos)
+                    rotationStartTime,  // Início da rotação (após os dois saltos)
+                    rotationEndTime,    // Fim da rotação
                     totalDuration       // Fim da animação
                 ],
                 [
                     0,                  // Rotação inicial
                     0,                  // Mantém a rotação no início da volta
-                    rotationAngle       // Rotação completa
+                    rotationAngle,      // Rotação completa
+                    rotationAngle       // Mantém a rotação final
                 ]
             );
             
-            // Criar o clip de animação com as tracks
-            const animationClip = new THREE.AnimationClip('PeachCustomAnimation', totalDuration, [positionTrack, rotationTrack]);
+            // Criar tracks de escala para simular o crescimento e diminuição
+            // Escala X
+            const scaleXTrack = new THREE.NumberKeyframeTrack(
+                '.scale[x]',
+                [
+                    0,                                      // Tempo inicial
+                    growthStartTime,                        // Início do crescimento
+                    growthStartTime + growthDuration,       // Primeiro crescimento completo
+                    growthStartTime + growthDuration * 2,   // Segundo crescimento completo
+                    growthStartTime + growthDuration * 3,   // Primeira diminuição completa
+                    totalDuration                           // Fim da animação (volta ao tamanho original)
+                ],
+                [
+                    object.scale.x,                 // Escala inicial
+                    object.scale.x,                 // Mantém escala no início do crescimento
+                    object.scale.x * growthFactor,  // Primeiro crescimento (20% maior)
+                    object.scale.x * growthFactor * 1.1, // Segundo crescimento (30% maior que o original)
+                    object.scale.x * growthFactor,  // Primeira diminuição (volta para 20% maior)
+                    object.scale.x                  // Segunda diminuição (volta ao tamanho original)
+                ]
+            );
+            
+            // Escala Y
+            const scaleYTrack = new THREE.NumberKeyframeTrack(
+                '.scale[y]',
+                [
+                    0,                                      // Tempo inicial
+                    growthStartTime,                        // Início do crescimento
+                    growthStartTime + growthDuration,       // Primeiro crescimento completo
+                    growthStartTime + growthDuration * 2,   // Segundo crescimento completo
+                    growthStartTime + growthDuration * 3,   // Primeira diminuição completa
+                    totalDuration                           // Fim da animação (volta ao tamanho original)
+                ],
+                [
+                    object.scale.y,                 // Escala inicial
+                    object.scale.y,                 // Mantém escala no início do crescimento
+                    object.scale.y * growthFactor,  // Primeiro crescimento (20% maior)
+                    object.scale.y * growthFactor * 1.1, // Segundo crescimento (30% maior que o original)
+                    object.scale.y * growthFactor,  // Primeira diminuição (volta para 20% maior)
+                    object.scale.y                  // Segunda diminuição (volta ao tamanho original)
+                ]
+            );
+            
+            // Escala Z
+            const scaleZTrack = new THREE.NumberKeyframeTrack(
+                '.scale[z]',
+                [
+                    0,                                      // Tempo inicial
+                    growthStartTime,                        // Início do crescimento
+                    growthStartTime + growthDuration,       // Primeiro crescimento completo
+                    growthStartTime + growthDuration * 2,   // Segundo crescimento completo
+                    growthStartTime + growthDuration * 3,   // Primeira diminuição completa
+                    totalDuration                           // Fim da animação (volta ao tamanho original)
+                ],
+                [
+                    object.scale.z,                 // Escala inicial
+                    object.scale.z,                 // Mantém escala no início do crescimento
+                    object.scale.z * growthFactor,  // Primeiro crescimento (20% maior)
+                    object.scale.z * growthFactor * 1.1, // Segundo crescimento (30% maior que o original)
+                    object.scale.z * growthFactor,  // Primeira diminuição (volta para 20% maior)
+                    object.scale.z                  // Segunda diminuição (volta ao tamanho original)
+                ]
+            );
+            
+            // Criar o clip de animação com todas as tracks
+            const animationClip = new THREE.AnimationClip(
+                'PeachCustomAnimation', 
+                totalDuration, 
+                [positionTrack, rotationTrack, scaleXTrack, scaleYTrack, scaleZTrack]
+            );
             
             // Aplicar a animação
             const animacaoPeach = mixerPeach.clipAction(animationClip);
