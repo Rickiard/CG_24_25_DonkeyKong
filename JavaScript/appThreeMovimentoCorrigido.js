@@ -486,14 +486,12 @@ async function startGameCommon() {
     window.stopAllMusic();
 
     // Wait a brief moment to ensure all music has stopped
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    // Now play the stage theme
+    await new Promise(resolve => setTimeout(resolve, 100));    // Now play the stage theme
     await safePlayAudio(window.stageTheme, 'Stage Theme');
 
     // Garantir que o loop de animação esteja ativo
     animationLoopActive = true;
-    requestAnimationFrame(loop);
+    animationFrameId = requestAnimationFrame(loop);
 };
 
 // Variáveis para armazenar o estado das animações e luzes
@@ -652,8 +650,10 @@ window.resumeGame = function () {
     }, 1000);
 };
 
-// Variável para controlar o intervalo de lançamento de barris
+// Variáveis para controlar intervalos e loops de animação
 var barrelSpawnInterval = null;
+var animationFrameId = null; // Para controlar requestAnimationFrame
+window.intervaloBarrisAtivos = []; // Array para rastrear todos os intervalos de barris ativos
 
 window.restartGame = async function () {
     console.log("Iniciando restart do jogo (nova implementação)...");
@@ -661,31 +661,38 @@ window.restartGame = async function () {
     // 1. Salvar o nível atual para reiniciar no mesmo nível
     const currentLevel = window.gameState.currentLevel || 1;
     
-    // 2. Parar o loop de animação
+    // 2. Parar o loop de animação e cancelar o requestAnimationFrame
     animationLoopActive = false;
+    if (animationFrameId) {
+        console.log("Cancelando requestAnimationFrame anterior:", animationFrameId);
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
     
-    // 3. Parar o intervalo de lançamento de barris
+    // 3. Parar e resetar o relógio do jogo
+    relogio.stop();
+    relogio = new THREE.Clock();
+    
+    // 4. Parar o intervalo de lançamento de barris
     if (barrelSpawnInterval) {
         console.log("Parando intervalo de lançamento de barris");
         clearInterval(barrelSpawnInterval);
         barrelSpawnInterval = null;
-    }
-    
-    // 4. Parar todos os sons
+    }    
+    // 5. Parar todos os sons
     window.stopAllMusic();
     
-    // 5. Mostrar tela de carregamento
+    // 6. Mostrar tela de carregamento
     document.getElementById('pauseMenu').classList.add('hidden');
     document.getElementById('gameOverMenu').classList.add('hidden');
     document.getElementById('winMenu').classList.add('hidden');
     document.getElementById('loadingScreen').classList.remove('hidden');
     document.getElementById('loadingProgress').textContent = "Reiniciando jogo...";
     
-    // 6. Pequena pausa para garantir que a tela de loading seja exibida
+    // 7. Pequena pausa para garantir que a tela de loading seja exibida
     await new Promise(resolve => setTimeout(resolve, 100));
-    
-    try {
-        // 7. Limpar barris ativos - verificação mais robusta
+      try {
+        // 8. Limpar barris ativos - verificação mais robusta
         console.log("Iniciando limpeza de barris...");
         
         // Primeiro, remover todos os barris da lista barrisAtivos
@@ -918,12 +925,11 @@ window.restartGame = async function () {
             objetoImportado.rotation.set(0, Math.PI / 2, 0);
             console.log("Mario posicionado para o nível " + currentLevel);
         } else {
-            console.error("Mario não foi carregado corretamente!");
-        }
+            console.error("Mario não foi carregado corretamente!");        }
         
         // 21. Garantir que o loop de animação esteja ativo novamente
         animationLoopActive = true;
-        requestAnimationFrame(loop);
+        animationFrameId = requestAnimationFrame(loop);
         
         // 22. Reiniciar o intervalo de lançamento de barris
         setTimeout(() => {
@@ -943,10 +949,9 @@ window.restartGame = async function () {
         
         // Tentar recuperação de emergência
         alert("Ocorreu um erro ao reiniciar o jogo. Tente novamente.");
-        
-        // Garantir que o loop de animação seja reativado mesmo em caso de erro
+          // Garantir que o loop de animação seja reativado mesmo em caso de erro
         animationLoopActive = true;
-        requestAnimationFrame(loop);
+        animationFrameId = requestAnimationFrame(loop);
     }
 };
 
@@ -1030,12 +1035,11 @@ window.returnToMainMenu = async function () {
     document.getElementById('winMenu').classList.add('hidden');
     document.getElementById('mainMenu').classList.remove('hidden');
 
-    // Play title theme instead of stage theme
-    await safePlayAudio(window.titleTheme, 'Title Theme');
+    // Play title theme instead of stage theme    await safePlayAudio(window.titleTheme, 'Title Theme');
 
     // Reiniciar o loop de animação para o menu
     animationLoopActive = true;
-    requestAnimationFrame(loop);
+    animationFrameId = requestAnimationFrame(loop);
 };
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -2388,10 +2392,10 @@ async function Start() {
         window.findAllLights(); // Listar todas as luzes para debug
         window.cleanupUnwantedLights(); // Remover luzes não essenciais
 
-        // O cleanupUnwantedLights já aplica o estado das luzes
+    // O cleanupUnwantedLights já aplica o estado das luzes
     }, 1000); // Reduzido para 1 segundo para ser mais responsivo
 
-    requestAnimationFrame(loop);
+    animationFrameId = requestAnimationFrame(loop);
 }
 
 function foraDaPlataforma(barril) {
@@ -2579,24 +2583,20 @@ function loop() {
     // Se não estiver ativo, não continua o loop
     if (!animationLoopActive) {
         return;
-    }
-
-    // Se estiver no menu principal, não atualiza o jogo, mas continua renderizando
+    }    // Se estiver no menu principal, não atualiza o jogo, mas continua renderizando
     if (window.gameState.isInMainMenu) {
         renderer.render(cena, cameraAtual);
-        requestAnimationFrame(loop);
+        animationFrameId = requestAnimationFrame(loop);
         return;
-    }
-
-    // Se o jogo estiver pausado, game over ou vitória, apenas renderiza a cena sem atualizações
+    }    // Se o jogo estiver pausado, game over ou vitória, apenas renderiza a cena sem atualizações
     if (window.gameState.isPaused || window.gameState.isGameOver || window.gameState.isWin) {
         // Não atualiza nada, apenas renderiza o estado atual
         renderer.render(cena, cameraAtual);
-        requestAnimationFrame(loop);
+        animationFrameId = requestAnimationFrame(loop);
         return;
     }
 
-    const delta = relogio.getDelta();
+    const delta = Math.min(relogio.getDelta(), 0.1); // Limitar delta time máximo para 0.1s (evita saltos temporais)
 
     if (mixerAnimacao) {
         mixerAnimacao.update(delta);
@@ -3399,10 +3399,12 @@ function loop() {
 
         // Update previous key states
         teclasPressionadasAnterior = { ...teclasPressionadas };
+    }    renderer.render(cena, cameraAtual);
+    
+    // Only continue the loop if it's still active
+    if (animationLoopActive) {
+        animationFrameId = requestAnimationFrame(loop);
     }
-
-    renderer.render(cena, cameraAtual);
-    requestAnimationFrame(loop);
 }
 
 const offsetCameraPerspectiva = new THREE.Vector3(0, 1, 5); // 1 unidade acima, 5 unidades atrás
