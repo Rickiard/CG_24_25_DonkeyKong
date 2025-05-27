@@ -599,10 +599,14 @@
             if (typeof restartGame === 'function') {
                 restartGame();
             }
-        });        document.getElementById('winMainMenuButton').addEventListener('click', function () {
+        });
+
+        document.getElementById('winMainMenuButton').addEventListener('click', function () {
             document.getElementById('winMenu').classList.add('hidden');
-            if (typeof returnToMainMenu === 'function') {
-                returnToMainMenu();
+            document.getElementById('mainMenu').classList.remove('hidden');
+            // Reset the player position when returning to main menu
+            if (typeof restartGame === 'function') {
+                restartGame();
             }
         });
 

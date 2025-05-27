@@ -3706,9 +3706,69 @@ document.getElementById('playAgainButton').addEventListener('click', function ()
 
 document.getElementById('winMainMenuButton').addEventListener('click', function () {
     document.getElementById('winMenu').classList.add('hidden');
-    
-    // Call the proper function to return to main menu
-    if (typeof window.returnToMainMenu === 'function') {
-        window.returnToMainMenu();
+    document.getElementById('mainMenu').classList.remove('hidden');
+
+    // Stop all music including title theme
+    window.stopAllMusic();
+    if (window.titleTheme && window.titleTheme.isPlaying) {
+        window.titleTheme.stop();
+    }
+
+    // Play stage theme first
+    if (audioInitialized && stageTheme && !stageTheme.isPlaying) {
+        try {
+            stageTheme.play();
+        } catch (error) {
+            console.error('Error playing Stage Theme from Win Main Menu:', error);
+        }
+    }    // Reset the player position when returning to main menu
+    if (typeof restartGame === 'function') {
+        // Resetar o relógio do jogo
+        relogio.stop();
+        relogio = new THREE.Clock();
+        
+        // Call restartGame without the audio part
+        window.gameState.isPaused = false;
+        window.gameState.isGameOver = false;
+        window.gameState.isWin = false;
+        window.gameState.score = 0;
+        updateScoreDisplay();
+
+        // Reset barrel collisions and remove active barrels
+        barrilColisao = false;
+        barrisAtivos.forEach(barril => cena.remove(barril));
+        barrisAtivos = [];
+
+        // Reset Mario's position and rotation
+        if (objetoImportado) {
+            // Posicionar o Mario com base no nível atual
+            if (window.gameState.currentLevel === 1) {
+                objetoImportado.position.set(-10, -9.7, -3.0);
+            } else if (window.gameState.currentLevel === 2) {
+                // Posição ajustada para ficar mais à esquerda, próximo à ponta inferior da plataforma
+                objetoImportado.position.set(-8, -9.7, -3.0);
+            }
+            objetoImportado.rotation.set(0, Math.PI / 2, 0);
+
+            // Reset Mario's texture back to normal
+            const marioTexture = textureLoader.load('./textures/mario_texture.png');
+            objetoImportado.traverse(function (child) {
+                if (child.isMesh) {
+                    child.material = new THREE.MeshPhongMaterial({
+                        map: marioTexture,
+                        side: THREE.DoubleSide
+                    });
+                }
+            });
+        }
+
+        // Hide menus
+        document.getElementById('pauseMenu').classList.add('hidden');
+        document.getElementById('gameOverMenu').classList.add('hidden');
+        document.getElementById('winMenu').classList.add('hidden');
+
+        // Restart the game loop
+
+        loop();
     }
 });
