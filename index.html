@@ -572,24 +572,16 @@
             if (typeof restartGame === 'function') {
                 restartGame();
             }
-        });
-
-        document.getElementById('mainMenuButton').addEventListener('click', function () {
-            if (typeof returnToMainMenu === 'function') {
-                returnToMainMenu();
-            }
+        });        document.getElementById('mainMenuButton').addEventListener('click', function () {
+            location.reload();
         });
 
         document.getElementById('tryAgainButton').addEventListener('click', function () {
             if (typeof restartGame === 'function') {
                 restartGame();
             }
-        });
-
-        document.getElementById('gameOverMainMenuButton').addEventListener('click', function () {
-            if (typeof returnToMainMenu === 'function') {
-                returnToMainMenu();
-            }
+        });        document.getElementById('gameOverMainMenuButton').addEventListener('click', function () {
+            location.reload();
         });
 
 
@@ -600,10 +592,7 @@
                 restartGame();
             }
         });        document.getElementById('winMainMenuButton').addEventListener('click', function () {
-            document.getElementById('winMenu').classList.add('hidden');
-            if (typeof returnToMainMenu === 'function') {
-                returnToMainMenu();
-            }
+            location.reload();
         });
 
         document.getElementById('instructionsButton').addEventListener('click', function () {
