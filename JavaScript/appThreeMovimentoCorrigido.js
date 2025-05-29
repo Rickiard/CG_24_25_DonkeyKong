@@ -1097,7 +1097,7 @@ var pulando = false;
 var podePular = true; // New variable to track if Mario can jump
 var velocidadeY = 0; // Velocidade vertical
 var gravidade = -0.005; // Voltando para o valor original
-var forcaPuloLevel1 = 0.125; // Força do pulo para o nível 1
+var forcaPuloLevel1 = 0.1; // Força do pulo para o nível 1 - igualada ao nível 2
 var forcaPuloLevel2 = 0.1; // Força do pulo para o nível 2
 var velocidadeMovimento = 0.02;
 var velocidadeMovimentoAr = 0.01;
@@ -1204,6 +1204,43 @@ function atualizarZDoBarril(barril) {
             barril.position.z = barrilZPorPlataforma[alturaAtual];
         }
     }
+}
+
+// Função para verificar e limpar barris que estão muito longe ou fora da tela
+function limparBarrisInvalidos() {
+    if (!barrisAtivos || barrisAtivos.length === 0) return;
+    
+    const agora = Date.now();
+    const limiteTempoVida = 30000; // 30 segundos de vida máxima para um barril
+    
+    // Filtrar barris que devem ser mantidos
+    barrisAtivos = barrisAtivos.filter(barril => {
+        if (!barril || !barril.parent) return false;
+        
+        // Verificar tempo de vida
+        const tempoVida = agora - barril.userData.creationTime;
+        if (tempoVida > limiteTempoVida) {
+            console.log(`Removendo barril ${barril.id} por tempo de vida excedido (${tempoVida}ms)`);
+            barril.parent.remove(barril);
+            return false;
+        }
+        
+        // Verificar se o barril caiu muito abaixo do nível do jogo
+        if (barril.position.y < -15) {
+            console.log(`Removendo barril ${barril.id} por estar muito abaixo (y=${barril.position.y})`);
+            barril.parent.remove(barril);
+            return false;
+        }
+        
+        // Verificar se o barril está muito longe horizontalmente
+        if (Math.abs(barril.position.x) > 30) {
+            console.log(`Removendo barril ${barril.id} por estar muito longe horizontalmente (x=${barril.position.x})`);
+            barril.parent.remove(barril);
+            return false;
+        }
+        
+        return true;
+    });
 }
 
 // Add TextureLoader
@@ -1418,11 +1455,12 @@ function lançarBarril() {
         velocidade: new THREE.Vector3(0.025, 0, 0), // Velocidade horizontal inicial
         plataformaAtual: 0,
         isBarrel: true, // Marcar como barril para usar detecção de colisão original
-        scored: false,
+        scored: false, // Flag para rastrear se o jogador já pontuou com este barril
         hasCollided: false, // Flag para rastrear se este barril específico já colidiu com o Mario
         rotacaoAcumulada: 0, // Inicializar a rotação acumulada para o rolamento
         creationTime: Date.now(), // Registrar quando o barril foi criado
-        invisibleTime: 0 // Contador para rastrear quanto tempo o barril está invisível
+        invisibleTime: 0, // Contador para rastrear quanto tempo o barril está invisível
+        scoreAttempts: 0 // Contador para tentativas de pontuação (para depuração)
     };
 
     // Aplicar materiais otimizados para evitar duplicação
@@ -1447,11 +1485,20 @@ function lançarBarril() {
         }
     });
 
+    // Garantir que o barril tenha uma bounding box para detecção de colisão mais precisa
+    novoBarril.traverse(child => {
+        if (child.isMesh && !child.userData.boundingBoxInitialized) {
+            // Criar uma bounding box auxiliar para melhorar a detecção de colisão
+            child.geometry.computeBoundingBox();
+            child.userData.boundingBoxInitialized = true;
+        }
+    });
+    
     // Adicionar o barril à cena e à lista de barris ativos
     cena.add(novoBarril);
     barrisAtivos.push(novoBarril);
     
-    console.log("Barril lançado com sucesso! Total de barris ativos:", barrisAtivos.length);
+    console.log("Barril lançado com sucesso! ID:", novoBarril.id, "Total de barris ativos:", barrisAtivos.length);
     } catch (error) {
         console.error("Erro ao lançar barril:", error);
     }
@@ -1973,9 +2020,7 @@ function pararAnimacao() {
 function atualizarBarril() {
     // Atualizar todos os barris ativos
     for (let i = 0; i < barrisAtivos.length; i++) {
-        const barril = barrisAtivos[i];
-        
-        // Verificar se o barril existe
+        const barril = barrisAtivos[i];        // Verificar se o barril existe
         if (!barril || !barril.parent) continue;
         
         // Raycasting para verificar o chão
@@ -2061,20 +2106,68 @@ function atualizarBarril() {
                   // Verificar se o barril está visível na tela
                 // Isso é importante para evitar colisões com barris que não são visíveis
                 const barrilVisivel = isObjectVisible(barril, cameraAtual);
+                  // Ajustar o limite de diferença de altura com base no nível (usando valores mais tolerantes para melhor detecção)
+                const limiteAltura = window.gameState.currentLevel === 2 ? 0.5 : 0.5;// Simplified barrel jumping detection
+                // Check if Mario is above the barrel and within range
+                const isAboveBarrel = diferencaAltura > 0.2 && diferencaAltura < 3.0; // Mario must be above barrel but not too high (more forgiving)
+                const isWithinRange = distanciaHorizontal < 1.5; // Must be horizontally close to barrel (more forgiving)
+                const isMarioJumping = pulando || velocidadeY > -0.1; // Mario must be jumping or not falling too fast (more forgiving)
+                  // Debug logging every 60 frames to avoid spam
+                if (Math.floor(Date.now() / 100) % 60 === 0 && (isAboveBarrel || isWithinRange)) {
+                    console.log(`Barrel jump check for barrel ${barril.id}:`, {
+                        heightDiff: diferencaAltura.toFixed(2),
+                        horizontalDist: distanciaHorizontal.toFixed(2),
+                        isAbove: isAboveBarrel,
+                        inRange: isWithinRange,
+                        jumping: isMarioJumping,
+                        scored: barril.userData.scored,
+                        marioY: objetoImportado.position.y.toFixed(2),
+                        barrelY: barril.position.y.toFixed(2),
+                        velocidadeY: velocidadeY.toFixed(2)
+                    });
+                }
                 
-                // Ajustar o limite de diferença de altura com base no nível (reduzido para hitbox mais justo)
-                const limiteAltura = window.gameState.currentLevel === 2 ? 0.5 : 0.35;
-                
-                // Check if Mario is above the barrel (only vertical check)
-                if (diferencaAltura > limiteAltura) { // Mario is above the barrel
+                // Se o Mario está acima do barril, próximo horizontalmente, considerar como um pulo sobre o barril
+                if (isAboveBarrel && isWithinRange) {
                     if (!barril.userData.scored) {
                         window.gameState.score += 100;
                         updateScoreDisplay();
-                        barril.userData.scored = true;                        console.log("Mario pulou sobre o barril! +100 pontos");
-                    }
-                } else {
-                    // Ajustar a distância horizontal com base no nível (reduzido para hitbox mais justo)
-                    const limiteHorizontal = window.gameState.currentLevel === 2 ? 0.8 : 0.6;
+                        barril.userData.scored = true;
+                        console.log("Mario pulou sobre o barril! +100 pontos");
+                        
+                        // Adicionar efeito visual para feedback ao jogador
+                        const scoreText = document.createElement('div');
+                        scoreText.textContent = '+100';
+                        scoreText.style.position = 'absolute';
+                        scoreText.style.color = '#FFD700';
+                        scoreText.style.fontWeight = 'bold';
+                        scoreText.style.fontSize = '24px';
+                        scoreText.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.7)';
+                        
+                        // Posicionar o texto próximo à posição do barril na tela
+                        const vector = new THREE.Vector3();
+                        vector.setFromMatrixPosition(barril.matrixWorld);
+                        vector.project(cameraAtual);
+                        
+                        const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+                        const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+                        
+                        scoreText.style.left = `${x}px`;
+                        scoreText.style.top = `${y}px`;
+                        document.body.appendChild(scoreText);
+                        
+                        // Animar o texto e removê-lo após a animação
+                        setTimeout(() => {
+                            scoreText.style.transition = 'all 1s ease-out';
+                            scoreText.style.transform = 'translateY(-50px)';
+                            scoreText.style.opacity = '0';
+                            setTimeout(() => {
+                                document.body.removeChild(scoreText);
+                            }, 1000);
+                        }, 10);
+                    }                } else {
+                    // Ajustar a distância horizontal com base no nível (usando valores mais tolerantes para melhor detecção)
+                    const limiteHorizontal = window.gameState.currentLevel === 2 ? 0.8 : 0.8;
                       // Solution 1: Remove visibility dependency from collision detection
                     // This fixes barrel movement limitations in perspective camera mode
                     // Collision detection now works regardless of camera visibility
@@ -2692,6 +2785,11 @@ function loop() {
         return true; // Manter na lista
     });
     
+    // Limpar barris inválidos a cada 60 frames (aproximadamente 1 segundo a 60 FPS)
+    if (frameCount % 60 === 0) {
+        limparBarrisInvalidos();
+    }
+    
     // Resetar a flag de colisão se não houver barris ativos
     if (barrisAtivos.length === 0 && barrilColisao) {
         console.log("Resetando flag de colisão global pois não há barris ativos");
@@ -2799,11 +2897,9 @@ function loop() {
     if (objetoImportado) {
         // Raycasting para verificar o chão - melhorado para detectar apenas plataformas válidas para Mario
         raycaster.set(objetoImportado.position, new THREE.Vector3(0, -1, 0));
-        const intersects = raycaster.intersectObjects(objetosColisao, true);
-
-        // Verificar se a colisão é com uma plataforma válida
+        const intersects = raycaster.intersectObjects(objetosColisao, true);        // Verificar se a colisão é com uma plataforma válida
         let noChao = false;
-        if (intersects.length > 0 && intersects[0].distance < 0.2) {
+        if (intersects.length > 0 && intersects[0].distance < 0.3) { // Increased from 0.2 to 0.3 for more forgiving ground detection
             // Verificar se a plataforma está em uma das alturas válidas
             const alturasValidas = [-10, -7, -4, -1, 2, 5, 8];
             const alturaAtual = Math.round(objetoImportado.position.y);
@@ -3239,12 +3335,10 @@ function loop() {
                 // Verificação de colisão adicional no loop principal
                 // Isso garante que colisões sejam detectadas mesmo se a função atualizarBarril falhar
                 const marioPos = objetoImportado.position;
-                const barrilPos = barril.position;
-                  // Calcular a distância entre Mario e o barril
+                const barrilPos = barril.position;                // Calcular a distância entre Mario e o barril
                 const distancia = marioPos.distanceTo(barrilPos);
-                
-                // Ajustar a distância de verificação com base no nível atual (reduzido para hitbox mais justo)
-                const distanciaMaxima = window.gameState.currentLevel === 2 ? 1.2 : 1.0;
+                  // Ajustar a distância de verificação com base no nível atual (usando valores mais tolerantes para melhor detecção)
+                const distanciaMaxima = window.gameState.currentLevel === 2 ? 1.2 : 1.2;
                 
                 // Verificar se estão próximos o suficiente para uma possível colisão
                 if (distancia < distanciaMaxima) {
@@ -3258,20 +3352,53 @@ function loop() {
                     );
                       // Calcular a diferença de altura
                     const diferencaAltura = marioPos.y - barrilPos.y;
+                      // Simplified barrel jumping detection for main loop
+                    // Check if Mario is above the barrel and within range - using forgiving thresholds
+                    const isAboveBarrel = diferencaAltura > 0.2 && diferencaAltura < 3.0; // Mario must be above barrel but not too high
+                    const isWithinRange = distanciaHorizontal < 1.5; // Must be horizontally close to barrel
                     
-                    // Ajustar o limite de diferença de altura com base no nível (reduzido para hitbox mais justo)
-                    const limiteAltura = window.gameState.currentLevel === 2 ? 0.5 : 0.35;
-                    
-                    // Verificar se Mario está acima do barril (pontuação) ou ao lado (colisão)
-                    if (diferencaAltura > limiteAltura) {
+                    // Se o Mario está acima do barril e próximo horizontalmente, considerar como um pulo sobre o barril
+                    if (isAboveBarrel && isWithinRange) {
                         // Mario está acima do barril - pontuação
                         if (!barril.userData.scored) {
                             window.gameState.score += 100;
                             updateScoreDisplay();
                             barril.userData.scored = true;
-                            console.log(`Mario pulou sobre o barril (Nível ${window.gameState.currentLevel})! +100 pontos`);                        }                    } else {
-                        // Ajustar a distância horizontal com base no nível (reduzido para hitbox mais justo)
-                        const limiteHorizontal = window.gameState.currentLevel === 2 ? 0.8 : 0.6;
+                            console.log(`Mario pulou sobre o barril (Nível ${window.gameState.currentLevel})! +100 pontos`);
+                            
+                            // Adicionar efeito visual para feedback ao jogador
+                            const scoreText = document.createElement('div');
+                            scoreText.textContent = '+100';
+                            scoreText.style.position = 'absolute';
+                            scoreText.style.color = '#FFD700';
+                            scoreText.style.fontWeight = 'bold';
+                            scoreText.style.fontSize = '24px';
+                            scoreText.style.textShadow = '2px 2px 4px rgba(0, 0, 0, 0.7)';
+                            
+                            // Posicionar o texto próximo à posição do barril na tela
+                            const vector = new THREE.Vector3();
+                            vector.setFromMatrixPosition(barril.matrixWorld);
+                            vector.project(cameraAtual);
+                            
+                            const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+                            const y = (-vector.y * 0.5 + 0.5) * window.innerHeight;
+                            
+                            scoreText.style.left = `${x}px`;
+                            scoreText.style.top = `${y}px`;
+                            document.body.appendChild(scoreText);
+                            
+                            // Animar o texto e removê-lo após a animação
+                            setTimeout(() => {
+                                scoreText.style.transition = 'all 1s ease-out';
+                                scoreText.style.transform = 'translateY(-50px)';
+                                scoreText.style.opacity = '0';
+                                setTimeout(() => {
+                                    document.body.removeChild(scoreText);
+                                }, 1000);
+                            }, 10);
+                        }                    } else {
+                        // Ajustar a distância horizontal com base no nível (usando valores mais tolerantes para melhor detecção)
+                        const limiteHorizontal = window.gameState.currentLevel === 2 ? 0.8 : 0.8;
                         
                         if (distanciaHorizontal < limiteHorizontal) {
                             // Mario está ao lado do barril - colisão
