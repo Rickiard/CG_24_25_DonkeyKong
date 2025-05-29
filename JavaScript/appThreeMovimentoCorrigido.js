@@ -3696,13 +3696,7 @@ function criarChaoInvisivel(x, y, z) {
     return chao;
 }
 
-// Win menu buttons
-document.getElementById('playAgainButton').addEventListener('click', async function () {
-    document.getElementById('winMenu').classList.add('hidden');
-    if (typeof restartGame === 'function') {
-        await restartGame();
-    }
-});
+// Win menu buttons - playAgainButton is handled in index.html to avoid duplication
 
 document.getElementById('winMainMenuButton').addEventListener('click', function () {
     document.getElementById('winMenu').classList.add('hidden');
