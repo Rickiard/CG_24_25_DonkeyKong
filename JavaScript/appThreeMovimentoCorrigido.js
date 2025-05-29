@@ -3697,10 +3697,10 @@ function criarChaoInvisivel(x, y, z) {
 }
 
 // Win menu buttons
-document.getElementById('playAgainButton').addEventListener('click', function () {
+document.getElementById('playAgainButton').addEventListener('click', async function () {
     document.getElementById('winMenu').classList.add('hidden');
     if (typeof restartGame === 'function') {
-        restartGame();
+        await restartGame();
     }
 });
 

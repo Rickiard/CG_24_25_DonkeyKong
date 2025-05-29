@@ -566,32 +566,25 @@
             if (typeof resumeGame === 'function') {
                 resumeGame();
             }
-        });
-
-        document.getElementById('restartButton').addEventListener('click', function () {
+        });        document.getElementById('restartButton').addEventListener('click', async function () {
             if (typeof restartGame === 'function') {
-                restartGame();
+                await restartGame();
             }
-        });        document.getElementById('mainMenuButton').addEventListener('click', function () {
+        });document.getElementById('mainMenuButton').addEventListener('click', function () {
             location.reload();
-        });
-
-        document.getElementById('tryAgainButton').addEventListener('click', function () {
+        });        document.getElementById('tryAgainButton').addEventListener('click', async function () {
             if (typeof restartGame === 'function') {
-                restartGame();
+                await restartGame();
             }
-        });        document.getElementById('gameOverMainMenuButton').addEventListener('click', function () {
+        });document.getElementById('gameOverMainMenuButton').addEventListener('click', function () {
             location.reload();
-        });
-
-
-        // Win menu buttons
-        document.getElementById('playAgainButton').addEventListener('click', function () {
+        });        // Win menu buttons
+        document.getElementById('playAgainButton').addEventListener('click', async function () {
             document.getElementById('winMenu').classList.add('hidden');
             if (typeof restartGame === 'function') {
-                restartGame();
+                await restartGame();
             }
-        });        document.getElementById('winMainMenuButton').addEventListener('click', function () {
+        });document.getElementById('winMainMenuButton').addEventListener('click', function () {
             location.reload();
         });
 
